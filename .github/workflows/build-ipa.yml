@@ -99,14 +99,25 @@ jobs:
           echo "All pod install attempts failed"
           exit 1
 
+      - name: Bundle JS for iOS (Repack)
+        working-directory: apps/ledger-live-mobile
+        run: |
+          # Generate the release JS bundle + Hermes bytecode + sourcemap up front.
+          # Running the bundler standalone is more reliable than letting the
+          # Xcode "Bundle React Native code and images" phase do it (Repack's
+          # cwd/env inside Xcode fails with ENOENT on index.bundle).
+          if [ -f main.jsbundle ]; then rm -f main.jsbundle; fi
+          NODE_OPTIONS=--max-old-space-size=8192 pnpm mobile bundle:ios --dev false --minify false
+          ls -la main.jsbundle || { echo "bundle:ios did not produce main.jsbundle"; exit 1; }
+
       - name: Build iOS (unsigned)
         working-directory: apps/ledger-live-mobile
         run: |
-          # Repack (rspack) writes the JS bundle + sourcemap into build/generated/ios
-          # Ensure the directory exists or the bundler fails with ENOENT.
-          mkdir -p build/generated/ios
+          # Bundle was produced by the step above; tell Xcode to skip its own
+          # bundling phase (it fails with ENOENT on build/generated/ios/index.bundle).
           cd ios
           unset CC CXX
+          export SKIP_JS_BUNDLING=true
           xcodebuild \
             -workspace ledgerlivemobile.xcworkspace \
             -scheme ledgerlivemobile \
@@ -119,11 +130,15 @@ jobs:
             build
 
       - name: Package .ipa
-        working-directory: apps/ledger-live-mobile/ios
+        working-directory: apps/ledger-live-mobile
         run: |
-          APP="build/Build/Products/Release-iphoneos/ledgerlivemobile.app"
+          APP="../ios/build/Build/Products/Release-iphoneos/ledgerlivemobile.app"
           rm -rf out && mkdir -p out/Payload
           cp -R "$APP" out/Payload/
+          # Embed the pre-built JS bundle + assets into the .app resources
+          APP_IN=out/Payload/ledgerlivemobile.app
+          cp main.jsbundle "$APP_IN/main.jsbundle"
+          if [ -d build/assets ]; then cp -R build/assets/* "$APP_IN/" 2>/dev/null || true; fi
           cd out && zip -r "$GITHUB_WORKSPACE/LedgerWallet.ipa" Payload
 
       - name: Upload .ipa
