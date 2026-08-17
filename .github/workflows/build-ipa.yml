@@ -107,7 +107,7 @@ jobs:
           # Xcode "Bundle React Native code and images" phase do it (Repack's
           # cwd/env inside Xcode fails with ENOENT on index.bundle).
           if [ -f main.jsbundle ]; then rm -f main.jsbundle; fi
-          NODE_OPTIONS=--max-old-space-size=8192 pnpm mobile bundle:ios --dev false --minify false
+          pnpm bundle:ios --dev false --minify false
           ls -la main.jsbundle || { echo "bundle:ios did not produce main.jsbundle"; exit 1; }
 
       - name: Build iOS (unsigned)
