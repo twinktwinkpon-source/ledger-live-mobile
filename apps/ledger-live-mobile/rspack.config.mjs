@@ -198,7 +198,7 @@ export default withRozeniteUrlFix(
           hashFunction: "xxhash64",
           filename: "index.bundle",
           chunkFilename: "[name].chunk.bundle",
-          path: "[context]/build/generated/[platform]",
+          path: path.resolve(__dirname, "build", "generated", platform),
           publicPath: "noop:///",
           ...(isRsdoctor && { filename: "[name].js" }),
         },
