@@ -58,8 +58,35 @@ jobs:
           ruby-version: "3.2"
       - run: bundle install
         working-directory: apps/ledger-live-mobile
-      - name: Select Xcode 16.3 (folly <16.4 + Firebase Swift6 + actool >=16.3)
-        run: sudo xcode-select -s /Applications/Xcode_16.3.app
+      - name: List available Xcode versions
+        run: |
+          echo "=== Available Xcode versions ==="
+          ls -d /Applications/Xcode_*.app 2>/dev/null || echo "No Xcode_*.app found"
+          for x in /Applications/Xcode_*.app; do
+            ver=$("$x/Contents/Developer/usr/bin/xcodebuild" -version 2>/dev/null | head -1)
+            echo "  $x -> $ver"
+          done
+          echo ""
+          echo "=== Default Xcode ==="
+          xcode-select -p
+          xcodebuild -version 2>/dev/null
+          echo ""
+          echo "=== Installed simulator runtimes ==="
+          xcrun simctl runtime list 2>/dev/null || echo "No simulator runtimes found"
+
+      - name: Select Xcode 16.1
+        run: |
+          if [ -d "/Applications/Xcode_16.1.app" ]; then
+            sudo xcode-select -s /Applications/Xcode_16.1.app
+            echo "Selected Xcode 16.1"
+          elif [ -d "/Applications/Xcode_16.0.app" ]; then
+            sudo xcode-select -s /Applications/Xcode_16.0.app
+            echo "Selected Xcode 16.0"
+          else
+            echo "Falling back to system default"
+          fi
+          xcodebuild -version
+
       - run: bundle exec pod install
         working-directory: apps/ledger-live-mobile/ios
 

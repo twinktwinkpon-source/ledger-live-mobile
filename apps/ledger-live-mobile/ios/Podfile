@@ -93,5 +93,17 @@ target 'ledgerlivemobile' do
           end
       end
     end
+
+    # Fix BrazeUI/BrazeKit/BrazeLocation actool error:
+    # "No simulator runtime version available to use with iphonesimulator SDK"
+    # Force these pods to build for device only (no simulator runtime needed)
+    installer.pods_project.targets.each do |target|
+      if target.name =~ /Braze/
+        target.build_configurations.each do |config|
+          config.build_settings['SUPPORTED_PLATFORMS'] = 'iphoneos'
+          config.build_settings['SDKROOT'] = 'iphoneos'
+        end
+      end
+    end
   end
 end
