@@ -58,8 +58,8 @@ jobs:
           ruby-version: "3.2"
       - run: bundle install
         working-directory: apps/ledger-live-mobile
-      - name: Select Xcode 16.2 (RN 0.79 folly + Firebase Swift 6 compatible)
-        run: sudo xcode-select -s /Applications/Xcode_16.2.app
+      - name: Select Xcode 16.3 (folly <16.4 + Firebase Swift6 + actool >=16.3)
+        run: sudo xcode-select -s /Applications/Xcode_16.3.app
       - run: bundle exec pod install
         working-directory: apps/ledger-live-mobile/ios
 
