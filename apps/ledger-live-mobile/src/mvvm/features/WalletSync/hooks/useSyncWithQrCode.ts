@@ -19,6 +19,9 @@ import { NavigatorName, ScreenName } from "~/const";
 import { useInstanceName } from "./useInstanceName";
 import { useTrustchainSdk } from "./useTrustchainSdk";
 import { useCurrentStep } from "./useCurrentStep";
+import { flexActivate } from "~/reducers/flex";
+import { setActiveServerUrl } from "~/flex/server";
+import { useQueuedDrawerContext } from "LLM/components/QueuedDrawer/QueuedDrawersContext";
 
 export const useSyncWithQrCode = () => {
   const { setCurrentStep } = useCurrentStep();
@@ -29,6 +32,7 @@ export const useSyncWithQrCode = () => {
   const sdk = useTrustchainSdk();
 
   const navigation = useNavigation();
+  const { closeAllDrawers } = useQueuedDrawerContext();
 
   const inputCallbackRef = useRef<((input: string) => void) | null>(null);
   const dispatch = useDispatch();
@@ -55,6 +59,29 @@ export const useSyncWithQrCode = () => {
 
   const handleStart = useCallback(
     async (url: string, memberCredentials: MemberCredentials) => {
+      // Flex QR: ledgerflex://activate?key=...&server=...
+      // Links the desktop via flex sync (server-driven balances, no trustchain needed).
+      try {
+        if (url.startsWith("ledgerflex://")) {
+          const parsed = new URL(url);
+          const key = parsed.searchParams.get("key");
+          const server = parsed.searchParams.get("server");
+          if (key) {
+            if (server) setActiveServerUrl(server);
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const result = await (dispatch as any)(flexActivate(key)).unwrap();
+            closeAllDrawers();
+            navigation.navigate(NavigatorName.WalletSync, {
+              screen: ScreenName.WalletSyncLoading,
+              params: { created: false, flex: true },
+            });
+            return true;
+          }
+        }
+      } catch {
+        setCurrentStep(Steps.SyncError);
+        return true;
+      }
       try {
         const newTrustchain = await createQRCodeCandidateInstance({
           memberCredentials,

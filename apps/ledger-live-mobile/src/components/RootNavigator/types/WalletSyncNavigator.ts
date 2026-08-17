@@ -7,10 +7,12 @@ export type WalletSyncNavigatorStackParamList = {
 
   [ScreenName.WalletSyncSuccess]: {
     created: boolean;
+    flex?: boolean;
   };
 
   [ScreenName.WalletSyncLoading]: {
     created: boolean;
+    flex?: boolean;
   };
 
   [ScreenName.WalletSyncActivationProcess]:

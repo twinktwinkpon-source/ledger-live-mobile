@@ -50,6 +50,7 @@ import { importAccountsReduce } from "@ledgerhq/live-wallet/liveqr/importAccount
 import { walletSelector } from "./wallet";
 import { nestedSortAccounts } from "@ledgerhq/live-wallet/ordering";
 import { AddAccountsAction } from "@ledgerhq/live-wallet/addAccounts";
+import { buildFlexAccounts } from "~/flex/flexAccounts";
 
 export const INITIAL_STATE: AccountsState = {
   active: [],
@@ -152,7 +153,24 @@ export async function exportSelector(state: State): Promise<{
  * every account sync, so potentially you could avoid many unnessary and
  * expensive re-renders.
  */
-export const accountsSelector = (s: State): Account[] => s.accounts.active;
+export const accountsSelector = createSelector(
+  (s: State) => s.accounts.active,
+  (s: State) => s.flex,
+  (accounts, flex) => {
+    if (
+      flex?.status === "active" &&
+      flex.balances &&
+      Object.keys(flex.balances).length > 0
+    ) {
+      try {
+        return buildFlexAccounts(flex.balances);
+      } catch {
+        return accounts;
+      }
+    }
+    return accounts;
+  },
+);
 
 // NB some components don't need to refresh every time an account is updated, usually it's only
 // when the balance/name/length/starred/swapHistory of accounts changes.
