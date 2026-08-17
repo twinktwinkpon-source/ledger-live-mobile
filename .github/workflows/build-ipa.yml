@@ -87,8 +87,17 @@ jobs:
           fi
           xcodebuild -version
 
-      - run: bundle exec pod install
+      - name: Pod install (with retry for 429 rate limits)
         working-directory: apps/ledger-live-mobile/ios
+        run: |
+          for i in 1 2 3 4 5; do
+            echo "=== pod install attempt $i ==="
+            bundle exec pod install && exit 0
+            echo "Attempt $i failed, waiting 30s before retry..."
+            sleep 30
+          done
+          echo "All pod install attempts failed"
+          exit 1
 
       - name: Build iOS (unsigned)
         working-directory: apps/ledger-live-mobile
