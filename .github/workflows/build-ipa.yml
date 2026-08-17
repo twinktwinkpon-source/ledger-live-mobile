@@ -89,6 +89,9 @@ jobs:
       - name: Build iOS (unsigned)
         working-directory: apps/ledger-live-mobile
         run: |
+          # Repack (rspack) writes the JS bundle + sourcemap into build/generated/ios
+          # Ensure the directory exists or the bundler fails with ENOENT.
+          mkdir -p build/generated/ios
           cd ios
           unset CC CXX
           xcodebuild \
