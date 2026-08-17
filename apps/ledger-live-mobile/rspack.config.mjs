@@ -185,13 +185,6 @@ export default withRozeniteUrlFix(
         mode,
         context: __dirname,
         entry: "./index.js",
-        // Mobile uses a single Hermes bytecode bundle — async chunks are not supported
-        // and hurt performance with Hermes. Disable async chunk creation globally.
-        // Keep the Repack defaults for output (filename: index.bundle, path:
-        // build/generated/ios) — replacing the whole `output` object here previously
-        // dropped them, so rspack emitted the bundle elsewhere and the Repack
-        // AssetsCopyProcessor failed with ENOENT on build/generated/ios/index.bundle.
-        // When running rsdoctor, also emit main bundle as .js so it's counted as JavaScript (not Other)
         output: {
           asyncChunks: false,
           clean: true,
@@ -282,6 +275,37 @@ export default withRozeniteUrlFix(
           ],
         },
         plugins: [
+          {
+            apply(compiler) {
+              compiler.hooks.done.tap("DiagnosticPlugin", stats => {
+                if (stats.has_errors()) {
+                  console.error("\n\n=== RSPACK COMPILATION ERRORS ===");
+                  stats.compilation.errors.forEach(e => console.error(e));
+                  console.error("===================================\n");
+                }
+                if (stats.has_warnings()) {
+                  const warnings = stats.compilation.warnings;
+                  console.log(`[DiagnosticPlugin] ${warnings.length} warnings`);
+                }
+                const outPath = compiler.options.output.path;
+                const fname = compiler.options.output.filename;
+                console.log(`[DiagnosticPlugin] output.path=${outPath}`);
+                console.log(`[DiagnosticPlugin] output.filename=${fname}`);
+                try {
+                  const fs = require("node:fs");
+                  const full = require("node:path").join(outPath, fname);
+                  console.log(`[DiagnosticPlugin] file exists: ${fs.existsSync(full)} at ${full}`);
+                  if (fs.existsSync(outPath)) {
+                    console.log(`[DiagnosticPlugin] dir contents: ${fs.readdirSync(outPath).join(", ")}`);
+                  } else {
+                    console.log(`[DiagnosticPlugin] output dir does NOT exist: ${outPath}`);
+                  }
+                } catch (e) {
+                  console.error(`[DiagnosticPlugin] fs check failed: ${e.message}`);
+                }
+              });
+            },
+          },
           new Repack.RepackPlugin({
             logger: false,
           }),

@@ -100,18 +100,33 @@ jobs:
           exit 1
 
       - name: Bundle JS for iOS (Repack)
+        id: bundle-js
+        working-directory: apps/ledger-live-mobile
+        continue-on-error: true
+        run: |
+          if [ -f main.jsbundle ]; then rm -f main.jsbundle; fi
+          mkdir -p build/generated/ios
+          pnpm bundle:ios --dev false --minify false 2>&1 | tee bundle-output.log
+          ls -la main.jsbundle || echo "bundle:ios did not produce main.jsbundle"
+
+      - name: Bundle diagnostics
+        if: always()
         working-directory: apps/ledger-live-mobile
         run: |
-          # Generate the release JS bundle + Hermes bytecode + sourcemap up front.
-          # Running the bundler standalone is more reliable than letting the
-          # Xcode "Bundle React Native code and images" phase do it (Repack's
-          # cwd/env inside Xcode fails with ENOENT on index.bundle).
-          if [ -f main.jsbundle ]; then rm -f main.jsbundle; fi
-          # Repack writes its intermediate bundle into build/generated/ios;
-          # the directory must exist or it fails with ENOENT on index.bundle.
-          mkdir -p build/generated/ios
-          pnpm bundle:ios --dev false --minify false
-          ls -la main.jsbundle || { echo "bundle:ios did not produce main.jsbundle"; exit 1; }
+          echo "=== Bundle step exit code: ${{ steps.bundle-js.outcome }} ==="
+          echo "=== build/generated/ios contents ==="
+          ls -laR build/generated/ios/ 2>/dev/null || echo "dir not found"
+          echo "=== CWD main.jsbundle ==="
+          ls -la main.jsbundle 2>/dev/null || echo "no main.jsbundle"
+          echo "=== bundle-output.log (last 100 lines) ==="
+          tail -100 bundle-output.log 2>/dev/null || echo "no log"
+
+      - name: Fail if bundle failed
+        if: steps.bundle-js.outcome == 'failure'
+        working-directory: apps/ledger-live-mobile
+        run: |
+          echo "Bundle step failed — see above diagnostics"
+          exit 1
 
       - name: Build iOS (unsigned)
         working-directory: apps/ledger-live-mobile
