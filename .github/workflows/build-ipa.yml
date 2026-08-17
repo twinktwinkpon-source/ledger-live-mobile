@@ -11,7 +11,7 @@ concurrency:
 
 jobs:
   build-ipa:
-    runs-on: macos-14
+    runs-on: macos-15
     timeout-minutes: 180
     env:
       NODE_OPTIONS: "--max-old-space-size=7168"
@@ -58,6 +58,8 @@ jobs:
           ruby-version: "3.2"
       - run: bundle install
         working-directory: apps/ledger-live-mobile
+      - name: Select Xcode 16.2 (RN 0.79 folly + Firebase Swift 6 compatible)
+        run: sudo xcode-select -s /Applications/Xcode_16.2.app
       - run: bundle exec pod install
         working-directory: apps/ledger-live-mobile/ios
 
