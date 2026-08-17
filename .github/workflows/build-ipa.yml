@@ -52,6 +52,17 @@ jobs:
       - name: Generate families dispatch files
         run: ./node_modules/.bin/zx apps/ledger-live-mobile/scripts/sync-families-dispatch.mjs
 
+      - name: Pre-generate React Native iOS bundle (fix ENOENT build/generated/ios)
+        working-directory: apps/ledger-live-mobile
+        run: |
+          mkdir -p build/generated/ios
+          npx react-native bundle \
+            --platform ios \
+            --dev false \
+            --entry-file index.js \
+            --bundle-output build/generated/ios/index.bundle \
+            --assets-dest build/generated/ios
+
       - name: Setup Ruby + CocoaPods
         uses: ruby/setup-ruby@v1
         with:
