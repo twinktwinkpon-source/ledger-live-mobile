@@ -107,6 +107,9 @@ jobs:
           # Xcode "Bundle React Native code and images" phase do it (Repack's
           # cwd/env inside Xcode fails with ENOENT on index.bundle).
           if [ -f main.jsbundle ]; then rm -f main.jsbundle; fi
+          # Repack writes its intermediate bundle into build/generated/ios;
+          # the directory must exist or it fails with ENOENT on index.bundle.
+          mkdir -p build/generated/ios
           pnpm bundle:ios --dev false --minify false
           ls -la main.jsbundle || { echo "bundle:ios did not produce main.jsbundle"; exit 1; }
 
