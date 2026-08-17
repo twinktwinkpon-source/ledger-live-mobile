@@ -1,0 +1,91 @@
+name: Build iOS IPA
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+concurrency:
+  group: ipa-build
+  cancel-in-progress: true
+
+jobs:
+  build-ipa:
+    runs-on: macos-15
+    timeout-minutes: 180
+    env:
+      NODE_OPTIONS: "--max-old-space-size=7168"
+      LANG: en_US.UTF-8
+      LANGUAGE: en_US.UTF-8
+      LC_ALL: en_US.UTF-8
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24.14.0"
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Stub postinstall + .env
+        run: |
+          cd apps/ledger-live-mobile
+          node -e "const fs=require('fs');const p='package.json';const j=JSON.parse(fs.readFileSync(p));j.scripts=j.scripts||{};j.scripts.postinstall='echo [ci] postinstall stubbed';fs.writeFileSync(p,JSON.stringify(j,null,2));"
+          if [ ! -f .env ]; then
+            echo 'APP_NAME="LL [CI BUILD]"' > .env
+            echo 'ANALYTICS_TOKEN="stub"' >> .env
+            echo 'BRAZE_ANDROID_API_KEY="stub"' >> .env
+            echo 'BRAZE_IOS_API_KEY="stub"' >> .env
+            echo 'BRAZE_CUSTOM_ENDPOINT="stub"' >> .env
+          fi
+
+      - name: Install root deps
+        run: pnpm install --filter="live-mobile..." --filter="ledger-live" --unsafe-perm
+        timeout-minutes: 60
+
+      - name: Build mobile deps (incl. native-ui fonts into lib/)
+        run: pnpm build:llm:deps
+        timeout-minutes: 60
+
+      - name: Generate families dispatch files
+        run: ./node_modules/.bin/zx apps/ledger-live-mobile/scripts/sync-families-dispatch.mjs
+
+      - name: Setup Ruby + CocoaPods
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.2"
+      - run: bundle install
+        working-directory: apps/ledger-live-mobile
+      - run: bundle exec pod install
+        working-directory: apps/ledger-live-mobile/ios
+
+      - name: Build iOS (unsigned)
+        working-directory: apps/ledger-live-mobile
+        run: |
+          cd ios
+          unset CC CXX
+          xcodebuild \
+            -workspace ledgerlivemobile.xcworkspace \
+            -scheme ledgerlivemobile \
+            -configuration Release \
+            -sdk iphoneos \
+            -derivedDataPath build \
+            -UseModernBuildSystem=YES \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            build
+
+      - name: Package .ipa
+        working-directory: apps/ledger-live-mobile/ios
+        run: |
+          APP="build/Build/Products/Release-iphoneos/ledgerlivemobile.app"
+          rm -rf out && mkdir -p out/Payload
+          cp -R "$APP" out/Payload/
+          cd out && zip -r "$GITHUB_WORKSPACE/LedgerWallet.ipa" Payload
+
+      - name: Upload .ipa
+        uses: actions/upload-artifact@v4
+        with:
+          name: LedgerWallet-ipa
+          path: LedgerWallet.ipa
