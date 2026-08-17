@@ -8,6 +8,12 @@ podfile_properties = JSON.parse(File.read(File.join(__dir__, 'Podfile.properties
 ENV['RCT_NEW_ARCH_ENABLED'] = '1'
 ENV['EX_DEV_CLIENT_NETWORK_INSPECTOR'] = podfile_properties['EX_DEV_CLIENT_NETWORK_INSPECTOR']
 
+# Use the full git specs source instead of the trunk CDN. The trunk CDN fetches
+# each podspec individually from raw.githubusercontent.com, which GoogleHosted
+# runners quickly hit with 429 (Too Many Requests) for large apps like this one.
+# A single git clone of Specs avoids that rate limiting.
+source 'https://github.com/CocoaPods/Specs.git'
+
 # Disable location services for the app because it's not used in the app
 # it's used by react-native-vision-camera
 $VCEnableLocation = false
