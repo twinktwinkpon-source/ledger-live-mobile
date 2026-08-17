@@ -187,8 +187,21 @@ export default withRozeniteUrlFix(
         entry: "./index.js",
         // Mobile uses a single Hermes bytecode bundle — async chunks are not supported
         // and hurt performance with Hermes. Disable async chunk creation globally.
+        // Keep the Repack defaults for output (filename: index.bundle, path:
+        // build/generated/ios) — replacing the whole `output` object here previously
+        // dropped them, so rspack emitted the bundle elsewhere and the Repack
+        // AssetsCopyProcessor failed with ENOENT on build/generated/ios/index.bundle.
         // When running rsdoctor, also emit main bundle as .js so it's counted as JavaScript (not Other)
-        output: { asyncChunks: false, ...(isRsdoctor && { filename: "[name].js" }) },
+        output: {
+          asyncChunks: false,
+          clean: true,
+          hashFunction: "xxhash64",
+          filename: "index.bundle",
+          chunkFilename: "[name].chunk.bundle",
+          path: "[context]/build/generated/[platform]",
+          publicPath: "noop:///",
+          ...(isRsdoctor && { filename: "[name].js" }),
+        },
         resolve: {
           ...Repack.getResolveOptions(platform, {
             enablePackageExports: true,
