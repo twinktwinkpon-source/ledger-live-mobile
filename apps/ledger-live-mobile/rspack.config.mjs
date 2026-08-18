@@ -185,14 +185,9 @@ export default withRozeniteUrlFix(
         mode,
         context: __dirname,
         entry: "./index.js",
-        // Disable sourcemaps for CI bundle: Repack's default devtool 'source-map'
-        // lists index.bundle.map in chunk auxiliary files but the file isn't
-        // reliably flushed to output.path (ENOENT on .../index.bundle.map).
-        // The unsigned IPA doesn't need sourcemaps.
-        devtool: false,
         output: {
           asyncChunks: false,
-          clean: true,
+          clean: false,
           hashFunction: "xxhash64",
           filename: "index.bundle",
           chunkFilename: "[name].chunk.bundle",

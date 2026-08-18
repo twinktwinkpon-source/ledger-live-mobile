@@ -89,6 +89,7 @@ jobs:
           # Running the bundler standalone is more reliable than letting the
           # Xcode "Bundle React Native code and images" phase do it (Repack's
           # cwd/env inside Xcode fails with ENOENT on index.bundle).
+          mkdir -p build/generated/ios
           if [ -f main.jsbundle ]; then rm -f main.jsbundle; fi
           pnpm bundle:ios --dev false --minify false
           echo "=== main.jsbundle size: $(wc -c < main.jsbundle) bytes ==="
