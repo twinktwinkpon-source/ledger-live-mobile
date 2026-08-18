@@ -98,6 +98,12 @@ jobs:
           pnpm bundle:ios --dev false --minify false
           echo "=== generated bundle ==="
           ls -la build/generated/ios/ || true
+          # Safety net: if Repack's OutputPlugin copy to main.jsbundle fell through,
+          # mirror the emitted index.bundle explicitly so packaging always has a bundle.
+          if [ -f build/generated/ios/index.bundle ] && [ ! -s main.jsbundle ]; then
+            cp build/generated/ios/index.bundle main.jsbundle
+            echo "Copied index.bundle -> main.jsbundle (Repack OutputPlugin copy was missing)"
+          fi
           echo "=== main.jsbundle size: $(wc -c < main.jsbundle) bytes ==="
           ls -la main.jsbundle || { echo "bundle:ios did not produce main.jsbundle"; exit 1; }
 
