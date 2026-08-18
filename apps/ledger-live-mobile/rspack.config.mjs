@@ -185,6 +185,13 @@ export default withRozeniteUrlFix(
         mode,
         context: __dirname,
         entry: "./index.js",
+        // CRITICAL: keep sourcemaps OFF. Repack's SourceMapPlugin applies webpack's
+        // SourceMapDevToolPlugin inside the rspack compiler; in rspack that
+        // compatibility plugin breaks emission of the main bundle (rspack never
+        // writes index.bundle, so OutputPlugin throws ENOENT). With devtool:false
+        // the plugin is skipped and rspack emits index.bundle normally. The unsigned
+        // IPA doesn't need sourcemaps.
+        devtool: false,
         output: {
           asyncChunks: false,
           clean: false,

@@ -89,11 +89,6 @@ jobs:
           # "Bundle React Native code and images" phase expects
           # (build/generated/ios/index.bundle), plus main.jsbundle for packaging.
           mkdir -p build/generated/ios
-          # Pre-create an empty sourcemap: Repack's rspack OutputPlugin lists
-          # index.bundle.map in chunk auxiliary files but may not emit it, causing
-          # AssetsCopyProcessor to throw ENOENT. configured compareBeforeEmit:false
-          # makes rspack always re-emit the bundle regardless.
-          touch build/generated/ios/index.bundle.map
           if [ -f main.jsbundle ]; then rm -f main.jsbundle; fi
           pnpm bundle:ios --dev false --minify false
           echo "=== generated bundle ==="
