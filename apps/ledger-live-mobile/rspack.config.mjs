@@ -185,16 +185,10 @@ export default withRozeniteUrlFix(
         mode,
         context: __dirname,
         entry: "./index.js",
-        output: {
-          asyncChunks: false,
-          clean: true,
-          hashFunction: "xxhash64",
-          filename: "index.bundle",
-          chunkFilename: "[name].chunk.bundle",
-          path: path.resolve(__dirname, "build", "generated", platform),
-          publicPath: "noop:///",
-          ...(isRsdoctor && { filename: "[name].js" }),
-        },
+        // Mobile uses a single Hermes bytecode bundle — async chunks are not supported
+        // and hurt performance with Hermes. Disable async chunk creation globally.
+        // When running rsdoctor, also emit main bundle as .js so it's counted as JavaScript (not Other)
+        output: { asyncChunks: false, ...(isRsdoctor && { filename: "[name].js" }) },
         resolve: {
           ...Repack.getResolveOptions(platform, {
             enablePackageExports: true,
@@ -275,17 +269,6 @@ export default withRozeniteUrlFix(
           ],
         },
         plugins: [
-          {
-            apply(compiler) {
-              compiler.hooks.done.tap("DiagnosticPlugin", stats => {
-                if (stats.has_errors()) {
-                  console.error("\n\n=== RSPACK COMPILATION ERRORS ===");
-                  stats.compilation.errors.forEach(e => console.error(e));
-                  console.error("===================================\n");
-                }
-              });
-            },
-          },
           new Repack.RepackPlugin({
             logger: false,
           }),

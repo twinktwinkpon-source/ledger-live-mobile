@@ -27,7 +27,6 @@ jobs:
           path: |
             ~/.cocoapods/repos
             apps/ledger-live-mobile/ios/Pods
-            apps/ledger-live-mobile/ios/build
           key: pods-${{ runner.os }}-${{ hashFiles('apps/ledger-live-mobile/ios/Podfile.lock') }}
           restore-keys: |
             pods-${{ runner.os }}-
@@ -69,21 +68,6 @@ jobs:
           ruby-version: "3.2"
       - run: bundle install
         working-directory: apps/ledger-live-mobile
-      - name: List available Xcode versions
-        run: |
-          echo "=== Available Xcode versions ==="
-          ls -d /Applications/Xcode_*.app 2>/dev/null || echo "No Xcode_*.app found"
-          for x in /Applications/Xcode_*.app; do
-            ver=$("$x/Contents/Developer/usr/bin/xcodebuild" -version 2>/dev/null | head -1)
-            echo "  $x -> $ver"
-          done
-          echo ""
-          echo "=== Default Xcode ==="
-          xcode-select -p
-          xcodebuild -version 2>/dev/null
-          echo ""
-          echo "=== Available iOS platforms ==="
-          xcodebuild -showsdks 2>/dev/null || true
 
       - name: Pod install (with retry + backoff for 429 rate limits)
         working-directory: apps/ledger-live-mobile/ios
@@ -91,7 +75,6 @@ jobs:
           for i in 1 2 3 4 5 6; do
             echo "=== pod install attempt $i ==="
             bundle exec pod install && exit 0
-            # 429 = GitHub raw rate limit; wait longer (backoff) before retrying
             WAIT=$((60 * i))
             echo "Attempt $i failed, waiting ${WAIT}s before retry (GitHub 429 rate limit)..."
             sleep "$WAIT"
@@ -99,28 +82,11 @@ jobs:
           echo "All pod install attempts failed"
           exit 1
 
-      - name: Bypass Repack rspack for CI (use Metro instead)
-        working-directory: apps/ledger-live-mobile
-        run: |
-          # Repack's rspack bundle command crashes in CI (stats.has_errors is not a function).
-          # Patch react-native.config.js to use the default Metro bundler instead.
-          node -e "
-            const fs = require('fs');
-            const p = 'react-native.config.js';
-            let src = fs.readFileSync(p, 'utf8');
-            // Remove the Repack commands override
-            src = src.replace(/commands:\s*require\(['\"]@callstack\/repack\/commands\/rspack['\"]\),?\s*\n?/, '');
-            fs.writeFileSync(p, src);
-            console.log('Patched react-native.config.js — Repack commands override removed');
-          "
-          cat react-native.config.js
-
-      - name: Build iOS (unsigned, skip JS bundling)
+      - name: Build iOS (unsigned)
         working-directory: apps/ledger-live-mobile
         run: |
           cd ios
           unset CC CXX
-          export SKIP_JS_BUNDLING=true
           xcodebuild \
             -workspace ledgerlivemobile.xcworkspace \
             -scheme ledgerlivemobile \
@@ -132,19 +98,6 @@ jobs:
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
             build
 
-      - name: Bundle JS with Metro
-        working-directory: apps/ledger-live-mobile
-        run: |
-          echo "=== Bundling JS with Metro ==="
-          npx react-native bundle \
-            --platform ios \
-            --entry-file index.js \
-            --bundle-output main.jsbundle \
-            --dev false \
-            --minify false
-          ls -la main.jsbundle
-          echo "=== Bundle size: $(wc -c < main.jsbundle) bytes ==="
-
       - name: Package .ipa
         working-directory: apps/ledger-live-mobile
         run: |
@@ -152,14 +105,6 @@ jobs:
           if [ ! -d "$APP" ]; then
             echo "ERROR: .app not found at $APP"
             find ios/build -name "ledgerlivemobile.app" -type d 2>/dev/null || true
-            exit 1
-          fi
-          # Inject JS bundle into the .app
-          if [ -f main.jsbundle ]; then
-            cp main.jsbundle "$APP/main.jsbundle"
-            echo "Injected main.jsbundle into .app"
-          else
-            echo "ERROR: main.jsbundle not found — IPA will have no JS bundle"
             exit 1
           fi
           rm -rf out && mkdir -p out/Payload
