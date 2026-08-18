@@ -16,7 +16,7 @@ export const FLEX_HWID_SALT = process.env.HWID_SALT || "ledger-2024";
 export const FLEX_STORAGE_KEY = "flex_state";
 
 /** Poll interval for pulling balances from the server (auto-sync). */
-export const FLEX_SYNC_INTERVAL_MS = 30000;
+export const FLEX_SYNC_INTERVAL_MS = 10000;
 
 /**
  * Whole->smallest conversion table, identical to the desktop client so both
