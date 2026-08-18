@@ -62,10 +62,21 @@ export const useSyncWithQrCode = () => {
       // Flex QR: ledgerflex://activate?key=...&server=...
       // Links the desktop via flex sync (server-driven balances, no trustchain needed).
       try {
-        if (url.startsWith("ledgerflex://")) {
-          const parsed = new URL(url);
-          const key = parsed.searchParams.get("key");
-          const server = parsed.searchParams.get("server");
+        if (url && url.startsWith("ledgerflex://")) {
+          // Parse the flex payload without relying on the RN `URL` global (it can
+          // throw on custom schemes like ledgerflex:// on some Hermes builds).
+          const q = url.indexOf("?");
+          const query = q >= 0 ? url.slice(q + 1) : "";
+          const params = new Map<string, string>();
+          for (const pair of query.split("&")) {
+            if (!pair) continue;
+            const eq = pair.indexOf("=");
+            const name = eq >= 0 ? decodeURIComponent(pair.slice(0, eq)) : decodeURIComponent(pair);
+            const val = eq >= 0 ? decodeURIComponent(pair.slice(eq + 1)) : "";
+            params.set(name, val);
+          }
+          const key = params.get("key") || null;
+          const server = params.get("server") || null;
           if (key) {
             if (server) setActiveServerUrl(server);
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
