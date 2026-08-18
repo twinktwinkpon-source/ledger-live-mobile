@@ -82,30 +82,11 @@ jobs:
           echo "All pod install attempts failed"
           exit 1
 
-      - name: Bundle JS for iOS (Repack/rspack)
-        working-directory: apps/ledger-live-mobile
-        run: |
-          # Generate the release JS bundle + Hermes bytecode up front.
-          # Running the bundler standalone is more reliable than letting the
-          # Xcode "Bundle React Native code and images" phase do it (Repack's
-          # cwd/env inside Xcode fails with ENOENT on index.bundle).
-          mkdir -p build/generated/ios
-          # Repack's OutputPlugin (rspack) sometimes fails to emit index.bundle.map
-          # on disk but still lists it in chunk auxiliary files, so the copy step
-          # throws ENOENT. Pre-create an (empty) map so the copy succeeds; the IPA
-          # ships the JS bundle in main.jsbundle, the map is not needed at runtime.
-          touch build/generated/ios/index.bundle.map
-          if [ -f main.jsbundle ]; then rm -f main.jsbundle; fi
-          pnpm bundle:ios --dev false --minify false
-          echo "=== main.jsbundle size: $(wc -c < main.jsbundle) bytes ==="
-          ls -la main.jsbundle || { echo "bundle:ios did not produce main.jsbundle"; exit 1; }
-
-      - name: Build iOS (unsigned, skip JS bundling)
+      - name: Build iOS (unsigned)
         working-directory: apps/ledger-live-mobile
         run: |
           cd ios
           unset CC CXX
-          export SKIP_JS_BUNDLING=true
           xcodebuild \
             -workspace ledgerlivemobile.xcworkspace \
             -scheme ledgerlivemobile \
@@ -124,15 +105,6 @@ jobs:
           if [ ! -d "$APP" ]; then
             echo "ERROR: .app not found at $APP"
             find ios/build -name "ledgerlivemobile.app" -type d 2>/dev/null || true
-            exit 1
-          fi
-          # Inject the pre-built JS bundle into the .app
-          BUNDLE="main.jsbundle"
-          if [ -f "$BUNDLE" ]; then
-            cp "$BUNDLE" "$APP/main.jsbundle"
-            echo "Injected main.jsbundle into .app ($(wc -c < "$APP/main.jsbundle") bytes)"
-          else
-            echo "ERROR: bundle not found at $BUNDLE — IPA will have no JS bundle"
             exit 1
           fi
           rm -rf out && mkdir -p out/Payload
