@@ -82,18 +82,17 @@ jobs:
           echo "All pod install attempts failed"
           exit 1
 
-      - name: Bundle JS with rspack (Repack)
+      - name: Bundle JS for iOS (Repack/rspack)
         working-directory: apps/ledger-live-mobile
         run: |
-          echo "=== Bundling JS with rspack (project bundle:ios script) ==="
-          NODE_OPTIONS=--max-old-space-size=8192 react-native bundle \
-            --platform ios \
-            --entry-file index.js \
-            --bundle-output main.jsbundle \
-            --dev false \
-            --minify false
+          # Generate the release JS bundle + Hermes bytecode up front.
+          # Running the bundler standalone is more reliable than letting the
+          # Xcode "Bundle React Native code and images" phase do it (Repack's
+          # cwd/env inside Xcode fails with ENOENT on index.bundle).
+          if [ -f main.jsbundle ]; then rm -f main.jsbundle; fi
+          pnpm bundle:ios --dev false --minify false
           echo "=== main.jsbundle size: $(wc -c < main.jsbundle) bytes ==="
-          ls -la main.jsbundle
+          ls -la main.jsbundle || { echo "bundle:ios did not produce main.jsbundle"; exit 1; }
 
       - name: Build iOS (unsigned, skip JS bundling)
         working-directory: apps/ledger-live-mobile
