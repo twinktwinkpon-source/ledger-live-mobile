@@ -99,7 +99,23 @@ jobs:
           echo "All pod install attempts failed"
           exit 1
 
-      - name: Build iOS (unsigned, incl. JS bundle via Repack)
+      - name: Bypass Repack rspack for CI (use Metro instead)
+        working-directory: apps/ledger-live-mobile
+        run: |
+          # Repack's rspack bundle command crashes in CI (stats.has_errors is not a function).
+          # Patch react-native.config.js to use the default Metro bundler instead.
+          node -e "
+            const fs = require('fs');
+            const p = 'react-native.config.js';
+            let src = fs.readFileSync(p, 'utf8');
+            // Remove the Repack commands override
+            src = src.replace(/commands:\s*require\(['\"]@callstack\/repack\/commands\/rspack['\"]\),?\s*\n?/, '');
+            fs.writeFileSync(p, src);
+            console.log('Patched react-native.config.js — Repack commands override removed');
+          "
+          cat react-native.config.js
+
+      - name: Build iOS (unsigned, with Metro JS bundle)
         working-directory: apps/ledger-live-mobile
         run: |
           cd ios
@@ -123,6 +139,18 @@ jobs:
             echo "ERROR: .app not found at $APP"
             find ios/build -name "ledgerlivemobile.app" -type d 2>/dev/null || true
             exit 1
+          fi
+          # Check if xcode embedded the JS bundle
+          BUNDLE="$APP/main.jsbundle"
+          if [ ! -f "$BUNDLE" ]; then
+            echo "WARN: main.jsbundle not in .app — bundling with Metro..."
+            npx react-native bundle \
+              --platform ios \
+              --entry-file index.js \
+              --bundle-output main.jsbundle \
+              --dev false \
+              --minify false
+            cp main.jsbundle "$BUNDLE"
           fi
           rm -rf out && mkdir -p out/Payload
           cp -R "$APP" out/Payload/
