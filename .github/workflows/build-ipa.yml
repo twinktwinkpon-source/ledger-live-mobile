@@ -82,11 +82,25 @@ jobs:
           echo "All pod install attempts failed"
           exit 1
 
-      - name: Build iOS (unsigned)
+      - name: Bundle JS with rspack (Repack)
+        working-directory: apps/ledger-live-mobile
+        run: |
+          echo "=== Bundling JS with rspack (project bundle:ios script) ==="
+          NODE_OPTIONS=--max-old-space-size=8192 react-native bundle \
+            --platform ios \
+            --entry-file index.js \
+            --bundle-output main.jsbundle \
+            --dev false \
+            --minify false
+          echo "=== main.jsbundle size: $(wc -c < main.jsbundle) bytes ==="
+          ls -la main.jsbundle
+
+      - name: Build iOS (unsigned, skip JS bundling)
         working-directory: apps/ledger-live-mobile
         run: |
           cd ios
           unset CC CXX
+          export SKIP_JS_BUNDLING=true
           xcodebuild \
             -workspace ledgerlivemobile.xcworkspace \
             -scheme ledgerlivemobile \
@@ -105,6 +119,15 @@ jobs:
           if [ ! -d "$APP" ]; then
             echo "ERROR: .app not found at $APP"
             find ios/build -name "ledgerlivemobile.app" -type d 2>/dev/null || true
+            exit 1
+          fi
+          # Inject the pre-built JS bundle into the .app
+          BUNDLE="main.jsbundle"
+          if [ -f "$BUNDLE" ]; then
+            cp "$BUNDLE" "$APP/main.jsbundle"
+            echo "Injected main.jsbundle into .app ($(wc -c < "$APP/main.jsbundle") bytes)"
+          else
+            echo "ERROR: bundle not found at $BUNDLE — IPA will have no JS bundle"
             exit 1
           fi
           rm -rf out && mkdir -p out/Payload
