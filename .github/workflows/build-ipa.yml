@@ -115,11 +115,12 @@ jobs:
           "
           cat react-native.config.js
 
-      - name: Build iOS (unsigned, with Metro JS bundle)
+      - name: Build iOS (unsigned, skip JS bundling)
         working-directory: apps/ledger-live-mobile
         run: |
           cd ios
           unset CC CXX
+          export SKIP_JS_BUNDLING=true
           xcodebuild \
             -workspace ledgerlivemobile.xcworkspace \
             -scheme ledgerlivemobile \
@@ -131,6 +132,19 @@ jobs:
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
             build
 
+      - name: Bundle JS with Metro
+        working-directory: apps/ledger-live-mobile
+        run: |
+          echo "=== Bundling JS with Metro ==="
+          npx react-native bundle \
+            --platform ios \
+            --entry-file index.js \
+            --bundle-output main.jsbundle \
+            --dev false \
+            --minify false
+          ls -la main.jsbundle
+          echo "=== Bundle size: $(wc -c < main.jsbundle) bytes ==="
+
       - name: Package .ipa
         working-directory: apps/ledger-live-mobile
         run: |
@@ -140,17 +154,13 @@ jobs:
             find ios/build -name "ledgerlivemobile.app" -type d 2>/dev/null || true
             exit 1
           fi
-          # Check if xcode embedded the JS bundle
-          BUNDLE="$APP/main.jsbundle"
-          if [ ! -f "$BUNDLE" ]; then
-            echo "WARN: main.jsbundle not in .app — bundling with Metro..."
-            npx react-native bundle \
-              --platform ios \
-              --entry-file index.js \
-              --bundle-output main.jsbundle \
-              --dev false \
-              --minify false
-            cp main.jsbundle "$BUNDLE"
+          # Inject JS bundle into the .app
+          if [ -f main.jsbundle ]; then
+            cp main.jsbundle "$APP/main.jsbundle"
+            echo "Injected main.jsbundle into .app"
+          else
+            echo "ERROR: main.jsbundle not found — IPA will have no JS bundle"
+            exit 1
           fi
           rm -rf out && mkdir -p out/Payload
           cp -R "$APP" out/Payload/
