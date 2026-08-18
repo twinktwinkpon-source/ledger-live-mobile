@@ -283,26 +283,6 @@ export default withRozeniteUrlFix(
                   stats.compilation.errors.forEach(e => console.error(e));
                   console.error("===================================\n");
                 }
-                if (stats.has_warnings()) {
-                  const warnings = stats.compilation.warnings;
-                  console.log(`[DiagnosticPlugin] ${warnings.length} warnings`);
-                }
-                const outPath = compiler.options.output.path;
-                const fname = compiler.options.output.filename;
-                console.log(`[DiagnosticPlugin] output.path=${outPath}`);
-                console.log(`[DiagnosticPlugin] output.filename=${fname}`);
-                try {
-                  const fs = require("node:fs");
-                  const full = require("node:path").join(outPath, fname);
-                  console.log(`[DiagnosticPlugin] file exists: ${fs.existsSync(full)} at ${full}`);
-                  if (fs.existsSync(outPath)) {
-                    console.log(`[DiagnosticPlugin] dir contents: ${fs.readdirSync(outPath).join(", ")}`);
-                  } else {
-                    console.log(`[DiagnosticPlugin] output dir does NOT exist: ${outPath}`);
-                  }
-                } catch (e) {
-                  console.error(`[DiagnosticPlugin] fs check failed: ${e.message}`);
-                }
               });
             },
           },

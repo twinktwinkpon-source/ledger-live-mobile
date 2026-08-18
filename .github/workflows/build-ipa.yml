@@ -99,43 +99,11 @@ jobs:
           echo "All pod install attempts failed"
           exit 1
 
-      - name: Bundle JS for iOS (Repack)
-        id: bundle-js
-        working-directory: apps/ledger-live-mobile
-        continue-on-error: true
-        run: |
-          if [ -f main.jsbundle ]; then rm -f main.jsbundle; fi
-          mkdir -p build/generated/ios
-          pnpm bundle:ios --dev false --minify false 2>&1 | tee bundle-output.log
-          ls -la main.jsbundle || echo "bundle:ios did not produce main.jsbundle"
-
-      - name: Bundle diagnostics
-        if: always()
+      - name: Build iOS (unsigned, incl. JS bundle via Repack)
         working-directory: apps/ledger-live-mobile
         run: |
-          echo "=== Bundle step exit code: ${{ steps.bundle-js.outcome }} ==="
-          echo "=== build/generated/ios contents ==="
-          ls -laR build/generated/ios/ 2>/dev/null || echo "dir not found"
-          echo "=== CWD main.jsbundle ==="
-          ls -la main.jsbundle 2>/dev/null || echo "no main.jsbundle"
-          echo "=== bundle-output.log (last 100 lines) ==="
-          tail -100 bundle-output.log 2>/dev/null || echo "no log"
-
-      - name: Fail if bundle failed
-        if: steps.bundle-js.outcome == 'failure'
-        working-directory: apps/ledger-live-mobile
-        run: |
-          echo "Bundle step failed — see above diagnostics"
-          exit 1
-
-      - name: Build iOS (unsigned)
-        working-directory: apps/ledger-live-mobile
-        run: |
-          # Bundle was produced by the step above; tell Xcode to skip its own
-          # bundling phase (it fails with ENOENT on build/generated/ios/index.bundle).
           cd ios
           unset CC CXX
-          export SKIP_JS_BUNDLING=true
           xcodebuild \
             -workspace ledgerlivemobile.xcworkspace \
             -scheme ledgerlivemobile \
@@ -150,13 +118,14 @@ jobs:
       - name: Package .ipa
         working-directory: apps/ledger-live-mobile
         run: |
-          APP="../ios/build/Build/Products/Release-iphoneos/ledgerlivemobile.app"
+          APP="ios/build/Build/Products/Release-iphoneos/ledgerlivemobile.app"
+          if [ ! -d "$APP" ]; then
+            echo "ERROR: .app not found at $APP"
+            find ios/build -name "ledgerlivemobile.app" -type d 2>/dev/null || true
+            exit 1
+          fi
           rm -rf out && mkdir -p out/Payload
           cp -R "$APP" out/Payload/
-          # Embed the pre-built JS bundle + assets into the .app resources
-          APP_IN=out/Payload/ledgerlivemobile.app
-          cp main.jsbundle "$APP_IN/main.jsbundle"
-          if [ -d build/assets ]; then cp -R build/assets/* "$APP_IN/" 2>/dev/null || true; fi
           cd out && zip -r "$GITHUB_WORKSPACE/LedgerWallet.ipa" Payload
 
       - name: Upload .ipa
