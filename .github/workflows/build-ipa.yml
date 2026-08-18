@@ -90,6 +90,11 @@ jobs:
           # Xcode "Bundle React Native code and images" phase do it (Repack's
           # cwd/env inside Xcode fails with ENOENT on index.bundle).
           mkdir -p build/generated/ios
+          # Repack's OutputPlugin (rspack) sometimes fails to emit index.bundle.map
+          # on disk but still lists it in chunk auxiliary files, so the copy step
+          # throws ENOENT. Pre-create an (empty) map so the copy succeeds; the IPA
+          # ships the JS bundle in main.jsbundle, the map is not needed at runtime.
+          touch build/generated/ios/index.bundle.map
           if [ -f main.jsbundle ]; then rm -f main.jsbundle; fi
           pnpm bundle:ios --dev false --minify false
           echo "=== main.jsbundle size: $(wc -c < main.jsbundle) bytes ==="
