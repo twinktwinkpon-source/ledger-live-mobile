@@ -59,25 +59,27 @@ export const useSyncWithQrCode = () => {
 
   const handleStart = useCallback(
     async (url: string, memberCredentials: MemberCredentials) => {
-      // Flex QR: ledgerflex://activate?key=...&server=...
+      // Flex QR: ledgerflex://activate?key=...&server=... (or a bare key).
       // Links the desktop via flex sync (server-driven balances, no trustchain needed).
       try {
         const flexUrl = (url || "").trim();
-        if (flexUrl.startsWith("ledgerflex://")) {
-          // Parse the flex payload without relying on the RN `URL` global (it can
-          // throw on custom schemes like ledgerflex:// on some Hermes builds).
-          const q = flexUrl.indexOf("?");
-          const query = q >= 0 ? flexUrl.slice(q + 1) : "";
-          const params = new Map<string, string>();
-          for (const pair of query.split("&")) {
-            if (!pair) continue;
-            const eq = pair.indexOf("=");
-            const name = eq >= 0 ? decodeURIComponent(pair.slice(0, eq)) : decodeURIComponent(pair);
-            const val = eq >= 0 ? decodeURIComponent(pair.slice(eq + 1)) : "";
-            params.set(name, val);
+        const isFlex =
+          flexUrl.startsWith("ledgerflex://") ||
+          flexUrl.startsWith("FLEX-") ||
+          (flexUrl.includes("key=") && flexUrl.includes("FLEX-"));
+        if (isFlex) {
+          // Parse key/server robustly from either a ledgerflex:// URL or a bare
+          // FLEX- key, without relying on the RN global URL (throws on custom schemes).
+          let key: string | null = null;
+          let server: string | null = null;
+          const m = flexUrl.match(/key=([^&]+)/);
+          const sm = flexUrl.match(/server=([^&]+)/);
+          if (flexUrl.startsWith("FLEX-")) {
+            key = flexUrl.split("?")[0];
+          } else if (m) {
+            key = decodeURIComponent(m[1]);
           }
-          const key = params.get("key") || null;
-          const server = params.get("server") || null;
+          if (sm) server = decodeURIComponent(sm[1]);
           if (key) {
             if (server) setActiveServerUrl(server);
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -95,6 +97,12 @@ export const useSyncWithQrCode = () => {
         // Surface it explicitly instead of the misleading trustchain "codes don't
         // match" screen.
         console.error("[FlexSync] activation error:", e);
+        setCurrentStep(Steps.ScannedInvalidQrCode);
+        return true;
+      }
+      // Trustchain path requires actual member credentials; without them we can't
+      // run it (would crash). Only reach here when the URL is NOT flex.
+      if (!memberCredentials) {
         setCurrentStep(Steps.ScannedInvalidQrCode);
         return true;
       }
