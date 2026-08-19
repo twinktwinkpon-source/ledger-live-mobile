@@ -83,12 +83,12 @@ export const useSyncWithQrCode = () => {
           if (key) {
             if (server) setActiveServerUrl(server);
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const result = await (dispatch as any)(flexActivate(key)).unwrap();
+            await (dispatch as any)(flexActivate(key)).unwrap();
             closeAllDrawers();
-            navigation.navigate(NavigatorName.WalletSync, {
-              screen: ScreenName.WalletSyncLoading,
-              params: { created: false, flex: true },
-            });
+            // Stay on the Ledger Sync settings screen - it renders the flex
+            // device + balances straight from the redux flex state. Avoids the
+            // heavier WalletSync navigator flow which can crash.
+            navigation.navigate(ScreenName.LedgerSync as never);
             return true;
           }
         }
