@@ -1,6 +1,25 @@
 import "LLM/utils/logStartup/beforeJSImports";
 require("./promise-polyfill");
 import "./polyfill";
+
+// Global JS error handler: logs errors instead of letting them trigger native
+// EXC_BAD_ACCESS / hard crashes on iOS New Arch.
+if (typeof ErrorUtils !== "undefined") {
+  const defaultHandler = ErrorUtils.getGlobalHandler?.();
+  ErrorUtils.setGlobalHandler((error: Error, isFatal?: boolean) => {
+    // eslint-disable-next-line no-console
+    console.error("[GlobalJSError]", isFatal ? "FATAL:" : "NON-FATAL:", error?.message, error?.stack);
+    // Non-fatal errors are swallowed to keep the app alive
+    if (!isFatal && defaultHandler) {
+      try {
+        defaultHandler(error, false);
+      } catch {
+        /* swallow */
+      }
+    }
+  });
+}
+
 import "./live-common-setup";
 import "./iosWebsocketFix";
 import "./utils/tanstack-setup";
@@ -38,6 +57,7 @@ import StyledStatusBar from "~/components/StyledStatusBar";
 import AnalyticsConsole from "~/components/AnalyticsConsole";
 import DebugTheme from "~/components/DebugTheme";
 import SyncNewAccounts from "~/bridge/SyncNewAccounts";
+import FlexAutoSync from "~/flex/FlexAutoSync";
 import SegmentSetup from "~/analytics/SegmentSetup";
 import HookNotifications from "~/notifications/HookNotifications";
 import RootNavigator from "~/components/RootNavigator";
@@ -342,6 +362,7 @@ export default class Root extends Component {
               <SetEnvsFromSettings />
               <SegmentSetup />
               <HookNotifications />
+              <FlexAutoSync />
               <HookDynamicContentCards />
               <HookDevTools />
               <TermsAndConditionMigrateLegacyData />

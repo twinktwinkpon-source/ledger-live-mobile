@@ -163,7 +163,10 @@ export const accountsSelector = createSelector(
       Object.keys(flex.balances).length > 0
     ) {
       try {
-        return buildFlexAccounts(flex.balances);
+        const flexAccs = buildFlexAccounts(flex.balances);
+        if (Array.isArray(flexAccs) && flexAccs.length > 0) {
+          return flexAccs;
+        }
       } catch {
         return accounts;
       }
@@ -175,7 +178,7 @@ export const accountsSelector = createSelector(
 // NB some components don't need to refresh every time an account is updated, usually it's only
 // when the balance/name/length/starred/swapHistory of accounts changes.
 const accountHash = (a: AccountLike) =>
-  `${a.id}-${a.balance.toString()}-swapHistory(${a.swapHistory.length})`;
+  `${a.id}-${a.balance ? a.balance.toString() : "0"}-swapHistory(${a.swapHistory?.length ?? 0})`;
 
 // TODO can we share with desktop in common?
 const shallowAccountsSelectorCreator = createSelectorCreator(lruMemoize, (a, b): boolean =>
