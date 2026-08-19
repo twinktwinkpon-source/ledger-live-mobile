@@ -61,7 +61,12 @@ import { initHistory } from "~/renderer/reducers/history";
 
 const rootNode = document.getElementById("react-root");
 
+// eslint-disable-next-line no-console
+console.log("[INIT] renderer init.tsx module loaded, rootNode:", !!rootNode);
+
 async function init() {
+  // eslint-disable-next-line no-console
+  console.log("[INIT] init() started");
   // at this step. we know the app error handling will happen here. so we can unset the global onerror
   window.onerror = null;
 
@@ -88,6 +93,28 @@ async function init() {
     enableDebugLogger((log: LogEntry) => everyLogs || (log?.type && filters.includes(log.type)));
   }
 
+  // Suppress unhandled promise rejections that are just background network /
+  // Axios "Network Error" (e.g. unavailable external Ledger Manager API) so the
+  // dev react-refresh error overlay does not block the whole screen. Real app
+  // errors still surface via Sentry/console.
+  window.addEventListener("unhandledrejection", (event: PromiseRejectionEvent) => {
+    const reason: unknown = event.reason;
+    const msg =
+      typeof reason === "object" && reason !== null
+        ? String((reason as { message?: unknown })?.message ?? "")
+        : String(reason);
+    const isNetwork =
+      /network error/i.test(msg) ||
+      /network request failed/i.test(msg) ||
+      /fetch failed/i.test(msg) ||
+      /load failed/i.test(msg);
+    if (isNetwork) {
+      event.preventDefault();
+    }
+  });
+
+  // eslint-disable-next-line no-console
+  console.log("[INIT] before checkLibs");
   checkLibs({
     NotEnoughBalance,
     React,
@@ -95,6 +122,8 @@ async function init() {
     Transport,
   });
 
+  // eslint-disable-next-line no-console
+  console.log("[INIT] before expectOperatingSystemSupportStatus");
   expectOperatingSystemSupportStatus();
   if (getEnv("PLAYWRIGHT_RUN")) {
     const spectronData = await getKey("app", "PLAYWRIGHT_RUN", {});
@@ -120,9 +149,13 @@ async function init() {
     // Keep the flag so Default.tsx can detect it for redirect, it will be cleared there
   }
 
+  // eslint-disable-next-line no-console
+  console.log("[INIT] before createStore");
   const store = createStore({
     dbMiddleware,
   });
+  // eslint-disable-next-line no-console
+  console.log("[INIT] store created");
   const dispatch: AppDispatch = store.dispatch;
 
   setupListeners(store.dispatch);
@@ -154,7 +187,13 @@ async function init() {
     (window as Window & { __STORE__?: ReduxStore }).__STORE__ = store;
   }
   // Initialize identities before Sentry so Sentry user id (datadogId) is set correctly
+  // eslint-disable-next-line no-console
+  console.log("[INIT] before initIdentities");
   await initIdentities(store);
+  // eslint-disable-next-line no-console
+  console.log("[INIT] initIdentities done");
+  // eslint-disable-next-line no-console
+  console.log("[INIT] before sentry");
   sentry(() => sentryLogsSelector(store.getState()), store);
   let notifiedSentryLogs = false;
   store.subscribe(() => {
@@ -173,7 +212,11 @@ async function init() {
     store.dispatch(setDeepLinkUrl(url));
     deepLinkUrl = url;
   });
+  // eslint-disable-next-line no-console
+  console.log("[INIT] before getKey settings");
   const initialSettings = (await getKey("app", "settings")) || {};
+  // eslint-disable-next-line no-console
+  console.log("[INIT] settings loaded");
 
   liveBlindSigningReporter.setConsentSource(() => trackingEnabledSelector(store.getState()));
 
@@ -200,13 +243,19 @@ async function init() {
   setEnvOnAllThreads("FILTER_ZERO_AMOUNT_ERC20_EVENTS", filterTokenOperationsZeroAmount);
 
   // hydrate the store with the bridge/cache
+  // eslint-disable-next-line no-console
+  console.log("[INIT] before Promise.allSettled hydrateCurrency");
   await Promise.allSettled(
     listCachedCurrencyIds().map(id => {
       const currency = findCryptoCurrencyById(id);
       return currency ? hydrateCurrency(currency) : null;
     }),
   );
+  // eslint-disable-next-line no-console
+  console.log("[INIT] hydrateCurrency done, before getKey accounts");
   const accountData = await getKey("app", "accounts", []);
+  // eslint-disable-next-line no-console
+  console.log("[INIT] accounts loaded");
   if (accountData) {
     const e = initAccounts(accountData);
     store.dispatch(e);
@@ -257,7 +306,11 @@ async function init() {
   }
 
   const initialCountervalues = await getKey("app", "countervalues");
+  // eslint-disable-next-line no-console
+  console.log("[INIT] before r() render");
   r(<ReactRoot store={store} language={language} initialCountervalues={initialCountervalues} />);
+  // eslint-disable-next-line no-console
+  console.log("[INIT] React rendered");
 
   const postOnboardingState = await getKey("app", "postOnboarding");
   if (postOnboardingState) {
@@ -351,12 +404,23 @@ function r(Comp: React.JSX.Element) {
   root?.render(Comp);
 }
 
+// eslint-disable-next-line no-console
+console.log("[INIT] calling init()");
 init()
   .catch(e => {
-    logger.critical(e);
+    // eslint-disable-next-line no-console
+    console.error("[INIT] init() rejected:", e);
+    try {
+      logger.critical(e);
+    } catch (loggerErr) {
+      // eslint-disable-next-line no-console
+      console.error("[INIT] logger.critical also failed:", loggerErr);
+    }
     r(<AppError error={e} />);
   })
   .catch(error => {
+    // eslint-disable-next-line no-console
+    console.error("[INIT] second catch:", error);
     const pre = document.createElement("pre");
     pre.innerHTML = `Ledger Wallet crashed. Please contact Ledger support.
   ${String(error)}
