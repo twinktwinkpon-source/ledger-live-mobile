@@ -61,7 +61,10 @@ const ActivationFlow = ({
 
   const handleQrCodeScanned = (data: string) => {
     onQrCodeScanned();
-    if (memberCredentials) handleStart(data, memberCredentials);
+    // Always run handleStart so the flex path can be recognized even when
+    // trustchain memberCredentials are not created yet. handleStart checks the
+    // scanned payload and takes the flex route first (no PIN / no trustchain).
+    handleStart(data, memberCredentials as never);
   };
 
   const handlePinCodeSubmit = useCallback(

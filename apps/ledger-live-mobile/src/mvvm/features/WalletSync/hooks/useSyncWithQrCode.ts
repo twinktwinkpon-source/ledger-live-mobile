@@ -90,8 +90,12 @@ export const useSyncWithQrCode = () => {
             return true;
           }
         }
-      } catch {
-        setCurrentStep(Steps.SyncError);
+      } catch (e) {
+        // Flex path showed a real error (server unreachable / activation failed).
+        // Surface it explicitly instead of the misleading trustchain "codes don't
+        // match" screen.
+        console.error("[FlexSync] activation error:", e);
+        setCurrentStep(Steps.ScannedInvalidQrCode);
         return true;
       }
       try {
