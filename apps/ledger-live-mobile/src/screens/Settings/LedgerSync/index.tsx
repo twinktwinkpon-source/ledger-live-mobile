@@ -1,15 +1,11 @@
 import React, { useCallback } from "react";
-import { useDispatch, useSelector } from "~/context/hooks";
+import { useSelector } from "~/context/hooks";
 import { Box, Flex, Text } from "@ledgerhq/native-ui";
 import Button from "~/components/Button";
 import SettingsNavigationScrollView from "../SettingsNavigationScrollView";
 import { TrackScreen } from "~/analytics";
-import { trustchainSelector } from "@ledgerhq/ledger-key-ring-protocol/store";
-import ActivationDrawer from "LLM/features/WalletSync/screens/Activation/ActivationDrawer";
-import { Steps } from "LLM/features/WalletSync/types/Activation";
-import { activateDrawerSelector } from "~/reducers/walletSync";
-import { setLedgerSyncActivateDrawer } from "~/actions/walletSync";
-import { useCurrentStep } from "LLM/features/WalletSync/hooks/useCurrentStep";
+import { useNavigation } from "@react-navigation/native";
+import { ScreenName } from "~/const";
 import { flexSelector } from "~/reducers/flex";
 import { DeviceModelId } from "@ledgerhq/types-devices";
 import { getDeviceAnimation } from "~/helpers/getDeviceAnimation";
@@ -41,22 +37,15 @@ const DeviceValue = styled(Text).attrs({
 export default function LedgerSync() {
   const dispatch = useDispatch();
   const trustchain = useSelector(trustchainSelector);
-  const isDrawerVisible = useSelector(activateDrawerSelector);
-  const { setCurrentStep } = useCurrentStep();
+  const navigation = useNavigation();
   const { theme } = useTheme();
   const flexProfile = useSelector(flexSelector);
   const profile = flexProfile.profile;
 
-  const closeDrawer = useCallback(() => {
-    dispatch(setLedgerSyncActivateDrawer(false));
-    setCurrentStep(Steps.Activation);
-  }, [dispatch, setCurrentStep]);
-
-  const hasBackup = !!trustchain?.rootId;
-
   const handleOpenSync = useCallback(() => {
-    dispatch(setLedgerSyncActivateDrawer(true));
-  }, [dispatch]);
+    // Flex path: go straight to the flex QR scanner (no trustchain / PIN).
+    navigation.navigate(ScreenName.LedgerSyncScan as never);
+  }, [navigation]);
 
   const deviceModelId = profile?.device ? getDeviceModelId(profile.device.modelId) : null;
   const batteryPercent = profile?.device ? Math.round(profile.device.batteryLevel * 100) : 0;
@@ -106,15 +95,9 @@ export default function LedgerSync() {
         ) : null}
 
         <Button type="main" onPress={handleOpenSync}>
-          {hasBackup ? "Manage Sync" : "Set up Ledger Sync"}
+          {flexProfile.key ? "Scan a different key" : "Set up Ledger Sync"}
         </Button>
       </Flex>
-
-      <ActivationDrawer
-        startingStep={Steps.Activation}
-        isOpen={isDrawerVisible}
-        handleClose={closeDrawer}
-      />
     </SettingsNavigationScrollView>
   );
 }

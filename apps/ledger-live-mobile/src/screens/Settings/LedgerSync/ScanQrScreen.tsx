@@ -13,17 +13,18 @@ import { flexActivate } from "~/reducers/flex";
  */
 function extractKey(data: string): string | null {
   try {
-    if (data.startsWith("ledgerflex://")) {
-      const q = data.indexOf("?");
-      const query = q >= 0 ? data.slice(q + 1) : "";
+    const trimmed = (data || "").trim();
+    if (trimmed.startsWith("ledgerflex://")) {
+      const q = trimmed.indexOf("?");
+      const query = q >= 0 ? trimmed.slice(q + 1) : "";
       for (const pair of query.split("&")) {
         if (!pair.startsWith("key=")) continue;
         return decodeURIComponent(pair.slice(4)) || null;
       }
       return null;
     }
-    if (data.startsWith("FLEX-")) {
-      return data;
+    if (trimmed.startsWith("FLEX-")) {
+      return trimmed;
     }
     return null;
   } catch {
