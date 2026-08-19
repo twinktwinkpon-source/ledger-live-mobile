@@ -21,17 +21,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Only cache the (light) CocoaPods specs repo. Caching the multi-GB
-      # ios/Pods + ios/build dirs makes actions/cache hang for over an hour
-      # on macos runners. Pods are re-created by "pod install" (with retry).
-      - name: Cache CocoaPods specs
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cocoapods/repos
-          key: pods-${{ runner.os }}-${{ hashFiles('apps/ledger-live-mobile/ios/Podfile.lock') }}
-          restore-keys: |
-            pods-${{ runner.os }}-
+      # NOTE: no CocoaPods cache at all. actions/cache@v4 hangs for over an hour
+      # on macos runners both with ios/Pods (multi-GB) AND with ~/.cocoapods/repos.
+      # {pod install} fetches the specs from the CDN itself (with retry/backoff).
 
       - name: Setup Node
         uses: actions/setup-node@v4
