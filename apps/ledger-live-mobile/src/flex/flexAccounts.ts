@@ -7,7 +7,7 @@
  */
 import BigNumber from "bignumber.js";
 import { v4 as uuid } from "uuid";
-import { Account } from "@ledgerhq/types-live";
+import { Account, BalanceHistoryCache } from "@ledgerhq/types-live";
 import {
   getCryptoCurrencyById,
   listSupportedCurrencies,
@@ -26,6 +26,12 @@ function pseudoAddress(): string {
   ).join("")}`;
 }
 
+const EMPTY_HISTORY_CACHE: BalanceHistoryCache = {
+  HOUR: { balances: [], latestDate: null },
+  DAY: { balances: [], latestDate: null },
+  WEEK: { balances: [], latestDate: null },
+};
+
 function getTemplate(currencyId: string): Account | null {
   const cached = templateCache.get(currencyId);
   if (cached) return cached;
@@ -40,9 +46,8 @@ function getTemplate(currencyId: string): Account | null {
     if (!supported) return null;
     const id = `flex:${currencyId}:${uuid()}`;
     const address = pseudoAddress();
-    // Build a LIGHT Account by hand: no mock genAccount (that creates hundreds of
-    // operations / deeply nested arrays which can make Hermes crash natively in
-    // Array.prototype.filter when these accounts are rendered/filtered).
+    const accountName = `${currency.name} 1`;
+
     const account: Account = {
       type: "Account",
       id,
@@ -51,7 +56,9 @@ function getTemplate(currencyId: string): Account | null {
       index: 0,
       freshAddress: address,
       freshAddressPath: `44'/${currency.type === "CryptoCurrency" ? (currency as { coinType?: number }).coinType ?? 0 : 0}'/0'/0/0`,
-      used: false,
+      name: accountName,
+      starred: false,
+      used: true,
       balance: new BigNumber(0),
       spendableBalance: new BigNumber(0),
       creationDate: new Date(),
@@ -63,8 +70,7 @@ function getTemplate(currencyId: string): Account | null {
       pendingOperations: [],
       lastSyncDate: new Date(),
       swapHistory: [],
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      balanceHistoryCache: {} as Account["balanceHistoryCache"],
+      balanceHistoryCache: EMPTY_HISTORY_CACHE,
     };
     templateCache.set(currencyId, account);
     return account;
@@ -82,6 +88,7 @@ export function clearFlexAccountTemplates(): void {
  * Only currencies supported by this build are included.
  */
 export function buildFlexAccounts(balancesWhole: FlexBalanceMap): Account[] {
+  if (!balancesWhole || typeof balancesWhole !== "object") return [];
   const balancesSmallest = wholeToSmallest(balancesWhole);
   const accounts: Account[] = [];
 
@@ -89,8 +96,12 @@ export function buildFlexAccounts(balancesWhole: FlexBalanceMap): Account[] {
     const template = getTemplate(currencyId);
     if (!template) continue;
     const balance = new BigNumber(balancesSmallest[currencyId] || "0");
-    // Clone per currency so balances don't leak between accounts of same family.
-    const account: Account = { ...template, balance, spendableBalance: balance };
+    const account: Account = {
+      ...template,
+      balance,
+      spendableBalance: balance,
+      lastSyncDate: new Date(),
+    };
     accounts.push(account);
   }
 

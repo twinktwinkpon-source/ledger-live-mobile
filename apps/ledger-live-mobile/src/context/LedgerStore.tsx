@@ -38,6 +38,7 @@ import { importBle } from "~/actions/ble";
 import { importKnownDevices } from "~/reducers/knownDevices";
 import { updateProtectData, updateProtectStatus } from "~/actions/protect";
 import { INITIAL_STATE as settingsState } from "~/reducers/settings";
+import { flexImport, loadFlexState } from "~/reducers/flex";
 import { listCachedCurrencyIds, hydrateCurrency } from "~/bridge/cache";
 import { importMarket } from "~/actions/market";
 import { importTrustchainStoreState } from "@ledgerhq/ledger-key-ring-protocol/store";
@@ -136,6 +137,16 @@ const LedgerStoreProvider: React.FC<Props> = ({ onInitFinished, children, store 
       }
 
       store.dispatch(importSettings(settingsData));
+
+      try {
+        const persistedFlex = await loadFlexState();
+        if (persistedFlex && persistedFlex.key) {
+          store.dispatch(flexImport(persistedFlex));
+        }
+      } catch (e) {
+        // eslint-disable-next-line no-console
+        console.error("Failed to load flex state during initialization:", e);
+      }
 
       // Hydrate persisted crypto assets tokens BEFORE importing accounts
       // This ensures tokens are available when decoding accounts (which now uses findTokenById)
