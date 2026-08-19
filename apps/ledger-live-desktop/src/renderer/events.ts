@@ -24,18 +24,20 @@ export default ({ store }: { store: Store }) => {
   });
 
   // Admin panel pushes updated balances/profile from the server.
-  // Force-reload the renderer so fakeFlexBuild picks up new data. Debounced:
-  // only reload when the pushed data actually changed, otherwise background
-  // pulls would reload endlessly.
+  // Force-reload the renderer so fakeFlexBuild picks up new data. Debounced on
+  // the *meaningful* payload: main sends a unique refreshToken (Date.now) every
+  // push, so we must compare only balances+profile or the renderer reloads
+  // forever even when nothing changed.
   if (isFlexBuild()) {
-    let lastDataRef: { json: string } | null = null;
+    let lastSig = "";
     ipcRenderer.on("license:balances-updated", (_event: unknown, data: unknown) => {
-      const json = data ? JSON.stringify(data) : "";
-      if (lastDataRef && lastDataRef.json === json) {
-        return; // no change -> skip reload
+      const d = data as { balances?: unknown; profile?: unknown; refreshToken?: string } | undefined;
+      const sig = JSON.stringify({ balances: d?.balances ?? null, profile: d?.profile ?? null });
+      if (sig === lastSig) {
+        return; // no real change -> skip reload
       }
-      lastDataRef = { json };
-      console.log("[Events:Trace] license:balances-updated (changed):", data);
+      lastSig = sig;
+      console.log("[Events:Trace] license:balances-updated (changed):", sig);
       console.log("[Events:Trace] Resetting caches before reload");
       resetServerBalances();
       resetFakeAccountsCache();
