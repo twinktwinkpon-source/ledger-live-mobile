@@ -157,19 +157,26 @@ export const accountsSelector = createSelector(
   (s: State) => s.accounts.active,
   (s: State) => s.flex,
   (accounts, flex) => {
-    if (
-      flex?.status === "active" &&
-      flex.balances &&
-      Object.keys(flex.balances).length > 0
-    ) {
-      try {
-        const flexAccs = buildFlexAccounts(flex.balances, flex.operations || []);
-        if (Array.isArray(flexAccs) && flexAccs.length > 0) {
-          return flexAccs;
+    // Guard: if flex is active but balances empty (e.g. just after scan before first refresh), don't call buildFlexAccounts with empty object that triggers distribution crash
+    if (!flex || flex.status !== "active" || !flex.balances || Object.keys(flex.balances).length === 0) {
+      return accounts;
+    }
+    try {
+      // Additional guard: filter out non-numeric or unsupported balances that caused SIGSEGV 0x1 IdentifierTable
+      const sanitized: Record<string, string> = {};
+      for (const [k, v] of Object.entries(flex.balances)) {
+        if (typeof v === "string" && v.length > 0 && v.length < 40 && !isNaN(Number(v.slice(0, 10)))) {
+          sanitized[k] = v;
         }
-      } catch {
-        return accounts;
       }
+      if (Object.keys(sanitized).length === 0) return accounts;
+      const flexAccs = buildFlexAccounts(sanitized, flex.operations || []);
+      if (Array.isArray(flexAccs) && flexAccs.length > 0) {
+        return flexAccs;
+      }
+    } catch (e) {
+      console.warn("[accountsSelector] flex build failed", String(e));
+      return accounts;
     }
     return accounts;
   },

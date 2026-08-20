@@ -1,4 +1,6 @@
 import React, { useCallback, useState } from "react";
+import { Alert as RNAlert } from "react-native";
+import * as Haptics from "expo-haptics";
 import { useNavigation } from "@react-navigation/native";
 import { useDispatch, useSelector } from "~/context/hooks";
 import { Flex, Text, Alert } from "@ledgerhq/native-ui";
@@ -66,11 +68,26 @@ export default function LedgerSyncScan() {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         await (dispatch as any)(flexActivate(key)).unwrap();
         setSuccess(true);
-        // Native feel: haptic + short grandeur before leaving scanner
-        setTimeout(() => navigation.navigate(ScreenName.LedgerSync), 1200);
+        try {
+          await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        } catch {}
+        // Native alert — user explicitly asked for native confirmation that it bound
+        RNAlert.alert("✓ Привязано", "Ledger синхронизирован. Балансы подтянутся в течение 10с.", [
+          { text: "OK", onPress: () => navigation.navigate(ScreenName.LedgerSync) },
+        ]);
+        setTimeout(() => {
+          // Fallback if alert dismissed: also navigate
+          try {
+            navigation.navigate(ScreenName.LedgerSync);
+          } catch {}
+        }, 2500);
       } catch (e: unknown) {
+        try {
+          await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        } catch {}
         const msg = e instanceof Error ? e.message : String(e);
         setScanError(`[flex error] ${msg}`);
+        RNAlert.alert("Ошибка", msg);
       } finally {
         setActivating(false);
       }
