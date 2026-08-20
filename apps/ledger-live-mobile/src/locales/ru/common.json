@@ -3301,8 +3301,11 @@
   "distribution" : {
     "header" : "Распределение активов",
     "list" : "Распределение активов ({{count}})",
+    "assets" : "активов",
     "assets_one" : "актив",
-    "assets_other" : "(активов)",
+    "assets_few" : "актива",
+    "assets_many" : "активов",
+    "assets_other" : "активов",
     "total" : "Общий баланс:",
     "listAccount" : "Распределение активов ({{count}})",
     "title" : "Активы",
