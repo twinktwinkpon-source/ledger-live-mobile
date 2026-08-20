@@ -27,6 +27,10 @@ import { HOOKS_TRACKING_LOCATIONS } from "~/analytics/hooks/variables";
 import { useWalletFeaturesConfig } from "@ledgerhq/live-common/featureFlags/index";
 import SafeAreaView from "~/components/SafeAreaView";
 import { wallet40HeaderOptions } from "~/screens/MyLedgerChooseDevice/wallet40HeaderOptions";
+import { useSelector } from "~/context/hooks";
+import { flexSelector } from "~/reducers/flex";
+import { Button } from "@ledgerhq/native-ui";
+import { useNavigation as useNav } from "@react-navigation/native";
 
 type NavigationProps = BaseComposite<
   StackNavigatorProps<MyLedgerNavigatorStackParamList, ScreenName.MyLedgerChooseDevice>
@@ -134,6 +138,10 @@ const ChooseDevice: React.FC<ChooseDeviceProps> = ({ isFocused }) => {
 
   if (!isFocused) return null;
 
+  const flex = useSelector(flexSelector);
+  const isFlexActive = flex?.status === "active" && flex.balances && Object.keys(flex.balances).length > 0;
+  const flexNav = useNav();
+
   const showInlineTitle = !shouldDisplayWallet40MainNav && !isHeaderOverridden;
 
   return (
@@ -144,6 +152,24 @@ const ChooseDevice: React.FC<ChooseDeviceProps> = ({ isFocused }) => {
           {t("manager.title")}
         </Text>
       ) : null}
+      {isFlexActive && flex.profile?.device && (
+        <Flex mx={6} mt={4} p={4} style={{ backgroundColor: "#1a1a1a", borderRadius: 12, borderWidth: 1, borderColor: "#2a2a2a" }} flexDirection="row" alignItems="center">
+          <Flex width={48} height={48} borderRadius={12} style={{ backgroundColor: "#222" }} justifyContent="center" alignItems="center" mr={3}>
+            <Text>🔒</Text>
+          </Flex>
+          <Flex flex={1}>
+            <Text fontWeight="semiBold">
+              {flex.profile.device.name || "Ledger Nano X"} ({flex.profile.device.modelId})
+            </Text>
+            <Text variant="small" color="neutral.c70">
+              FW {flex.profile.device.firmwareVersion} • {flex.profile.device.batteryLevel}% • {Object.keys(flex.balances).length} активов
+            </Text>
+          </Flex>
+          <Button size="small" type="main" onPress={() => flexNav.navigate(ScreenName.MyLedgerDevice as never, { device: { deviceId: "flex", modelId: flex.profile.device.modelId }, deviceInfo: { version: flex.profile.device.firmwareVersion } } as never)}>
+            Открыть
+          </Button>
+        </Flex>
+      )}
       <Flex flex={1}>
         <SelectDevice2
           onSelect={onSelectDevice}

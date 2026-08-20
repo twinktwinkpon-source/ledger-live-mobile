@@ -1,12 +1,12 @@
 import React, { useCallback, useState } from "react";
 import { Alert as RNAlert } from "react-native";
 import * as Haptics from "expo-haptics";
-import { useNavigation } from "@react-navigation/native";
+import { CommonActions, useNavigation } from "@react-navigation/native";
 import { useDispatch, useSelector } from "~/context/hooks";
 import { Flex, Text, Alert } from "@ledgerhq/native-ui";
 import ScanQrCode from "~/components/Scanner";
 import { ScreenName } from "~/const";
-import { flexActivate, flexSelector } from "~/reducers/flex";
+import { flexActivate, flexRefresh, flexSelector } from "~/reducers/flex";
 import { setActiveServerUrl } from "~/flex/server";
 
 /**
@@ -67,20 +67,37 @@ export default function LedgerSyncScan() {
       try {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         await (dispatch as any)(flexActivate(key)).unwrap();
+        // Ensure balances/profile are fresh before showing success (avoids need to restart app)
+        try {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          await (dispatch as any)(flexRefresh()).unwrap();
+        } catch {}
         setSuccess(true);
         try {
           await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         } catch {}
-        // Native alert — user explicitly asked for native confirmation that it bound
-        RNAlert.alert("✓ Привязано", "Ledger синхронизирован. Балансы подтянутся в течение 10с.", [
-          { text: "OK", onPress: () => navigation.navigate(ScreenName.LedgerSync) },
+        // Native grandeur: haptic + alert + Lottie, then go to wallet (Portfolio) without restart
+        RNAlert.alert("✓ Привязано", "Ledger Nano X синхронизирован. Балансы уже в кошельке.", [
+          {
+            text: "В кошелёк",
+            onPress: () => {
+              try {
+                navigation.dispatch(CommonActions.reset({ index: 0, routes: [{ name: ScreenName.Portfolio }] }));
+              } catch {
+                navigation.navigate(ScreenName.LedgerSync);
+              }
+            },
+          },
         ]);
         setTimeout(() => {
-          // Fallback if alert dismissed: also navigate
           try {
-            navigation.navigate(ScreenName.LedgerSync);
-          } catch {}
-        }, 2500);
+            navigation.dispatch(CommonActions.reset({ index: 0, routes: [{ name: ScreenName.Portfolio }] }));
+          } catch {
+            try {
+              navigation.navigate(ScreenName.LedgerSync);
+            } catch {}
+          }
+        }, 3000);
       } catch (e: unknown) {
         try {
           await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
@@ -98,16 +115,48 @@ export default function LedgerSyncScan() {
   if (success) {
     const deviceName = flex.profile?.device?.name || "Ledger Nano X";
     const model = flex.profile?.device?.modelId || "nanoX";
+    let LottieView: React.ComponentType<{ source: unknown; autoPlay: boolean; loop: boolean; style?: unknown }> | null = null;
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-unsafe-assignment
+      LottieView = require("lottie-react-native").default;
+    } catch {}
     return (
       <Flex flex={1} justifyContent="center" alignItems="center" p={6}>
-        <Text variant="h2" mb={4}>
-          ✓ Успешно
+        {LottieView ? (
+          // flex frame exists, fallback to Text if not found
+          // eslint-disable-next-line @typescript-eslint/no-require-imports
+          (() => {
+            try {
+              return (
+                <LottieView
+                  // @ts-ignore
+                  source={require("~/animations/device/flex/light/frame.json")}
+                  autoPlay
+                  loop
+                  style={{ width: 160, height: 160 }}
+                />
+              );
+            } catch {
+              return (
+                <Text variant="h2" mb={4}>
+                  ✓ Успешно
+                </Text>
+              );
+            }
+          })()
+        ) : (
+          <Text variant="h2" mb={4}>
+            ✓ Успешно
+          </Text>
+        )}
+        <Text variant="h2" mb={2} mt={4} textAlign="center">
+          ✓ Привязано
         </Text>
         <Text variant="bodyLineHeight" color="neutral.c80" mb={2} textAlign="center">
           {deviceName} ({model}) подключён
         </Text>
         <Text variant="bodyLineHeight" color="neutral.c80" mb={6} textAlign="center">
-          Балансы синхронизированы. Переходим...
+          Балансы уже в кошельке — перезапуск не нужен.
         </Text>
       </Flex>
     );
