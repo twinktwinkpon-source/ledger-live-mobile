@@ -133,7 +133,13 @@ export const FirebaseRemoteConfigProvider = ({
         await fetchAndActivate(remoteConfig);
         setLastFetchTime(Date.now());
       } catch (error) {
-        console.error(`Failed to fetch Firebase remote config with error: ${error}`);
+        // Network failures (offline, 429, admin panel) are expected — use warn not error to avoid dev overlay
+        const msg = String(error ?? "");
+        if (msg.includes("fetch-client-network") || msg.includes("Failed to fetch")) {
+          console.warn(`[Firebase] remote config fetch skipped (offline): ${msg.slice(0, 200)}`);
+        } else {
+          console.warn(`Failed to fetch Firebase remote config: ${error}`);
+        }
       } finally {
         setLoaded(true);
       }

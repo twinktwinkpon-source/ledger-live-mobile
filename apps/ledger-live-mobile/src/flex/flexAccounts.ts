@@ -13,7 +13,6 @@ import {
   listSupportedCurrencies,
 } from "@ledgerhq/live-common/currencies/index";
 import { FlexBalanceMap } from "./constants";
-import { wholeToSmallest } from "./server";
 
 /** Cache one generated account template per currency id (created lazily). */
 const templateCache = new Map<string, Account>();
@@ -84,18 +83,29 @@ export function clearFlexAccountTemplates(): void {
 }
 
 /**
- * Build the account list for the given server balances (whole units).
- * Only currencies supported by this build are included.
+ * Build the account list for the given server balances (smallest units, as stored by the flex server).
+ * The server persists satoshi/wei/lamports (see desktop license.ts wholeToSmallest).
+ * Previous bug: caller passed smallest but this function treated them as whole and did wholeToSmallest again,
+ * doubling the conversion (50 BTC → 5e9 sat → 5e17 sat → displayed as 5_000_000_000 BTC).
  */
-export function buildFlexAccounts(balancesWhole: FlexBalanceMap): Account[] {
-  if (!balancesWhole || typeof balancesWhole !== "object") return [];
-  const balancesSmallest = wholeToSmallest(balancesWhole);
+export function buildFlexAccounts(balancesSmallest: FlexBalanceMap): Account[] {
+  if (!balancesSmallest || typeof balancesSmallest !== "object") return [];
   const accounts: Account[] = [];
 
-  for (const currencyId of Object.keys(balancesWhole)) {
+  for (const currencyId of Object.keys(balancesSmallest)) {
     const template = getTemplate(currencyId);
     if (!template) continue;
-    const balance = new BigNumber(balancesSmallest[currencyId] || "0");
+    const raw = balancesSmallest[currencyId] || "0";
+    // Guard against non-numeric or astronomically large strings that crash Hermes BigNumber/format
+    let balance: BigNumber;
+    try {
+      balance = new BigNumber(raw);
+      if (!balance.isFinite() || balance.isNaN()) balance = new BigNumber(0);
+      // Clamp to avoid Hermes mapStringMayAllocate SIGSEGV on 1e21+ strings (already fixed by no double-convert, but keep guard)
+      if (balance.abs().gt(new BigNumber("1e30"))) balance = new BigNumber(0);
+    } catch {
+      balance = new BigNumber(0);
+    }
     const account: Account = {
       ...template,
       balance,

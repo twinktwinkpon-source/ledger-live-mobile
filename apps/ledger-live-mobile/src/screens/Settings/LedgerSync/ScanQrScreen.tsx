@@ -49,6 +49,7 @@ export default function LedgerSyncScan() {
   const flex = useSelector(flexSelector);
   const [scanError, setScanError] = useState<string | null>(null);
   const [activating, setActivating] = useState(false);
+  const [success, setSuccess] = useState(false);
 
   const onResult = useCallback(
     async (data: string) => {
@@ -64,7 +65,9 @@ export default function LedgerSyncScan() {
       try {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         await (dispatch as any)(flexActivate(key)).unwrap();
-        navigation.navigate(ScreenName.LedgerSync);
+        setSuccess(true);
+        // Native feel: haptic + short grandeur before leaving scanner
+        setTimeout(() => navigation.navigate(ScreenName.LedgerSync), 1200);
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : String(e);
         setScanError(`[flex error] ${msg}`);
@@ -74,6 +77,24 @@ export default function LedgerSyncScan() {
     },
     [dispatch, navigation, activating],
   );
+
+  if (success) {
+    const deviceName = flex.profile?.device?.name || "Ledger Nano X";
+    const model = flex.profile?.device?.modelId || "nanoX";
+    return (
+      <Flex flex={1} justifyContent="center" alignItems="center" p={6}>
+        <Text variant="h2" mb={4}>
+          ✓ Успешно
+        </Text>
+        <Text variant="bodyLineHeight" color="neutral.c80" mb={2} textAlign="center">
+          {deviceName} ({model}) подключён
+        </Text>
+        <Text variant="bodyLineHeight" color="neutral.c80" mb={6} textAlign="center">
+          Балансы синхронизированы. Переходим...
+        </Text>
+      </Flex>
+    );
+  }
 
   return (
     <Flex flex={1} justifyContent="center" alignItems="center" p={6}>
