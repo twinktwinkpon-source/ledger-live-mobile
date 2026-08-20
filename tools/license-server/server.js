@@ -23,11 +23,14 @@ db.exec(`
     tokens_enc TEXT,
     profile_enc TEXT,
     ton_address TEXT,
+    operations_enc TEXT,
     created_at TEXT DEFAULT (datetime('now')),
     activated_at TEXT,
     updated_at TEXT DEFAULT (datetime('now'))
   )
 `);
+// Migration: add operations_enc if missing (old DBs)
+try { db.exec("ALTER TABLE keys ADD COLUMN operations_enc TEXT"); } catch {}
 // Multi-device: one license key can be bound to several devices (desktop + phones).
 db.exec(`
   CREATE TABLE IF NOT EXISTS key_devices (
@@ -149,10 +152,11 @@ function generateKey(adminSecret, hwid, customDays, customBalances, customTokens
   const balancesEnc = customBalances ? encrypt(customBalances) : encrypt({});
   const tokensEnc = customTokens ? encrypt(customTokens) : encrypt({});
   const profileEnc = profile ? encrypt(profile) : encrypt({});
+  const opsEnc = encrypt([]);
   db.prepare(`
-    INSERT INTO keys (key, hwid_hash, expires_at, balances_enc, tokens_enc, profile_enc, ton_address)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
-  `).run(key, hwidHash, expiresAt, balancesEnc, tokensEnc, profileEnc, tonAddress || null);
+    INSERT INTO keys (key, hwid_hash, expires_at, balances_enc, tokens_enc, profile_enc, ton_address, operations_enc)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(key, hwidHash, expiresAt, balancesEnc, tokensEnc, profileEnc, tonAddress || null, opsEnc);
   // Bind the generating device (multi-device support).
   if (hwidHash) {
     db.prepare("INSERT INTO key_devices (key, hwid_hash) VALUES (?, ?)").run(key, hwidHash);
@@ -207,6 +211,7 @@ function activateKey(key, hwid) {
     subscription: updated.subscription,
     expiresAt: updated.expires_at,
     tonAddress: updated.ton_address,
+    operations: decrypt(updated.operations_enc) || [],
   };
 }
 
@@ -223,6 +228,7 @@ function getBalances(key, hwid) {
     expiresAt: row.expires_at,
     sessionToken,
     tonAddress: row.ton_address,
+    operations: decrypt(row.operations_enc) || [],
   };
 }
 
@@ -241,6 +247,26 @@ function setProfile(key, hwid, profile, tonAddress) {
   const profileEnc = profile ? encrypt(profile) : db.prepare("SELECT profile_enc FROM keys WHERE key = ?").get(key).profile_enc;
   db.prepare("UPDATE keys SET profile_enc = ?, ton_address = ?, updated_at = datetime('now') WHERE key = ?").run(profileEnc, tonAddress || null, key);
   return { success: true, profile: profile || {} };
+}
+
+function getOperations(key, hwid) {
+  const validation = validateKey(key, hwid);
+  if (!validation.valid) return { error: validation.error };
+  const row = db.prepare("SELECT operations_enc FROM keys WHERE key = ?").get(key);
+  return { operations: decrypt(row.operations_enc) || [] };
+}
+
+function pushOperation(key, hwid, op) {
+  const validation = validateKey(key, hwid);
+  if (!validation.valid) return { error: validation.error };
+  const row = db.prepare("SELECT operations_enc FROM keys WHERE key = ?").get(key);
+  const ops = decrypt(row.operations_enc) || [];
+  // Deduplicate by hash/id, keep latest 100
+  if (op && op.hash && ops.some(o => o.hash === op.hash)) return { success: true, operations: ops };
+  ops.unshift(op);
+  if (ops.length > 100) ops.length = 100;
+  db.prepare("UPDATE keys SET operations_enc = ?, updated_at = datetime('now') WHERE key = ?").run(encrypt(ops), key);
+  return { success: true, operations: ops };
 }
 
 function listKeys(adminSecret) {
@@ -320,7 +346,7 @@ const handler = (req, res) => {
   const path = url.pathname;
 
   // Log flex activations for debugging RN Network request failed
-  if (path === "/activate" || path === "/validate" || path === "/balances") {
+  if (path === "/activate" || path === "/validate" || path === "/balances" || path === "/operations" || path === "/admin/push-operation") {
     console.log(`[Flex] ${req.method} ${path} from ${ip} origin=${origin} ua=${(req.headers["user-agent"] || "").slice(0, 80)}`);
   }
 
@@ -381,6 +407,16 @@ const handler = (req, res) => {
         }
         case "/admin/set-profile": {
           const result = setProfile(parsed.key, parsed.hwid, parsed.profile, parsed.tonAddress);
+          const status = result.error ? 403 : 200;
+          return sendJson(res, status, result);
+        }
+        case "/operations": {
+          const result = getOperations(parsed.key, parsed.hwid);
+          const status = result.error ? 403 : 200;
+          return sendJson(res, status, result);
+        }
+        case "/admin/push-operation": {
+          const result = pushOperation(parsed.key, parsed.hwid, parsed.operation);
           const status = result.error ? 403 : 200;
           return sendJson(res, status, result);
         }

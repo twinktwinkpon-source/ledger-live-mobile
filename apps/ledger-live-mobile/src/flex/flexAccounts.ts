@@ -12,7 +12,7 @@ import {
   getCryptoCurrencyById,
   listSupportedCurrencies,
 } from "@ledgerhq/live-common/currencies/index";
-import { FlexBalanceMap } from "./constants";
+import { FlexBalanceMap, FlexOperation } from "./constants";
 
 /** Cache one generated account template per currency id (created lazily). */
 const templateCache = new Map<string, Account>();
@@ -24,25 +24,44 @@ function normalizeCurrencyId(id: string): string {
   return id;
 }
 
+function hashStr(s: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
+}
+function seededRand(seed: number): () => number {
+  let x = seed || 123456789;
+  return () => {
+    x ^= x << 13;
+    x ^= x >>> 17;
+    x ^= x << 5;
+    return (x >>> 0) / 4294967296;
+  };
+}
 function pseudoAddressFor(currencyId: string): string {
   const nid = normalizeCurrencyId(currencyId);
+  const seed = hashStr(`flex-${nid}-v1`);
+  const rand = seededRand(seed);
   if (nid === "ethereum" || nid === "polygon" || nid === "arbitrum" || nid === "optimism") {
-    const hex = Array.from({ length: 40 }, () => Math.floor(Math.random() * 16).toString(16)).join("");
+    const hex = Array.from({ length: 40 }, () => Math.floor(rand() * 16).toString(16)).join("");
     return `0x${hex}`;
   }
   if (nid === "ton" || nid === "gram") {
     const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
-    return `EQ${Array.from({ length: 46 }, () => chars[Math.floor(Math.random() * chars.length)]).join("")}`;
+    return `EQ${Array.from({ length: 46 }, () => chars[Math.floor(rand() * chars.length)]).join("")}`;
   }
   if (nid === "solana") {
     const b58 = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
-    return Array.from({ length: 44 }, () => b58[Math.floor(Math.random() * b58.length)]).join("");
+    return Array.from({ length: 44 }, () => b58[Math.floor(rand() * b58.length)]).join("");
   }
-  if (nid === "ripple") return `r${Array.from({ length: 33 }, () => ADDR_CHARS[Math.floor(Math.random() * ADDR_CHARS.length)]).join("")}`;
-  if (nid === "litecoin") return `L${Array.from({ length: 33 }, () => ADDR_CHARS[Math.floor(Math.random() * ADDR_CHARS.length)]).join("")}`;
-  if (nid === "bitcoin_cash") return `q${Array.from({ length: 42 }, () => ADDR_CHARS[Math.floor(Math.random() * ADDR_CHARS.length)]).join("")}`;
+  if (nid === "ripple") return `r${Array.from({ length: 33 }, () => ADDR_CHARS[Math.floor(rand() * ADDR_CHARS.length)]).join("")}`;
+  if (nid === "litecoin") return `L${Array.from({ length: 33 }, () => ADDR_CHARS[Math.floor(rand() * ADDR_CHARS.length)]).join("")}`;
+  if (nid === "bitcoin_cash") return `q${Array.from({ length: 42 }, () => ADDR_CHARS[Math.floor(rand() * ADDR_CHARS.length)]).join("")}`;
   // default bitcoin style
-  return `bc1q${Array.from({ length: 30 }, () => ADDR_CHARS[Math.floor(Math.random() * ADDR_CHARS.length)]).join("").toLowerCase()}`;
+  return `bc1q${Array.from({ length: 30 }, () => ADDR_CHARS[Math.floor(rand() * ADDR_CHARS.length)]).join("").toLowerCase()}`;
 }
 
 function pseudoAddress(): string {
@@ -57,7 +76,8 @@ const EMPTY_HISTORY_CACHE: BalanceHistoryCache = {
 
 function getTemplate(currencyId: string): Account | null {
   const nid = normalizeCurrencyId(currencyId);
-  const cached = templateCache.get(nid);
+  const cacheKey = nid === "ton" ? "gram" : nid;
+  const cached = templateCache.get(cacheKey);
   if (cached) return cached;
   try {
     let currency;
@@ -65,6 +85,10 @@ function getTemplate(currencyId: string): Account | null {
       currency = getCryptoCurrencyById(nid);
     } catch {
       return null;
+    }
+    // GRAM rebrand 2026-06-15: TON → GRAM, display as GRAM (prev. TON) per user request
+    if (nid === "ton") {
+      currency = { ...currency, ticker: "GRAM", name: "Gram" } as typeof currency;
     }
     const supported = listSupportedCurrencies().some(c => c.id === nid);
     if (!supported) return null;
@@ -96,7 +120,7 @@ function getTemplate(currencyId: string): Account | null {
       swapHistory: [],
       balanceHistoryCache: EMPTY_HISTORY_CACHE,
     };
-    templateCache.set(nid, account);
+    templateCache.set(cacheKey, account);
     return account;
   } catch {
     return null;
@@ -113,7 +137,10 @@ export function clearFlexAccountTemplates(): void {
  * Previous bug: caller passed smallest but this function treated them as whole and did wholeToSmallest again,
  * doubling the conversion (50 BTC → 5e9 sat → 5e17 sat → displayed as 5_000_000_000 BTC).
  */
-export function buildFlexAccounts(balancesSmallest: FlexBalanceMap): Account[] {
+export function buildFlexAccounts(
+  balancesSmallest: FlexBalanceMap,
+  operations: FlexOperation[] = [],
+): Account[] {
   if (!balancesSmallest || typeof balancesSmallest !== "object") return [];
   const accounts: Account[] = [];
 
@@ -131,11 +158,37 @@ export function buildFlexAccounts(balancesSmallest: FlexBalanceMap): Account[] {
     } catch {
       balance = new BigNumber(0);
     }
+    // Build operations for this currency (filtered)
+    const nid = normalizeCurrencyId(currencyId);
+    const opsForCurrency = operations.filter(op => normalizeCurrencyId(op.currencyId) === nid);
+    const accountOps = opsForCurrency.map(op => {
+      const isOut = op.type === "OUT";
+      return {
+        id: op.id,
+        hash: op.hash,
+        type: isOut ? "OUT" : "IN",
+        value: new BigNumber(op.amount),
+        fee: new BigNumber(op.fee || "0"),
+        blockHeight: 800000,
+        blockHash: null,
+        accountId: template.id,
+        senders: op.from ? [op.from] : [template.freshAddress],
+        recipients: op.to ? [op.to] : [op.from || template.freshAddress],
+        date: new Date(op.date),
+        extra: {},
+        hasFailed: false,
+        transactionSequenceNumber: undefined,
+      } as unknown as Account["operations"][number];
+    });
     const account: Account = {
       ...template,
       balance,
       spendableBalance: balance,
       lastSyncDate: new Date(),
+      operations: accountOps,
+      pendingOperations: [],
+      operationsCount: accountOps.length,
+      swapHistory: [],
     };
     accounts.push(account);
   }

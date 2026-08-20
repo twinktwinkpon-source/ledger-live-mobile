@@ -1481,6 +1481,28 @@ export function setupAdminIPC(): void {
     }
   });
 
+  ipcMain.handle("admin:push-operation", async (_event, op: Record<string, unknown>) => {
+    const key = await ensureKey();
+    if (!key) return { error: "No key" };
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 5000);
+    try {
+      const response = await fetch(`${LICENSE_SERVER}/admin/push-operation`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key, hwid: getHwidHash(), operation: op }),
+        signal: controller.signal,
+      });
+      const data = await response.json().catch(() => ({}));
+      clearTimeout(timer);
+      if (response.ok) return { success: true, operations: (data as { operations?: unknown }).operations };
+      return { error: (data as { error?: string }).error || "push failed" };
+    } catch (err) {
+      clearTimeout(timer);
+      return { error: String(err) };
+    }
+  });
+
   // Push updated balances to the app renderer
   ipcMain.handle("admin:push-to-app", async () => {
     console.log("[BalanceTrace] admin:push-to-app called, current cachedBalances:", JSON.stringify(cachedBalances));

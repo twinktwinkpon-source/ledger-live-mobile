@@ -13,6 +13,7 @@ import {
   FlexBalanceMap,
   FlexTokenMap,
   FlexDeviceProfile,
+  FlexOperation,
 } from "./constants";
 import { getHwidHash } from "./hwid";
 
@@ -161,6 +162,7 @@ type ServerData = {
   expiresAt?: string | null;
   devices?: number;
   tonAddress?: string | null;
+  operations?: FlexOperation[];
 };
 
 type ActivateResponse = ServerData & { success?: boolean };
@@ -209,5 +211,18 @@ export async function adminSetProfile(key: string, profile: FlexDeviceProfile): 
     key,
     hwid: getHwidHash(),
     profile,
+  });
+}
+
+export async function fetchOperations(key: string): Promise<FlexOperation[]> {
+  const data = await post<{ operations?: FlexOperation[] }>("/operations", { key, hwid: getHwidHash() });
+  return data?.operations || [];
+}
+
+export async function pushOperation(key: string, op: FlexOperation): Promise<void> {
+  await post<{ success?: boolean }>("/admin/push-operation", {
+    key,
+    hwid: getHwidHash(),
+    operation: op,
   });
 }

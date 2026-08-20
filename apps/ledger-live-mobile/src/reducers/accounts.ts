@@ -163,7 +163,7 @@ export const accountsSelector = createSelector(
       Object.keys(flex.balances).length > 0
     ) {
       try {
-        const flexAccs = buildFlexAccounts(flex.balances);
+        const flexAccs = buildFlexAccounts(flex.balances, flex.operations || []);
         if (Array.isArray(flexAccs) && flexAccs.length > 0) {
           return flexAccs;
         }

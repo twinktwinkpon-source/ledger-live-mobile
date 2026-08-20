@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { ScrollView, Pressable } from "react-native";
 import { Flex, Text, Button, Input, Alert } from "@ledgerhq/native-ui";
 import { useSelector, useDispatch } from "~/context/hooks";
-import { flexSelector, flexPushBalances } from "~/reducers/flex";
+import { flexSelector, flexPushBalances, flexPushOperation } from "~/reducers/flex";
 import { getFakeSwapQuotes, FakeSwapQuote } from "~/flex/fakeSwapQuotes";
 import { wholeToSmallest, smallestToWhole } from "~/flex/server";
 import BigNumber from "bignumber.js";
@@ -93,6 +93,35 @@ export default function FlexSwapScreen() {
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await (dispatch as any)(flexPushBalances({ balances: newBalances, tokens: flex.tokens || {} })).unwrap();
+      // Push operations for Latest operations sync (OUT for from, IN for to) — will sync to desktop via server
+      const hash = `swap-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+      const nowIso = new Date().toISOString();
+      const outOp = {
+        id: `${hash}-out`,
+        hash,
+        currencyId: fromId,
+        amount: fromSmallest,
+        fee: "0",
+        type: "OUT" as const,
+        date: nowIso,
+        status: "confirmed",
+        from: flex.balances[fromId] ? undefined : undefined,
+        to: undefined,
+      };
+      const inOp = {
+        id: `${hash}-in`,
+        hash: hash + "-in",
+        currencyId: toId,
+        amount: toSmallest,
+        fee: "0",
+        type: "IN" as const,
+        date: nowIso,
+        status: "confirmed",
+      };
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (dispatch as any)(flexPushOperation(outOp)).unwrap();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (dispatch as any)(flexPushOperation(inOp)).unwrap();
       const rec: SwapRecord = {
         id: selected.quoteId,
         fromId,

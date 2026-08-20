@@ -88,6 +88,19 @@ export type FlexDeviceProfile = {
 export type FlexBalanceMap = Record<string, string>;
 export type FlexTokenMap = Record<string, string>;
 
+export type FlexOperation = {
+  id: string;
+  hash: string;
+  currencyId: string;
+  amount: string; // smallest units
+  fee: string; // smallest units
+  type: "IN" | "OUT";
+  date: string; // ISO
+  status: string;
+  from?: string;
+  to?: string;
+};
+
 export type FlexState = {
   key: string | null;
   expiresAt: string | null;
@@ -96,6 +109,7 @@ export type FlexState = {
   balances: FlexBalanceMap;
   tokens: FlexTokenMap;
   profile: FlexDeviceProfile | null;
+  operations: FlexOperation[];
 };
 
 export const DEFAULT_PROFILE: FlexDeviceProfile = {

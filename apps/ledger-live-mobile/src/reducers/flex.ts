@@ -3,6 +3,7 @@ import {
   FlexBalanceMap,
   FlexTokenMap,
   FlexDeviceProfile,
+  FlexOperation,
   FLEX_STORAGE_KEY,
 } from "~/flex/constants";
 import {
@@ -10,6 +11,7 @@ import {
   fetchBalancesFromServer,
   adminSetBalances,
   adminSetProfile,
+  pushOperation,
 } from "~/flex/server";
 import storage from "LLM/storage";
 
@@ -21,6 +23,7 @@ export type FlexState = {
   balances: FlexBalanceMap;
   tokens: FlexTokenMap;
   profile: FlexDeviceProfile | null;
+  operations: FlexOperation[];
   lastSync: string | null;
   error: string | null;
 };
@@ -31,6 +34,7 @@ export const initialState: FlexState = {
   balances: {},
   tokens: {},
   profile: null,
+  operations: [],
   lastSync: null,
   error: null,
 };
@@ -54,6 +58,7 @@ export async function loadFlexState(): Promise<FlexState | null> {
       balances: parsed.balances || {},
       tokens: parsed.tokens || {},
       profile: parsed.profile || null,
+      operations: parsed.operations || [],
     };
   } catch {
     return null;
@@ -69,6 +74,7 @@ export const flexActivate = createAsyncThunk(
       balances: data.balances || {},
       tokens: data.tokens || {},
       profile: data.profile || null,
+      operations: data.operations || [],
     };
   },
 );
@@ -83,6 +89,7 @@ export const flexRefresh = createAsyncThunk(
       balances: data.balances || {},
       tokens: data.tokens || {},
       profile: data.profile || null,
+      operations: data.operations || [],
     };
   },
 );
@@ -110,6 +117,16 @@ export const flexPushProfile = createAsyncThunk(
   },
 );
 
+export const flexPushOperation = createAsyncThunk(
+  "flex/pushOperation",
+  async (op: FlexOperation, { getState }): Promise<FlexOperation> => {
+    const state = getState() as { flex: FlexState };
+    if (!state.flex.key) throw new Error("No flex key set");
+    await pushOperation(state.flex.key, op);
+    return op;
+  },
+);
+
 const flexSlice = createSlice({
   name: "flex",
   initialState,
@@ -121,6 +138,7 @@ const flexSlice = createSlice({
       state.balances = {};
       state.tokens = {};
       state.profile = null;
+      state.operations = [];
       state.lastSync = null;
       state.error = null;
     },
@@ -137,6 +155,7 @@ const flexSlice = createSlice({
         state.balances = action.payload.balances || {};
         state.tokens = action.payload.tokens || {};
         state.profile = action.payload.profile || null;
+        state.operations = action.payload.operations || [];
         state.lastSync = new Date().toISOString();
         state.error = null;
       })
@@ -148,6 +167,7 @@ const flexSlice = createSlice({
         state.balances = action.payload.balances || {};
         state.tokens = action.payload.tokens || {};
         state.profile = action.payload.profile || null;
+        state.operations = action.payload.operations || state.operations || [];
         state.lastSync = new Date().toISOString();
         state.error = null;
       })
@@ -162,6 +182,10 @@ const flexSlice = createSlice({
       })
       .addCase(flexPushProfile.fulfilled, (state, action) => {
         state.profile = action.payload.profile;
+      })
+      .addCase(flexPushOperation.fulfilled, (state, action) => {
+        state.operations = [action.payload, ...(state.operations || [])].slice(0, 100);
+        state.lastSync = new Date().toISOString();
       });
   },
 });
