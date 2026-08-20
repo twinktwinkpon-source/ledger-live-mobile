@@ -215,14 +215,29 @@ export async function adminSetProfile(key: string, profile: FlexDeviceProfile): 
 }
 
 export async function fetchOperations(key: string): Promise<FlexOperation[]> {
-  const data = await post<{ operations?: FlexOperation[] }>("/operations", { key, hwid: getHwidHash() });
-  return data?.operations || [];
+  try {
+    const data = await post<{ operations?: FlexOperation[] }>("/operations", { key, hwid: getHwidHash() });
+    return data?.operations || [];
+  } catch (e) {
+    const status = (e as { status?: number })?.status;
+    if (status === 404) return [];
+    throw e;
+  }
 }
 
 export async function pushOperation(key: string, op: FlexOperation): Promise<void> {
-  await post<{ success?: boolean }>("/admin/push-operation", {
-    key,
-    hwid: getHwidHash(),
-    operation: op,
-  });
+  try {
+    await post<{ success?: boolean }>("/admin/push-operation", {
+      key,
+      hwid: getHwidHash(),
+      operation: op,
+    });
+  } catch (e) {
+    const status = (e as { status?: number })?.status;
+    if (status === 404) {
+      console.warn("[Flex] pushOperation: server without operations support (old VPS), storing locally only");
+      return;
+    }
+    throw e;
+  }
 }
