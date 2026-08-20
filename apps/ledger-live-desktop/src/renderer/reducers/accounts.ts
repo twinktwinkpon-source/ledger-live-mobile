@@ -77,6 +77,26 @@ const handlers: AccountsHandlers = {
             (result as any).spendableBalance = (result as any).spendableBalance.minus(deduction);
             const currencyId = (result as any).currency?.id;
             if (currencyId) deductFromServerBalance(currencyId, op.value, op.fee);
+            // Sync operation to mobile via flex server (GRAM/TON etc)
+            try {
+              const opForSync = {
+                id: op.id,
+                hash: op.hash,
+                currencyId: currencyId || "bitcoin",
+                amount: (op.value instanceof BigNumber ? op.value : new BigNumber(op.value || 0)).toString(),
+                fee: (op.fee instanceof BigNumber ? op.fee : new BigNumber(op.fee || 0)).toString(),
+                type: "OUT",
+                date: op.date ? new Date(op.date).toISOString() : new Date().toISOString(),
+                status: "confirmed",
+                from: op.senders?.[0],
+                to: op.recipients?.[0],
+              };
+              // Fire-and-forget IPC to main for server sync
+              (window as unknown as { require?: (m: string) => { ipcRenderer: { invoke: (c: string, d: unknown) => Promise<unknown> } } })
+                ?.require?.("electron")
+                ?.ipcRenderer?.invoke("admin:push-operation", opForSync)
+                .catch(() => {});
+            } catch {}
           }
         }
         // Promote pendingOperations → operations (no real blockchain to wait for in Flex demo)
