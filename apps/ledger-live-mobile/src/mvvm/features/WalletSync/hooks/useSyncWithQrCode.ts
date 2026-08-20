@@ -93,9 +93,13 @@ export const useSyncWithQrCode = () => {
         }
       } catch (e) {
         // Flex path showed a real error (server unreachable / activation failed).
-        // Surface it explicitly instead of the misleading trustchain "codes don't
-        // match" screen.
-        console.error("[FlexSync] activation error:", e);
+        // Keep the detailed message in console and surface via redux flex.error;
+        // ScannedInvalidQrCode screen shows generic "invalid QR" but flex.error
+        // now contains the real cause (see flex/server.ts diagnostics).
+        const msg = e instanceof Error ? e.message : String(e);
+        console.error("[FlexSync] activation error:", msg, e);
+        // Also dispatch a rejected flexActivate error is already stored in redux
+        // via flexSlice; just move to error step.
         setCurrentStep(Steps.ScannedInvalidQrCode);
         return true;
       }

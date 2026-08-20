@@ -28,13 +28,14 @@ export function setActiveServerUrl(url: string): void {
   }
 }
 
-const REQUEST_TIMEOUT_MS = 10000;
+const REQUEST_TIMEOUT_MS = 15000;
 
 async function post<T>(path: string, body: Record<string, unknown>): Promise<T | null> {
+  const targetUrl = `${_activeServerUrl}${path}`;
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
-    const response = await fetch(`${_activeServerUrl}${path}`, {
+    const response = await fetch(targetUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
@@ -45,14 +46,26 @@ async function post<T>(path: string, body: Record<string, unknown>): Promise<T |
       const data = await response.json().catch(() => ({}));
       const error =
         (data && (data as { error?: string }).error) || `Server error (${response.status})`;
-      const err = new Error(error) as Error & { status?: number };
+      const err = new Error(error) as Error & { status?: number; url?: string };
       err.status = response.status;
+      (err as unknown as { url?: string }).url = targetUrl;
       throw err;
     }
     return (await response.json()) as T;
   } catch (error) {
     if (error && (error as { status?: number }).status) throw error;
-    throw new Error("Cannot connect to flex server", { cause: error });
+    const causeMsg =
+      error instanceof Error ? error.message : String(error ?? "unknown");
+    const isAbort =
+      causeMsg.includes("abort") || (error as { name?: string })?.name === "AbortError";
+    const detail = isAbort
+      ? `Timeout ${REQUEST_TIMEOUT_MS}ms to ${targetUrl}`
+      : `${causeMsg} → ${targetUrl}`;
+    const err = new Error(`Cannot connect to flex server: ${detail}`, {
+      cause: error,
+    }) as Error & { status?: number; url?: string };
+    (err as unknown as { url?: string }).url = targetUrl;
+    throw err;
   }
 }
 
@@ -119,9 +132,11 @@ type ValidateResponse = { valid?: boolean; expiresAt?: string | null };
  * device instead of rejecting a different HWID.
  */
 export async function activateKey(key: string): Promise<ServerData> {
-  const data = await post<ActivateResponse>("/activate", { key, hwid: getHwidHash() });
+  const hwid = getHwidHash();
+  console.log(`[Flex] activateKey key=${key.slice(0, 12)}... hwid=${hwid.slice(0, 8)}... server=${_activeServerUrl}`);
+  const data = await post<ActivateResponse>("/activate", { key, hwid });
   if (!data) throw new Error("No response from flex server");
-  if (data.success !== true) throw new Error("Activation failed");
+  if (data.success !== true) throw new Error((data as unknown as { error?: string })?.error || "Activation failed");
   return data;
 }
 

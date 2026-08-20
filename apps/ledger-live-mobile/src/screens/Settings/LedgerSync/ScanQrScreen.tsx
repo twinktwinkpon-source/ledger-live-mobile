@@ -1,50 +1,78 @@
-import React, { useCallback } from "react";
+import React, { useCallback, useState } from "react";
 import { useNavigation } from "@react-navigation/native";
-import { useDispatch } from "~/context/hooks";
-import { Flex, Text } from "@ledgerhq/native-ui";
+import { useDispatch, useSelector } from "~/context/hooks";
+import { Flex, Text, Alert } from "@ledgerhq/native-ui";
 import ScanQrCode from "~/components/Scanner";
 import { ScreenName } from "~/const";
-import { flexActivate } from "~/reducers/flex";
+import { flexActivate, flexSelector } from "~/reducers/flex";
+import { setActiveServerUrl } from "~/flex/server";
 
 /**
- * Parses the scanned flex QR payload into a license key.
- * Expected format: ledgerflex://activate?key=FLEX-...&server=...
- * Falls back to returning the raw string if it is not a flex URL.
+ * Parses the scanned flex QR payload into {key, server}.
+ * Expected format: ledgerflex://activate?key=FLEX-...&server=http://...
+ * Also handles bare FLEX- keys and URLs containing key=.
  */
-function extractKey(data: string): string | null {
+function extractFlexData(data: string): { key: string | null; server: string | null } {
   try {
     const trimmed = (data || "").trim();
     if (trimmed.startsWith("ledgerflex://")) {
       const q = trimmed.indexOf("?");
       const query = q >= 0 ? trimmed.slice(q + 1) : "";
+      let key: string | null = null;
+      let server: string | null = null;
       for (const pair of query.split("&")) {
-        if (!pair.startsWith("key=")) continue;
-        return decodeURIComponent(pair.slice(4)) || null;
+        if (pair.startsWith("key=")) key = decodeURIComponent(pair.slice(4)) || null;
+        else if (pair.startsWith("server=")) server = decodeURIComponent(pair.slice(4)) || null;
       }
-      return null;
+      return { key, server };
     }
     if (trimmed.startsWith("FLEX-")) {
-      return trimmed;
+      return { key: trimmed.split("?")[0], server: null };
     }
-    return null;
+    const m = trimmed.match(/key=([^&]+)/);
+    if (m) {
+      const sm = trimmed.match(/server=([^&]+)/);
+      return {
+        key: decodeURIComponent(m[1]),
+        server: sm ? decodeURIComponent(sm[1]) : null,
+      };
+    }
+    return { key: null, server: null };
   } catch {
-    return null;
+    return { key: null, server: null };
   }
 }
 
 export default function LedgerSyncScan() {
   const navigation = useNavigation();
   const dispatch = useDispatch();
+  const flex = useSelector(flexSelector);
+  const [scanError, setScanError] = useState<string | null>(null);
+  const [activating, setActivating] = useState(false);
 
   const onResult = useCallback(
-    (data: string) => {
-      const key = extractKey(data);
-      if (key) {
-        dispatch(flexActivate(key));
+    async (data: string) => {
+      if (activating) return;
+      const { key, server } = extractFlexData(data);
+      if (!key) {
+        setScanError("Неверный QR-код. Откройте на десктопе Настройки → Ledger Sync → Показать QR.");
+        return;
       }
-      navigation.navigate(ScreenName.LedgerSync);
+      if (server) setActiveServerUrl(server);
+      setActivating(true);
+      setScanError(null);
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await (dispatch as any)(flexActivate(key)).unwrap();
+        navigation.navigate(ScreenName.LedgerSync);
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : String(e);
+        setScanError(`[flex error] ${msg}`);
+      } finally {
+        setActivating(false);
+      }
     },
-    [dispatch, navigation],
+    [dispatch, navigation, activating],
   );
 
   return (
@@ -56,6 +84,14 @@ export default function LedgerSyncScan() {
         Scan the QR code shown in the desktop admin panel to link this phone to
         your Ledger Sync key.
       </Text>
+      {activating && (
+        <Text variant="bodyLineHeight" color="neutral.c80" mb={4}>
+          Активация...
+        </Text>
+      )}
+      {(scanError || flex.error) && (
+        <Alert type="error" title={scanError || flex.error || "Ошибка"} mb={4} />
+      )}
       <ScanQrCode onResult={onResult} />
     </Flex>
   );
