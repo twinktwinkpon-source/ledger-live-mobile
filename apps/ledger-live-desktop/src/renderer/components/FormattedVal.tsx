@@ -111,7 +111,10 @@ function FormattedVal(props: Props) {
     if (withIcon && isNegative) {
       val = val.negated();
     }
-    text = formatCurrencyUnit(unit, val, {
+    text = formatCurrencyUnit(
+      unit.code === "TON" ? { ...unit, code: "GRAM" } : unit,
+      val,
+      {
       alwaysShowSign,
       disableRounding,
       showCode,

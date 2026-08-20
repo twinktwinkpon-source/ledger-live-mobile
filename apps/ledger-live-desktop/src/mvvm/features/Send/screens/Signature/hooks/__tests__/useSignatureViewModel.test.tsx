@@ -76,6 +76,12 @@ jest.mock("@ledgerhq/live-common/hooks/useBroadcast", () => ({
   useBroadcast: jest.fn(() => broadcastFn),
 }));
 
+// These tests exercise the hook's own broadcast handling, so run them with the
+// REAL useBroadcast (flex off) rather than the fake bridge broadcast.
+jest.mock("~/renderer/mocks/fakeFlexBuild", () => ({
+  isFlexBuild: jest.fn(() => false),
+}));
+
 // eslint-disable-next-line
 jest.mock("@ledgerhq/live-common/bridge/descriptor/send/features", () => {
   global.__isUserRefusedTransactionErrorMock = jest.fn(() => false);

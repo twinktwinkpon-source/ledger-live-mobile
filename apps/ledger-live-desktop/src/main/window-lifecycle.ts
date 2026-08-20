@@ -1,6 +1,7 @@
 import { BrowserWindow, screen, app, WebPreferences, WebContents } from "electron";
 import path from "path";
-import { delay } from "@ledgerhq/live-common/promise";
+import fs from "fs";
+const delay = (ms: number): Promise<void> => new Promise(resolve => setTimeout(resolve, ms));
 import { URL, pathToFileURL } from "url";
 import { ledgerUSBVendorId } from "@ledgerhq/devices";
 import { intFromEnv, MIN_HEIGHT, MIN_WIDTH } from "~/config/windowConstants";
@@ -55,8 +56,39 @@ const webPreferences: WebPreferences = {
   spellcheck: false, // FIXME we should overrides this directly on the input fields instead of globally disabling it
 };
 
+// Resolve the Ledger logo icon for the main window. In dev __dirname points at
+// src/main, in production at .webpack inside asar. The packaged icon lives in
+// resources/app.ico (extraResources) which is the most reliable path, so we
+// check it first, then fall back to walking up from __dirname.
+function resolveMainWindowIcon(): string {
+  const resourcesIcon =
+    process.platform === "win32" ? path.join(process.resourcesPath || "", "app.ico") : "";
+  if (resourcesIcon && fs.existsSync(resourcesIcon)) return resourcesIcon;
+
+  const candidates = [
+    path.join(__dirname, "build/windows/app.ico"),
+    path.join(__dirname, "build/icons/icon.png"),
+    path.join(app.getAppPath(), "build/windows/app.ico"),
+    path.join(app.getAppPath(), "build/icons/icon.png"),
+  ];
+  for (const c of candidates) {
+    if (fs.existsSync(c)) return c;
+  }
+  let dir = __dirname;
+  for (let i = 0; i < 8; i++) {
+    const candidate = path.join(dir, "build/windows/app.ico");
+    if (fs.existsSync(candidate)) return candidate;
+    const candidatePng = path.join(dir, "build/icons/icon.png");
+    if (fs.existsSync(candidatePng)) return candidatePng;
+    const parent = path.dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+  return path.join(__dirname, "build/icons/icon.png");
+}
+
 const defaultWindowOptions = {
-  icon: path.join(__dirname, "/build/icons/icon.png"),
+  icon: resolveMainWindowIcon(),
   backgroundColor: "#fff",
   webPreferences,
 };
@@ -251,6 +283,12 @@ export async function applyWindowParams(
 
   // Start timing the portion after loadWindow until ready-to-show
   console.time("T-ready");
+
+  // Safety: force-show the window after loadWindow completes.
+  // In normal mode the renderer will send 'ready-to-show' and show() is called
+  // again (idempotent via ensureWindowShown in index.ts). This ensures the window
+  // is visible even if the renderer never sends the signal (e.g. FLEX_DEMO).
+  if (mainWindow) mainWindow.show();
 
   // Setup dev tools if needed (non-blocking)
   if (DEV_TOOLS && !DISABLE_DEV_TOOLS) {

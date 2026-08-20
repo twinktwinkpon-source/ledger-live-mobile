@@ -2,6 +2,8 @@ import { useCallback, useMemo } from "react";
 import { applyMemoToTransaction } from "@ledgerhq/live-common/bridge/descriptor/send/memo";
 import useBridgeTransaction from "@ledgerhq/live-common/bridge/useBridgeTransaction";
 import { useAccountBridgeOrNull } from "@ledgerhq/live-common/bridge/useAccountBridge";
+import { isFlexBuild } from "~/renderer/mocks/fakeFlexBuild";
+import { useFakeAccountBridgeOrNull, useFakeBridgeTransaction } from "~/renderer/mocks/fakeBridge";
 import type { Transaction } from "@ledgerhq/live-common/generated/types";
 import type {
   SendFlowTransactionState,
@@ -24,7 +26,19 @@ export function useSendFlowTransaction({
   account,
   parentAccount,
 }: UseSendFlowTransactionParams): UseSendFlowTransactionResult {
-  const bridge = useAccountBridgeOrNull<Transaction>(account, parentAccount);
+  const isFlex = isFlexBuild();
+
+  console.log(
+    `[FlexSend] useSendFlowTransaction mounted, isFlex=${isFlex}, account=${account?.id ?? "none"}`,
+  );
+
+  // In flex/demo builds the real bridge's transaction status churns (real
+  // network fee/prepare calls) which restarts the fake signing flow forever.
+  // Use the fake bridge for every coin so the whole send behaves like GRAM/TON.
+  const bridge = isFlex
+    ? useFakeAccountBridgeOrNull<Transaction>(account, parentAccount)
+    : useAccountBridgeOrNull<Transaction>(account, parentAccount);
+
   const {
     transaction,
     setTransaction: bridgeSetTransaction,
@@ -33,10 +47,15 @@ export function useSendFlowTransaction({
     bridgeError,
     bridgePending,
     setAccount,
-  } = useBridgeTransaction(bridge, () => {
-    if (!account) return {};
-    return { account, parentAccount: parentAccount ?? undefined };
-  });
+  } = isFlex
+    ? useFakeBridgeTransaction(bridge!, () => {
+        if (!account) return { account: null, parentAccount: null };
+        return { account, parentAccount: parentAccount ?? null };
+      })
+    : useBridgeTransaction(bridge, () => {
+        if (!account) return {};
+        return { account, parentAccount: parentAccount ?? undefined };
+      });
 
   const setTransaction = useCallback(
     (tx: Transaction) => bridgeSetTransaction(tx),

@@ -30,15 +30,24 @@ const SpendableAmount = <T extends TransactionCommon>({
     if (!account) return;
     let cancelled = false;
     (async () => {
-      const bridge = await getAccountBridge(account, parentAccount);
-      if (cancelled) return;
-      const estimate = await bridge.estimateMaxSpendable({
-        account,
-        parentAccount,
-        transaction: debouncedTransaction,
-      });
-      if (cancelled) return;
-      setMaxSpendable(estimate);
+      try {
+        const bridge = await getAccountBridge(account, parentAccount);
+        if (cancelled) return;
+        const estimate = await bridge.estimateMaxSpendable({
+          account,
+          parentAccount,
+          transaction: debouncedTransaction,
+        });
+        if (cancelled) return;
+        setMaxSpendable(estimate);
+      } catch (_e) {
+        // Silently fall back to the account's spendable balance
+        if (!cancelled) {
+          setMaxSpendable(
+            "spendableBalance" in account ? (account as any).spendableBalance : account.balance,
+          );
+        }
+      }
     })();
     return () => {
       cancelled = true;

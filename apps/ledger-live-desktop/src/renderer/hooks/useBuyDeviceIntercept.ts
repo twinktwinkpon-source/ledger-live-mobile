@@ -20,6 +20,11 @@ export function useBuyDeviceIntercept(): boolean {
   const { handleOpen: openBuyDeviceModal } = useBuyDeviceDialog();
   const didOpenRef = useRef(false);
 
+  // MOCK mode: skip the device intercept entirely so all UI opens normally
+  // without a real Ledger device connected. The Manager screen already has
+  // its own mock data in manager/index.tsx.
+  if (typeof process !== "undefined" && process.env.MOCK) return true;
+
   const isDeviceSetupRoute = pathname.includes("onboarding") || pathname.includes("recover");
   const shouldShowContent = hasOnboardedDevice || isDeviceSetupRoute;
 

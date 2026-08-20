@@ -58,15 +58,15 @@ export const useTable = (assets: AssetTableItem[], options?: UseAssetTableOption
                 row.original.isPlaceholder || shouldDisplayAggregatedAssets ? (
                   <CryptoIcon
                     ledgerId={row.original.currency.id}
-                    ticker={row.original.currency.ticker}
+                     ticker={row.original.currency.ticker === "TON" ? "GRAM" : row.original.currency.ticker}
                     size={getValidCryptoIconSize(32)}
                   />
                 ) : (
                   <CryptoCurrencyIcon currency={row.original.currency} size={32} />
                 )
               }
-              title={<TruncatedText text={row.original.currency.name} />}
-              description={row.original.currency.ticker}
+              title={<TruncatedText text={row.original.currency.name === "TON" ? "GRAM" : row.original.currency.name} />}
+              description={row.original.currency.ticker === "TON" ? "GRAM" : row.original.currency.ticker}
             />
           );
         },

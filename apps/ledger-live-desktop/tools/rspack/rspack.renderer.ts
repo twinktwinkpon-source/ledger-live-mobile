@@ -11,6 +11,8 @@ import {
   isRsdoctorEnabled,
 } from "./utils";
 
+const isFlexBuild = process.env.FLEX_DEMO === "true" || process.env.FLEX_MODE === "operator";
+
 /**
  * Creates the rspack configuration for the Electron renderer process
  */
@@ -24,12 +26,27 @@ export function createRendererConfig(
   // Ensure single instance of styled-components (avoid theme context issues)
   const styledComponentsPath = require.resolve("styled-components");
 
+  // When FLEX_DEMO is enabled, stub out @sentry/electron to avoid
+  // crash on Node.js v24+ where Sentry accesses electron.app.getAppPath()
+  // at import time before Electron is ready.
+  const sentryAlias: Record<string, string> = isFlexBuild
+    ? {
+        "@sentry/electron/renderer": path.resolve(rootFolder, "src", "mocks", "sentry-stub.ts"),
+        "@sentry/electron/main": path.resolve(rootFolder, "src", "mocks", "sentry-stub.ts"),
+        "@sentry/electron": path.resolve(rootFolder, "src", "mocks", "sentry-stub.ts"),
+      }
+    : {};
+
+  // Keep the real Electron runtime target. The renderer bundle imports Node
+  // packages and the ElectronTargetPlugin supplies the corresponding runtime
+  // shims; using a browser target leaves `global` undefined at boot.
+  const rendererTarget = "electron-renderer";
+
   return {
     ...commonConfig,
     name: "renderer",
     mode,
-    // Use electron-renderer target - ElectronTargetPlugin handles node builtins
-    target: "electron-renderer",
+    target: rendererTarget,
     entry: {
       renderer: path.resolve(rootFolder, "src", "renderer", "index.ts"),
     },
@@ -81,6 +98,9 @@ export function createRendererConfig(
       ],
       alias: {
         ...commonConfig.resolve?.alias,
+        ...sentryAlias,
+        // In FLEX_DEMO mode, stub the entire `electron` module so the renderer
+        // can run in a plain browser without Node/Electron APIs.
         LLD: path.resolve(lldRoot, "src", "mvvm"),
         "styled-components": styledComponentsPath,
         // Route `ZCash` to the IPC client in the renderer so the
@@ -159,6 +179,9 @@ export function createRendererConfig(
           "@scure",
           "bip39",
         ),
+      },
+      fallback: {
+        global: false,
       },
     },
     // Ignore specific warnings from polkadot packages
@@ -282,7 +305,7 @@ export function createRendererConfig(
     },
     plugins: [
       ...getRsdoctorPlugin("renderer"),
-      // ElectronTargetPlugin for proper node/electron module handling
+      // ElectronTargetPlugin for proper node/electron module handling.
       new rspack.electron.ElectronTargetPlugin("renderer"),
       new rspack.DefinePlugin({
         ...buildRendererEnv(mode),

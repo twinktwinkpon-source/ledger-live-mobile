@@ -34,7 +34,7 @@ const formatOp = (
       .fill(" ")
       .join("");
     let extra =
-      level > 0 ? "" : `${op.hash} ${op.date.toISOString().split(":").slice(0, 2).join(":")}`;
+      level > 0 ? "" : `${op.hash} ${(op.date ?? new Date()).toISOString().split(":").slice(0, 2).join(":")}`;
     extra += familySpecific(op, unit);
     const head = `${(spaces + amount).padEnd(20)} ${(
       (op.hasFailed ? "❌" : "") +
@@ -157,7 +157,7 @@ const operationBalanceHistoryBackwards = account => {
     account.operations
       .map(op => {
         const { blockHeight } = op;
-        const date = op.date.toISOString();
+        const date = (op.date ?? new Date()).toISOString();
         const balance = acc.toNumber();
         acc = acc.minus(getOperationAmountNumberWithInternals(op));
         return { blockHeight, date, balance };
@@ -174,7 +174,7 @@ const operationBalanceHistory = account => {
       .map(op => {
         acc = acc.plus(getOperationAmountNumberWithInternals(op));
         const { blockHeight } = op;
-        const date = op.date.toISOString();
+        const date = (op.date ?? new Date()).toISOString();
         const balance = acc.toNumber();
         return { blockHeight, date, balance };
       }),

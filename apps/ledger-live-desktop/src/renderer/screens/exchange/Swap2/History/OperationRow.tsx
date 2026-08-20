@@ -136,7 +136,7 @@ const OperationRow = ({
           color={"neutral.c100"}
           fontSize={3}
         >
-          {getProviderName(provider)}
+          {getProviderName(provider) || (provider ? provider.charAt(0).toUpperCase() + provider.slice(1) : "Unknown")}
         </Text>
         <Text
           data-testid={`swap-history-date-${swapId}`}

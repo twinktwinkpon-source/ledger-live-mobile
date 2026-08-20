@@ -34,6 +34,7 @@ import IconCheck from "~/renderer/icons/Check";
 import AccountTagDerivationMode from "~/renderer/components/AccountTagDerivationMode";
 import { setAccountName } from "@ledgerhq/live-wallet/store";
 import { useAccountName } from "~/renderer/reducers/wallet";
+import { getDisplayName } from "~/renderer/mocks/fakeFlexBuild";
 
 type BaseComponentProps = BaseProps & { ff?: string };
 
@@ -230,7 +231,7 @@ const AccountHeader: React.ComponentType<Props> = React.memo(function AccountHea
           </Box>
         ) : (
           <CurName>
-            {currency.name} <AccountTagDerivationMode account={account} />
+            {getDisplayName(currency.id, currency.name)} <AccountTagDerivationMode account={account} />
           </CurName>
         )}
         <AccountNameBox horizontal alignItems="center" flow={2}>

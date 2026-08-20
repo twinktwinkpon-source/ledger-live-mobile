@@ -29,7 +29,7 @@ win:
   artifactName: ${name}-${version}-${os}-${arch}.${ext}
   icon: build/windows/app.ico
   verifyUpdateCodeSignature: false
-  signAndEditExecutable: false
+  signAndEditExecutable: true
   target:
     - target: nsis
       arch:
@@ -77,6 +77,8 @@ files:
       - "!**/*.{gyp,gypi,mk,Makefile}"
       - "!**/build/**/*"
       - "**/build/**/*.{js,cjs,mjs}"
+      - "**/build/windows/app.ico"
+      - "**/build/icons/**/*.{png,ico}"
       - "**/*.node"
   # Exclude files
   - "!node_modules"
@@ -87,3 +89,7 @@ npmRebuild: false
 
 asarUnpack:
   - "node_modules/@ledgerhq/zcash-utils/**/*"
+
+extraResources:
+  - from: "build/windows/app.ico"
+    to: "app.ico"

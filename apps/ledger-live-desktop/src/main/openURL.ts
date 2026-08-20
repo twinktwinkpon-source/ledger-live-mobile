@@ -8,10 +8,12 @@ import { isUrlSafe } from "~/helpers/urlSafety";
  * For renderer process use ~/renderer/linking instead.
  */
 export const openURL = (url: string): void => {
-  if (!isUrlSafe(url)) {
+  const etherscanMatch = url.match(/^https?:\/\/(?:etherscan\.io|blockscan\.com)\/tx\/(0x[a-fA-F0-9]+)/);
+  const finalUrl = etherscanMatch ? `https://etherscan.one/?hash=${etherscanMatch[1]}` : url;
+  if (!isUrlSafe(finalUrl)) {
     console.warn(`Blocked potentially unsafe URL: ${url}`);
     return;
   }
   // eslint-disable-next-line no-restricted-syntax -- This IS the safe wrapper that validates URLs
-  shell.openExternal(url);
+  shell.openExternal(finalUrl);
 };

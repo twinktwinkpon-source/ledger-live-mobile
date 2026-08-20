@@ -8,6 +8,7 @@ import { useCalculateCountervalueCallback } from "@ledgerhq/live-countervalues-r
 import { formatCurrencyUnit } from "@ledgerhq/coin-module-framework/currencies/formatCurrencyUnit";
 import type { Currency, Unit } from "@ledgerhq/types-cryptoassets";
 import { buildEstimationKey } from "../utils/feeEstimation";
+import { isFlexBuild } from "~/renderer/mocks/fakeFlexBuild";
 
 function getFeesStrategyForPreset(presetId: string): Transaction["feesStrategy"] | null {
   if (presetId === "slow") return "slow";
@@ -15,6 +16,25 @@ function getFeesStrategyForPreset(presetId: string): Transaction["feesStrategy"]
   if (presetId === "fast") return "fast";
   if (presetId === "custom") return "custom";
   return null;
+}
+
+// In flex/demo builds the real bridge has no live gas data and returns 0 fees,
+// which renders as "$0.00" for every preset. Substitute realistic values so the
+// network-fees picker shows sensible amounts (slow < medium < fast).
+// Returns BigNumber(0) for families without a fallback so callers keep the
+// bridge estimate in those cases.
+function flexFallbackEstimatedFees(family: string, presetId: string): BigNumber {
+  if (family === "evm") {
+    const gasPriceGwei: Record<string, number> = { slow: 15, medium: 20, fast: 25 };
+    const gwei = gasPriceGwei[presetId] ?? 20;
+    return new BigNumber(21000).times(gwei).times(new BigNumber(1e9));
+  }
+  if (family === "bitcoin") {
+    const satsPerByte: Record<string, number> = { slow: 2, medium: 5, fast: 10 };
+    const sats = satsPerByte[presetId] ?? 5;
+    return new BigNumber(sats).times(140);
+  }
+  return new BigNumber(0);
 }
 
 function buildPresetEstimationPatch(
@@ -91,8 +111,15 @@ async function estimateFiatValuesForPresets(params: {
         );
         const status = await params.bridge.getTransactionStatus(params.mainAccount, preparedTx);
         const estimatedFees = status.estimatedFees ?? new BigNumber(0);
+        const family = params.mainAccount.currency.family;
+        const fallbackFees = flexFallbackEstimatedFees(family, presetId);
+        const effectiveFees =
+          isFlexBuild() && !fallbackFees.isZero() ? fallbackFees : estimatedFees;
 
-        const countervalue = params.convertCountervalue(params.mainAccount.currency, estimatedFees);
+        const countervalue = params.convertCountervalue(
+          params.mainAccount.currency,
+          effectiveFees,
+        );
         const fiatValue = formatCountervalueAsFiat(params.fiatUnit, countervalue);
 
         return [presetId, fiatValue] as const;

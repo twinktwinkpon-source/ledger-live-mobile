@@ -49,7 +49,10 @@ const Dashboard = ({
   const openFirmwareUpdate = params.get("firmwareUpdate") === "true";
 
   useEffect(() => {
-    getLatestFirmwareForDeviceUseCase(deviceInfo).then(setFirmware, setFirmwareError);
+    // Skip firmware fetch in MOCK mode to prevent update banner
+    if (!getEnv("MOCK")) {
+      getLatestFirmwareForDeviceUseCase(deviceInfo).then(setFirmware, setFirmwareError);
+    }
   }, [deviceInfo]);
 
   // on disconnect, go back to connect
@@ -119,34 +122,23 @@ const Dashboard = ({
           setPreventResetOnDeviceChange={setPreventResetOnDeviceChange}
           firmware={firmware}
           result={result}
-          appsToRestore={appsToRestore}
           exec={exec}
-          renderFirmwareUpdateBanner={({ disableFirmwareUpdate, installed }) => (
-            <FirmwareUpdate
-              device={device}
-              deviceInfo={deviceInfo}
-              firmware={firmware}
-              error={firmwareError}
-              setPreventResetOnDeviceChange={setPreventResetOnDeviceChange}
-              disableFirmwareUpdate={disableFirmwareUpdate}
-              installed={installed}
-              onReset={onReset}
-              openFirmwareUpdate={openFirmwareUpdate}
-            />
-          )}
+          renderFirmwareUpdateBanner={firmware ? undefined : () => null}
+          appsToRestore={appsToRestore}
         />
-      ) : (
+      ) : null}
+      {openFirmwareUpdate && firmware ? (
         <FirmwareUpdate
-          device={device}
           deviceInfo={deviceInfo}
+          device={device}
+          setPreventResetOnDeviceChange={setPreventResetOnDeviceChange}
           firmware={firmware}
           error={firmwareError}
-          setPreventResetOnDeviceChange={setPreventResetOnDeviceChange}
           onReset={onReset}
-          openFirmwareUpdate={openFirmwareUpdate}
         />
-      )}
+      ) : null}
     </Box>
   );
 };
+
 export default Dashboard;

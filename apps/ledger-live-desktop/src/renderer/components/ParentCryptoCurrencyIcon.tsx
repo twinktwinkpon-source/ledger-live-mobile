@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import styled, { useTheme } from "styled-components";
 import { Currency } from "@ledgerhq/types-cryptoassets";
@@ -7,6 +7,8 @@ import Tooltip from "~/renderer/components/Tooltip";
 import Text from "~/renderer/components/Text";
 import { CryptoIcon } from "@ledgerhq/crypto-icons";
 import { getValidCryptoIconSize } from "~/renderer/utils/cryptoIconSize";
+import { getCryptoIconColorFilter } from "~/renderer/utils/colorFilter";
+import ensureContrast from "~/renderer/ensureContrast";
 
 type ParentCryptoCurrencyIconWrapperProps = {
   doubleIcon?: boolean;
@@ -63,7 +65,13 @@ const ParentCryptoCurrencyIcon = ({ currency, withTooltip, bigger, flat = false 
     return null;
   }
 
+  const theme = useTheme();
   const parent = currency.type === "TokenCurrency" ? currency.parentCurrency : null;
+  const cryptoColor = useMemo(
+    () =>
+      parent ? ensureContrast(parent.color, theme.colors.background.card) : "",
+    [parent, theme.colors.background.card],
+  );
 
   // Use CryptoIcon directly to avoid nesting issues
   const iconSize = bigger ? 28 : 22; // Match list mode size (28px) and increase default
@@ -73,12 +81,21 @@ const ParentCryptoCurrencyIcon = ({ currency, withTooltip, bigger, flat = false 
 
   const content = (
     <ParentCryptoCurrencyIconWrapper doubleIcon={false} bigger={bigger} flat={flat}>
-      <CryptoIcon
-        ledgerId={ledgerId}
-        ticker={ticker}
-        size={getValidCryptoIconSize(iconSize)}
-        network={network}
-      />
+      <span
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
+          filter: cryptoColor ? getCryptoIconColorFilter(cryptoColor) : undefined,
+        }}
+      >
+        <CryptoIcon
+          ledgerId={ledgerId}
+          ticker={ticker}
+          size={getValidCryptoIconSize(iconSize)}
+          network={network}
+        />
+      </span>
     </ParentCryptoCurrencyIconWrapper>
   );
 

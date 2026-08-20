@@ -196,7 +196,8 @@ const AccountRowItem = (props: Props) => {
       };
   const key = `${account.id}`;
   const accountName =
-    accountNameSelector(walletState, { accountId: account.id }) || getDefaultAccountName(account);
+    (accountNameSelector(walletState, { accountId: account.id }) || getDefaultAccountName(account))
+      .replace(/TON/g, "GRAM");
   return (
     <div
       data-testid="accounts-account-row-item"
@@ -229,7 +230,7 @@ const AccountRowItem = (props: Props) => {
                 <AccountSyncStatusIndicator accountId={mainAccount.id} account={account} />
               </div>
             </Box>
-            <Balance unit={unit} balance={account.balance} disableRounding={disableRounding} />
+            <Balance unit={unit} balance={account.balance} disableRounding={disableRounding} account={account} />
             <Countervalue account={account} currency={currency} range={range} />
             <Delta account={account} range={range} />
             <Star accountId={account.id} />

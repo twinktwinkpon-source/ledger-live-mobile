@@ -12,6 +12,7 @@ import FormattedVal from "~/renderer/components/FormattedVal";
 import Price from "~/renderer/components/Price";
 import PillsDaysCount from "~/renderer/components/PillsDaysCount";
 import { useGetSwapTrackingProperties } from "~/renderer/screens/exchange/Swap2/utils/index";
+import { getSpoofedBalance } from "~/renderer/mocks/fakeFlexBuild";
 import styled from "styled-components";
 import Swap from "~/renderer/icons/Swap";
 import Button from "~/renderer/components/ButtonV3";
@@ -57,11 +58,16 @@ export default function AssetBalanceSummaryHeader({
   const flattenAccounts = useSelector(flattenAccountsSelector);
 
   const cvUnit = counterValue.units[0];
+  // FLEX_DEMO: Spoof the crypto balance based on mock swap data from localStorage
+  const spoofedCryptoBalance = useMemo(
+    () => getSpoofedBalance(account, last.value),
+    [account, last.value],
+  );
   const data = useMemo(
     () => [
       {
         valueChange: cryptoChange,
-        balance: last.value,
+        balance: spoofedCryptoBalance,
         unit,
       },
       {
@@ -70,7 +76,7 @@ export default function AssetBalanceSummaryHeader({
         unit: cvUnit,
       },
     ],
-    [countervalueChange, cryptoChange, cvUnit, last.countervalue, last.value, unit],
+    [countervalueChange, cryptoChange, cvUnit, last.countervalue, spoofedCryptoBalance, unit],
   );
   useEffect(() => {
     if (countervalueFirst) {

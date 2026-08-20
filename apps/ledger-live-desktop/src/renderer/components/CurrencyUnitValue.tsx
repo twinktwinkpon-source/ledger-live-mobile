@@ -31,7 +31,7 @@ const CurrencyUnitValue = ({
   const locale = useSelector(localeSelector);
   const formattedValue =
     before +
-    formatCurrencyUnit(unit, value, {
+    formatCurrencyUnit(unit.code === "TON" ? { ...unit, code: "GRAM" } : unit, value, {
       ...rest,
       locale,
     }) +

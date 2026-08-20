@@ -11,6 +11,7 @@ import Spinner from "./Spinner";
 import { BoxProps } from "./Box/Box";
 import { CryptoIcon } from "@ledgerhq/crypto-icons";
 import { getValidCryptoIconSize } from "~/renderer/utils/cryptoIconSize";
+import { getCryptoIconColorFilter } from "~/renderer/utils/colorFilter";
 
 type CryptoIconWrapperProps = {
   cryptoColor: string;
@@ -32,6 +33,10 @@ const CryptoIconWrapper = styled(Box).attrs<CryptoIconWrapperProps>(p => ({
     position: absolute;
     right: -6px;
     top: -6px;
+  }
+
+  & img {
+    filter: ${({ cryptoColor }) => getCryptoIconColorFilter(cryptoColor)};
   }
 `;
 const SpinnerWrapper = styled.div`
@@ -106,7 +111,7 @@ function CurrencyBadge({ currency }: { currency: CryptoCurrency | TokenCurrency 
             letterSpacing: 1,
           }}
         >
-          {currency.ticker}
+           {currency.ticker === "TON" ? "GRAM" : currency.ticker}
         </Box>
         <Box ff="Inter|SemiBold" color="neutral.c100" fontSize={4}>
           {currency.name}

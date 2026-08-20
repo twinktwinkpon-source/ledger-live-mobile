@@ -227,7 +227,7 @@ export const TopBar = ({
   const currentAccountName =
     currentAccount &&
     (accountNameSelector(walletState, { accountId: currentAccount.id }) ||
-      getDefaultAccountName(currentAccount));
+      getDefaultAccountName(currentAccount)).replace(/TON/g, "GRAM");
 
   const isLoading = useDebounce(webviewState.loading, 100);
 

@@ -240,8 +240,9 @@ const DeviceDashboard = ({
         <ProviderWarning />
         {!firmware && !isFirmwareDeprecated && update.length === 0 ? (
           <>
-            <LedgerSyncEntryPoint entryPoint={EntryPoint.manager} />
-            <LNSUpsellBanner location="manager" />
+            {/* LedgerSyncEntryPoint hidden for flex demo */}
+            {/* <LedgerSyncEntryPoint entryPoint={EntryPoint.manager} /> */}
+            {/* <LNSUpsellBanner location="manager" /> */}
           </>
         ) : null}
         <AppList

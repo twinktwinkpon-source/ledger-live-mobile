@@ -17,7 +17,10 @@ export function formatShort(unit: Unit, value: BigNumber): string {
 
   if (new BigNumber(-1).isLessThan(floatValue) && floatValue.isLessThan(1)) {
     // numeral have issues with low values, fallback on formatCurrencyUnit
-    return formatCurrencyUnit(unit, value);
+    return formatCurrencyUnit(
+      unit.code === "TON" ? { ...unit, code: "GRAM" } : unit,
+      value,
+    ).replace(/TON/g, "GRAM");
   }
 
   return numeral(floatValue.toNumber()).format("0[.]0a");

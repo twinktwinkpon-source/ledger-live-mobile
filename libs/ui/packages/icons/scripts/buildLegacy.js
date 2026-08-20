@@ -29,7 +29,11 @@ export default styled.svg.withConfig({
     fill: {
       property: "fill",
       scale: "colors",
-    }
+    },
+    color: {
+      property: "color",
+      scale: "colors",
+    },
   })}
 \`;
 `;
@@ -42,6 +46,10 @@ import Svg, { SvgProps } from "react-native-svg";
 const fillSystem = system({
   fill: {
     property: "fill",
+    scale: "colors",
+  },
+  color: {
+    property: "color",
     scale: "colors",
   },
 });

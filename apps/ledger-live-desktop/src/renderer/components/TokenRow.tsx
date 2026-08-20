@@ -50,7 +50,7 @@ function TokenRow(props: Props) {
       tabIndex={-1}
     >
       <Header nested={nested} account={account} />
-      <Balance unit={unit} balance={account.balance} disableRounding={disableRounding} />
+      <Balance unit={unit} balance={account.balance} disableRounding={disableRounding} account={account} />
       <Countervalue account={account} currency={currency} range={range} />
       <Delta account={account} range={range} />
       <Star accountId={account.id} />

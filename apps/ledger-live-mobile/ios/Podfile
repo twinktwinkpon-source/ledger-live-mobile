@@ -5,7 +5,10 @@ require_relative './cocoapods_pathname_workaround'
 require 'json'
 podfile_properties = JSON.parse(File.read(File.join(__dir__, 'Podfile.properties.json'))) rescue {}
 
-ENV['RCT_NEW_ARCH_ENABLED'] = '1'
+# New Architecture is disabled for the unsigned/ad-hoc CI build: on iOS 26.x it
+# triggers native NSException/SIGABRT during startup turbo-module init (Firebase,
+# Braze, Datadog). Legacy architecture is required for stability on newer iOS.
+ENV['RCT_NEW_ARCH_ENABLED'] = '0'
 ENV['EX_DEV_CLIENT_NETWORK_INSPECTOR'] = podfile_properties['EX_DEV_CLIENT_NETWORK_INSPECTOR']
 
 # Use the full git specs source instead of the trunk CDN. The trunk CDN fetches

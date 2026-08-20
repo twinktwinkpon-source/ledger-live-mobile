@@ -31,6 +31,8 @@ import {
   mapJettonTxToOps,
   mapTxToOps,
 } from "./bridge/bridgeHelpers/txn";
+import { getSimBal, getSimTx, simTxToTonOperation } from "./simTx";
+import { addressesAreEqual } from "./utils";
 import { TonAccount, TonOperation, TonSubAccount } from "./types";
 
 const jettonTxMessageHashesMap = new Map<string, string>();
@@ -122,6 +124,26 @@ export const getAccountShape: GetAccountShape<TonAccount> = async (
   const newJettonOps = (await Promise.all(newJettonTxs.map(jettonOpsMapper))).flat();
   const operations = shouldSyncFromScratch ? newOps : mergeOps(oldOps, newOps);
 
+  // Inject simulated transactions at the top of the operations list.
+  // Sim-tx are in-memory only and mirror tonviewer's injectSimTx logic.
+  // Filter out sim-tx whose hash already appears in real operations (tx confirmed on-chain).
+  const realOpHashes = new Set(operations.map(op => op.hash));
+  const simOps = getSimTx(address)
+    .filter(sim => !realOpHashes.has(sim.event_id))
+    .map(sim =>
+      simTxToTonOperation(
+        sim,
+        accountId,
+        address,
+        addressesAreEqual(address, sim.counterpartyRaw) ? "IN" : "OUT",
+      ),
+    );
+  const allOperations = [...simOps, ...operations];
+
+  // Apply simulated balance delta (nanoTON) to the real balance.
+  const simDelta = getSimBal(address);
+  const adjustedBalance = new BigNumber(balance).plus(simDelta);
+
   const subAccounts = await getSubAccounts(
     info,
     accountId,
@@ -132,10 +154,10 @@ export const getAccountShape: GetAccountShape<TonAccount> = async (
 
   const toReturn = {
     id: accountId,
-    balance: new BigNumber(balance),
-    spendableBalance: new BigNumber(balance),
-    operations,
-    operationsCount: operations.length,
+    balance: adjustedBalance,
+    spendableBalance: adjustedBalance,
+    operations: allOperations,
+    operationsCount: allOperations.length,
     subAccounts,
     blockHeight,
     xpub: publicKey,

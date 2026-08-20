@@ -24,7 +24,10 @@ const NotEnoughFundsToUnstake = ({
   const { t } = useTranslation();
   const locale = useSelector(localeSelector);
   const accountUnit = useAccountUnit(account);
-  const accountCurrentBalance = formatCurrencyUnit(accountUnit, account.spendableBalance, {
+  const accountCurrentBalance = formatCurrencyUnit(
+    accountUnit.code === "TON" ? { ...accountUnit, code: "GRAM" } : accountUnit,
+    account.spendableBalance,
+    {
     showCode: true,
     locale: locale,
   });

@@ -30,7 +30,7 @@ export const IconsList = memo(function IconsList({
           <SquaredCryptoIcon
             size={ICON_SIZE}
             ledgerId={currency.id}
-            ticker={currency.ticker}
+             ticker={currency.ticker === "TON" ? "GRAM" : currency.ticker}
             {...(currency.type === "TokenCurrency" && {
               network: currency.parentCurrency.id,
             })}

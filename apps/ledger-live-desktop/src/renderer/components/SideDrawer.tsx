@@ -31,6 +31,7 @@ const DrawerBackdrop = styled.div.attrs<{ state: TransitionStatus }>(({ state })
   bottom: 0;
   right: 0;
   background-color: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(10px);
   will-change: opacity;
   opacity: 0;
   transition: opacity ${DURATION}ms ease-out;
@@ -68,6 +69,7 @@ const DrawerContent = styled.div.attrs<{ state: TransitionStatus }>(({ state }) 
   flex-direction: column;
   will-change: transform;
   overflow: hidden;
+  border-radius: 16px;
   -webkit-app-region: no-drag;
 `;
 const transitionContainerStyles = {

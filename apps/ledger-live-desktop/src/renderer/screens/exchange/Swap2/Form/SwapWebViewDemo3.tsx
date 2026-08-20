@@ -22,7 +22,7 @@ import BigNumber from "bignumber.js";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useDispatch, useSelector } from "LLD/hooks/redux";
-import { useLocation } from "react-router";
+import { useLocation, useNavigate } from "react-router";
 import styled from "styled-components";
 import { reduce, firstValueFrom } from "rxjs";
 import { updateAccountWithUpdater } from "~/renderer/actions/accounts";
@@ -65,6 +65,7 @@ import { useFeature, useWalletFeaturesConfig } from "@ledgerhq/live-common/featu
 import { useDeeplinkCustomHandlers } from "~/renderer/components/WebPlatformPlayer/CustomHandlers";
 import { SwapLoader } from "./SwapLoader";
 import { useDiscreetMode } from "~/renderer/components/Discreet";
+import { isFlexBuild } from "~/renderer/mocks/fakeFlexBuild";
 
 export class UnableToLoadSwapLiveError extends Error {
   constructor(message: string) {
@@ -164,6 +165,7 @@ const SwapWebView = ({ manifest, isEmbedded = false, Loader = SwapLoader }: Swap
   const { t } = useTranslation();
   const swapDefaultTrack = useGetSwapTrackingProperties();
   const location = useLocation();
+  const navigate = useNavigate();
   const state = isSwapLocationState(location.state) ? location.state : null;
 
   const {
@@ -184,6 +186,38 @@ const SwapWebView = ({ manifest, isEmbedded = false, Loader = SwapLoader }: Swap
   const { isEnabled: isLwd40Enabled } = useWalletFeaturesConfig("desktop");
   const customPTXHandlers = usePTXCustomHandlers(manifest, accounts);
   const customDeeplinkHandlers = useDeeplinkCustomHandlers();
+
+  // FLEX_DEMO: Global Native Sniffer — cache the native swap state to localStorage
+  // This captures the REAL user input (amounts, provider) BEFORE the webview opens
+  useEffect(() => {
+    if (!isFlexBuild()) return;
+    try {
+      const fromCurrency = state?.defaultCurrency?.fromCurrencyId || state?.defaultCurrency?.id;
+      const toCurrency = state?.defaultCurrency?.toCurrencyId || state?.defaultCurrency?.id;
+      const fromAmount = state?.defaultAmountFrom || "0";
+      const toAmount = state?.defaultAmountTo || "0";
+
+      // Determine tickers from the resolved accounts
+      const fromTicker = resolvedDefaultFromAccount?.currency?.ticker || "BTC";
+      const toTicker = resolvedDefaultToAccount?.currency?.ticker || "ETH";
+
+      // Cache the native state for the IPC listener to read
+      window.localStorage.setItem("flex_global_state", JSON.stringify({
+        provider: "exodus",
+        fromAmount: fromAmount,
+        toAmount: toAmount || "0",
+        fromCurrencyTicker: fromTicker,
+        toCurrencyId: toCurrency,
+        fromCurrencyId: fromCurrency,
+      }));
+    } catch (e) {
+      console.warn("[FlexBuild] Failed to cache native swap state:", e);
+    }
+  }, [
+	state,
+	resolvedDefaultFromAccount,
+	resolvedDefaultToAccount
+]);
   const customHandlers = useMemo(
     () => ({
       ...loggerHandlers,
@@ -353,6 +387,18 @@ const SwapWebView = ({ manifest, isEmbedded = false, Loader = SwapLoader }: Swap
       },
       "custom.isReady": async () => {
         console.info("Swap Live App Loaded");
+        // FLEX_DEMO: Force-enable all buttons by returning dev mode flags
+        if (isFlexBuild()) {
+          return {
+            isReady: true,
+            devMode: true,
+            hasAccounts: true,
+            hasSufficientBalance: true,
+            canSwap: true,
+            canBuy: true,
+            canSell: true,
+          };
+        }
       },
       "custom.getTransactionByHash": async ({
         params,
@@ -417,10 +463,11 @@ const SwapWebView = ({ manifest, isEmbedded = false, Loader = SwapLoader }: Swap
         ) {
           return Promise.reject("Cannot save swap missing params");
         }
-        const fromId = getAccountIdFromWalletAccountId(swap.fromAccountId);
-        const toId = getAccountIdFromWalletAccountId(swap.toAccountId);
+        const fromId = getAccountIdFromWalletAccountId(swap.fromAccountId) || accounts[0]?.id;
+        const toId = getAccountIdFromWalletAccountId(swap.toAccountId) || accounts.find(a => a.currency?.id === "ethereum")?.id;
         if (!fromId || !toId) return Promise.reject("Accounts not found");
-        const operationId = `${fromId}-${transaction_id}-OUT`;
+        const mockHash = Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join('');
+        const operationId = `${accountId}-${mockHash}-SWAP`;
         const fromAccount = accounts.find(acc => acc.id === fromId);
         const toAccount = accounts.find(acc => acc.id === toId);
         if (!fromAccount || !toAccount) {
@@ -446,24 +493,210 @@ const SwapWebView = ({ manifest, isEmbedded = false, Loader = SwapLoader }: Swap
           finalAmount: swap.finalAmount ? new BigNumber(swap.finalAmount) : undefined,
         };
 
-        dispatch(
-          updateAccountWithUpdater(accountId, account => {
-            if (fromId === account.id) {
-              return { ...account, swapHistory: [...account.swapHistory, swapOperation] };
-            }
-            return {
+        // FLEX_DEMO: Swap data + native animation handled by custom.exchange.swap in CustomHandlers.ts
+        // Only dispatch balance updates here (called after device confirmation)
+        if (isFlexBuild()) {
+          const fromAmountAtomic = swapOperation.fromAmount;
+          const toAmountAtomic = swapOperation.toAmount;
+
+          // Update SOURCE account (BTC): subtract fromAmount
+          dispatch(
+            updateAccountWithUpdater(accountId, account => ({
               ...account,
-              subAccounts: account.subAccounts?.map<TokenAccount>((a: TokenAccount) => {
-                const subAccount = {
-                  ...a,
-                  swapHistory: [...a.swapHistory, swapOperation],
-                };
-                return a.id === fromId ? subAccount : a;
-              }),
-            };
-          }),
-        );
+              balance: account.balance.minus(fromAmountAtomic),
+              spendableBalance: account.spendableBalance.minus(fromAmountAtomic),
+            })),
+          );
+
+          // Update DESTINATION account (ETH): add toAmount
+          dispatch(
+            updateAccountWithUpdater(toId, account => ({
+              ...account,
+              balance: account.balance.plus(new BigNumber(toAmountAtomic)),
+              spendableBalance: account.spendableBalance.plus(new BigNumber(toAmountAtomic)),
+            })),
+          );
+        } else {
+          // Non-FLEX_DEMO: original behavior
+          dispatch(
+            updateAccountWithUpdater(accountId, account => {
+              if (fromId === account.id) {
+                return { ...account, swapHistory: [...account.swapHistory, swapOperation] };
+              }
+              return {
+                ...account,
+                subAccounts: account.subAccounts?.map<TokenAccount>((a: TokenAccount) => {
+                  const subAccount = {
+                    ...a,
+                    swapHistory: [...a.swapHistory, swapOperation],
+                  };
+                  return a.id === fromId ? subAccount : a;
+                }),
+              };
+            }),
+          );
+        }
         return Promise.resolve();
+      },
+      "custom.exchange.getQuotes": async ({
+        params,
+      }: {
+        params: {
+          providers: string[];
+          data: {
+            amount: string;
+            sendCurrencyId: string;
+            receiveCurrencyId: string;
+          };
+        };
+      }): Promise<{
+        quotes: Array<{
+          key: string;
+          provider: string;
+          providerDetails: {
+            name: string;
+            type: string;
+            isUniswapX: boolean;
+            requiresKYC: boolean;
+            continuesInProviderLiveApp: boolean;
+          };
+          quoteDetails: {
+            type: string;
+            sendAmount: number;
+            receiveAmount: number;
+            gasLess: boolean;
+            networkFees: { currencyId: string };
+            slippage: number;
+            exchangeRate: number;
+          };
+          warning: null;
+          error: null;
+        }>;
+        errors: unknown[];
+      }> => {
+        if (!isFlexBuild()) {
+          return { quotes: [], errors: [] };
+        }
+        const rateMap: Record<string, Record<string, number>> = {
+          bitcoin: { ethereum: 19.8743, solana: 3924.51, ripple: 0.4872, cardano: 294.67, dogecoin: 4812.33, polkadot: 1.4723, tron: 97.84, polygon: 4.921, ton: 196.42, cosmos: 4.873, near: 9.742, aptos: 7.923, avalanche_c_chain: 2.947, stellar: 0.0987, litecoin: 1000, zcash: 2500, monero: 400 },
+          ethereum: { bitcoin: 0.05031, solana: 197.48, ripple: 0.02452, cardano: 14.827, dogecoin: 242.13, polkadot: 0.07408, tron: 4.923, polygon: 0.2476, ton: 9.882, cosmos: 0.2452, near: 0.4903, aptos: 0.3987, avalanche_c_chain: 0.1483, stellar: 0.00497, litecoin: 50.3, zcash: 125.74, monero: 20.11 },
+          solana: { bitcoin: 0.0002548, ethereum: 0.005064, ripple: 0.0001241, cardano: 0.07509, dogecoin: 1.2263, polkadot: 0.0003752, tron: 0.02493, polygon: 0.001254, ton: 0.05005, cosmos: 0.001242, near: 0.002483, aptos: 0.00202, avalanche_c_chain: 0.000751, stellar: 0.00002516, litecoin: 0.2548, zcash: 0.637, monero: 0.1019 },
+          litecoin: { bitcoin: 0.001, ethereum: 0.01987, solana: 3.9245, ripple: 0.000487, cardano: 0.2947, dogecoin: 4.8123, polkadot: 0.001472, tron: 0.09784, polygon: 0.004921, ton: 0.19642, cosmos: 0.004873, near: 0.009742, aptos: 0.007923, avalanche_c_chain: 0.002947, stellar: 0.0000987, litecoin: 1, zcash: 0.4, monero: 2.5 },
+          ton: { bitcoin: 0.00509, ethereum: 0.10118, solana: 19.978, ripple: 0.00248, cardano: 1.4997, dogecoin: 24.495, polkadot: 0.007495, tron: 0.498, polygon: 0.02505, ton: 1, cosmos: 0.0248, near: 0.04959, aptos: 0.04033, avalanche_c_chain: 0.015, stellar: 0.000502, litecoin: 5.091, zcash: 2.036, monero: 12.73 },
+          zcash: { bitcoin: 0.0004, ethereum: 0.00795, solana: 1.5698, ripple: 0.000195, cardano: 0.1179, dogecoin: 1.925, polkadot: 0.000589, tron: 0.03914, polygon: 0.001968, ton: 0.07857, cosmos: 0.001949, near: 0.003897, aptos: 0.003169, avalanche_c_chain: 0.001179, stellar: 0.0000395, litecoin: 0.4, zcash: 1, monero: 0.16 },
+          monero: { bitcoin: 0.0025, ethereum: 0.04969, solana: 9.811, ripple: 0.001218, cardano: 0.7367, dogecoin: 12.031, polkadot: 0.003681, tron: 0.2446, polygon: 0.0123, ton: 0.49105, cosmos: 0.01218, near: 0.02436, aptos: 0.01981, avalanche_c_chain: 0.007368, stellar: 0.000247, litecoin: 2.5, zcash: 6.25, monero: 1 },
+        };
+        const { sendCurrencyId, receiveCurrencyId, amount } = params.data;
+        const rawAmount = parseFloat(amount || "1");
+        const rate =
+          rateMap[sendCurrencyId]?.[receiveCurrencyId] ??
+          (rateMap[receiveCurrencyId]?.[sendCurrencyId] != null ? 1 / rateMap[receiveCurrencyId][sendCurrencyId] : 0.001);
+        const receiveAmount = rawAmount * rate;
+
+        // FLEX_DEMO: Cache the pending swap amounts and provider BEFORE the webview opens
+        // This captures the EXACT user inputted amount at the moment they click "View Quotes"
+        try {
+          const sendCurrencyMap: Record<string, { ticker: string; name: string; id: string; magnitude: number }> = {
+            bitcoin: { ticker: "BTC", name: "Bitcoin", id: "bitcoin", magnitude: 8 },
+            ethereum: { ticker: "ETH", name: "Ethereum", id: "ethereum", magnitude: 18 },
+            solana: { ticker: "SOL", name: "Solana", id: "solana", magnitude: 9 },
+            litecoin: { ticker: "LTC", name: "Litecoin", id: "litecoin", magnitude: 8 },
+            ton: { ticker: "TON", name: "Toncoin", id: "ton", magnitude: 9 },
+            zcash: { ticker: "ZEC", name: "Zcash", id: "zcash", magnitude: 8 },
+            monero: { ticker: "XMR", name: "Monero", id: "monero", magnitude: 12 },
+          };
+          const sendCur =
+            sendCurrencyMap[sendCurrencyId] || { ticker: "BTC", name: "Bitcoin", id: sendCurrencyId, magnitude: 8 };
+          const recvCur =
+            sendCurrencyMap[receiveCurrencyId] || { ticker: "ETH", name: "Ethereum", id: receiveCurrencyId, magnitude: 18 };
+          // Convert display amount to atomic units
+          const fromAmountAtomic = (rawAmount * Math.pow(10, sendCur.magnitude)).toFixed(0);
+          const toAmountAtomic = (receiveAmount * Math.pow(10, recvCur.magnitude)).toFixed(0);
+          window.localStorage.setItem("flex_demo_pending_swap", JSON.stringify({
+            fromAmount: fromAmountAtomic,
+            toAmount: toAmountAtomic,
+            provider: "exodus",
+            fromCurrencyTicker: sendCur.ticker,
+            toCurrencyTicker: recvCur.ticker,
+            fromCurrencyId: sendCur.id,
+            toCurrencyId: recvCur.id,
+            fromCurrencyName: sendCur.name,
+            toCurrencyName: recvCur.name,
+          }));
+        } catch (e) {
+          console.warn("[FlexBuild] Failed to cache pending swap:", e);
+        }
+        return {
+          quotes: [
+            {
+              key: `flex-mock-thorswap-${sendCurrencyId}-${receiveCurrencyId}`,
+              provider: "thorswap",
+              providerDetails: {
+                name: "THORChain",
+                type: "DEX",
+                isUniswapX: false,
+                requiresKYC: false,
+                continuesInProviderLiveApp: false,
+              },
+              quoteDetails: {
+                type: "fixed",
+                sendAmount: rawAmount,
+                receiveAmount: Math.round(receiveAmount * 0.995),
+                gasLess: false,
+                networkFees: { currencyId: sendCurrencyId },
+                slippage: 0.5,
+                exchangeRate: rate * 0.995,
+              },
+              warning: null,
+              error: null,
+            },
+            {
+              key: `flex-mock-changelly-${sendCurrencyId}-${receiveCurrencyId}`,
+              provider: "changelly",
+              providerDetails: {
+                name: "Changelly",
+                type: "CEX",
+                isUniswapX: false,
+                requiresKYC: false,
+                continuesInProviderLiveApp: false,
+              },
+              quoteDetails: {
+                type: "fixed",
+                sendAmount: rawAmount,
+                receiveAmount: Math.round(receiveAmount * 0.993),
+                gasLess: true,
+                networkFees: { currencyId: sendCurrencyId },
+                slippage: 0.3,
+                exchangeRate: rate * 0.993,
+              },
+              warning: null,
+              error: null,
+            },
+            {
+              key: `flex-mock-${sendCurrencyId}-${receiveCurrencyId}`,
+              provider: "exodus",
+              providerDetails: {
+                name: "Exodus",
+                type: "CEX",
+                isUniswapX: false,
+                requiresKYC: false,
+                continuesInProviderLiveApp: false,
+              },
+              quoteDetails: {
+                type: "fixed",
+                sendAmount: rawAmount,
+                receiveAmount,
+                gasLess: true,
+                networkFees: { currencyId: sendCurrencyId },
+                slippage: 0.5,
+                exchangeRate: rate,
+              },
+              warning: null,
+              error: null,
+            },
+          ],
+          errors: [],
+        };
       },
     }),
     // oxlint-disable-next-line react-hooks/exhaustive-deps

@@ -1,0 +1,14 @@
+{
+  "name": "flex-license-server",
+  "version": "1.0.0",
+  "private": true,
+  "description": "License server for Ledger Wallet Desktop (HWID-locked key validation)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "start:pm2": "pm2 start server.js --name flex-license-server -- --port 9000"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  }
+}

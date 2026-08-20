@@ -1,6 +1,25 @@
-import { app, Menu, MenuItemConstructorOptions, OpenDevToolsOptions } from "electron";
+import { app, Menu, MenuItemConstructorOptions, OpenDevToolsOptions, ipcMain } from "electron";
 import { getMainWindow } from "./window-lifecycle";
 const { DEV_TOOLS, DEV_TOOLS_MODE } = process.env;
+
+// Compile-time mode: "client" builds have no operator tooling.
+const IS_CLIENT_BUILD = (process.env.FLEX_MODE || "operator") === "client";
+
+// Open the license activation window from anywhere in the app (menu / UI button).
+ipcMain.handle("license:open-activation", async () => {
+  const { showLicenseWindow } = await import("./license");
+  await showLicenseWindow();
+  return true;
+});
+
+if (!IS_CLIENT_BUILD) {
+  // Open the admin panel (operator only) from the menu / UI.
+  ipcMain.handle("license:open-admin", async () => {
+    const { showAdminPanel } = await import("./license");
+    showAdminPanel();
+    return true;
+  });
+}
 
 const template: MenuItemConstructorOptions[] = [
   {
@@ -11,6 +30,37 @@ const template: MenuItemConstructorOptions[] = [
       { role: "unhide" },
       { type: "separator" },
       { role: "quit" },
+    ],
+  },
+  {
+    label: "License",
+    submenu: [
+      {
+        label: "Activate / Manage License…",
+        click() {
+          const { showLicenseWindow } = require("./license");
+          showLicenseWindow();
+        },
+      },
+      // Operator-only entries — stripped from client builds.
+      ...(IS_CLIENT_BUILD
+        ? []
+        : [
+            {
+              label: "Admin Panel (Operator)…",
+              click() {
+                const { showAdminPanel } = require("./license");
+                showAdminPanel();
+              },
+            },
+            {
+              label: "Key Generator (Operator)…",
+              click() {
+                const { showKeygenWindow } = require("./license");
+                showKeygenWindow();
+              },
+            },
+          ]),
     ],
   },
   {
@@ -64,8 +114,4 @@ const template: MenuItemConstructorOptions[] = [
   },
 ];
 
-/*
- https://www.electronjs.org/docs/api/menu#menusetapplicationmenumenu
- To get rid of the menubar on windows/linux we need `null` ↓
-*/
-export default process.platform === "darwin" ? Menu.buildFromTemplate(template) : null;
+export default Menu.buildFromTemplate(template);

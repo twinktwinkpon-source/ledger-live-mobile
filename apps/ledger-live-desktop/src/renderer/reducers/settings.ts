@@ -166,7 +166,7 @@ export const getInitialLanguageAndLocale = (): { language: Language; locale: Loc
 };
 
 export const INITIAL_STATE: SettingsState = {
-  hasCompletedOnboarding: false,
+  hasCompletedOnboarding: true,
   counterValue: "USD",
   ...getInitialLanguageAndLocale(),
   theme: "dark",
@@ -197,7 +197,20 @@ export const INITIAL_STATE: SettingsState = {
   discreetMode: false,
   preferredDeviceModel: DeviceModelId.nanoS,
   hasInstalledApps: true,
-  lastSeenDevice: null,
+  lastSeenDevice: {
+    modelId: DeviceModelId.nanoX,
+    deviceInfo: {
+      version: "2.6.1",
+      mcuVersion: "2.8",
+      majMin: "2.6",
+      isBootloader: false,
+      isOSU: false,
+      isRecoveryMode: false,
+      managerAllowed: true,
+      targetId: 0x33000004,
+    },
+    apps: [],
+  },
   mevProtection: true,
   devicesModelList: [],
   lastSeenCustomImage: {
@@ -590,7 +603,7 @@ export const currencySettingsDefaults = (c: Currency): ConfirmationDefaults & Un
 
   return {
     confirmationsNb,
-    unit: c.units[0],
+    unit: c.units?.[0] || { name: c.ticker, code: c.ticker, magnitude: 0 },
   };
 };
 const bitcoin = getCryptoCurrencyById("bitcoin");
@@ -652,7 +665,7 @@ export const countervalueFirstSelector = createSelector(
   settingsStoreSelector,
   s => s.countervalueFirst,
 );
-export const developerModeSelector = (state: State): boolean => state.settings.developerMode;
+export const developerModeSelector = () => false;
 export const lastUsedVersionSelector = (state: State): string => state.settings.lastUsedVersion;
 export const userThemeSelector = (state: State): "dark" | "light" | null => {
   const savedVal = state.settings.theme;
@@ -753,7 +766,7 @@ export const accountUnitSelector = (state: State, account: AccountLike): Unit =>
   if (account.type === "Account") {
     return unitForCurrencySelector(state, account);
   } else {
-    return account.token.units[0];
+    return account.token.units?.[0] || { name: account.token.ticker, code: account.token.ticker, magnitude: 0 };
   }
 };
 
@@ -825,7 +838,14 @@ export const lastSeenDeviceSelector = (state: State): DeviceModelInfo | null | u
 };
 export const devicesModelListSelector = (state: State): DeviceModelId[] =>
   state.settings.devicesModelList;
-export const latestFirmwareSelector = (state: State) => state.settings.latestFirmware;
+export const latestFirmwareSelector = (state: State) => {
+  // FLEX DEMO: suppress firmware update banner by returning null.
+  // The FirmwareUpdateBanner renders when this selector returns a non-null
+  // latestFirmware. In flex mode there is no real device to update, so
+  // the banner must be silenced at the data layer (not the UI layer).
+  if (typeof process !== "undefined" && process.env.FLEX_DEMO === "true") return null;
+  return state.settings.latestFirmware;
+};
 export const swapSelectableCurrenciesSelector = (state: State) =>
   state.settings.swap.selectableCurrencies;
 export const showClearCacheBannerSelector = (state: State) => state.settings.showClearCacheBanner;
@@ -856,5 +876,9 @@ export const hasClickedRecoverSelector = (state: State) => state.settings.hasCli
 
 // Last onboarded device is the device set when a user goes through the onboarding flow.
 // Last seen device is the device set when a user performs a device action (e.g. pairing, firmware update, etc.).
-export const hasOnboardedDeviceSelector = (state: State) =>
-  !!lastOnboardedDeviceSelector(state) || lastSeenDeviceSelector(state) !== null;
+export const hasOnboardedDeviceSelector = (state: State) => {
+  // FLEX DEMO: always treat as having an onboarded device so the "Buy Device" modal
+  // and "Connect a Ledger device" interceptors never block UI.
+  if (typeof process !== "undefined" && process.env.FLEX_DEMO === "true") return true;
+  return !!lastOnboardedDeviceSelector(state) || lastSeenDeviceSelector(state) !== null;
+};

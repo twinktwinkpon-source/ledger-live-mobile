@@ -24,6 +24,7 @@ import { TrustchainStore } from "@ledgerhq/ledger-key-ring-protocol/store";
 import { Steps } from "LLM/features/WalletSync/types/Activation";
 import { type TabListType as TabPortfolioAssetsType } from "~/screens/Portfolio/TabSection";
 import type { CountervaluesState } from "./countervalues";
+import type { FlexState } from "./flex";
 import type { ToastState } from "./toast";
 import type { ModularDrawerState } from "./modularDrawer";
 import type { LLMRTKApiState } from "~/context/rtkQueryApi";
@@ -414,6 +415,7 @@ export type State = LLMRTKApiState & {
   dynamicContent: DynamicContentState;
   earn: EarnState;
   featureFlags: FeatureFlagsState;
+  flex: FlexState;
   genericAwarenessModal: GenericAwarenessModalState;
   history: HistoryState;
   identities: IdentitiesState;

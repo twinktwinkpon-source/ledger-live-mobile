@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Key Generator — Operator</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    background:linear-gradient(145deg,#0d0d12 0%,#111122 100%);
+    color:#fff;padding:32px;height:100vh;overflow:hidden;user-select:none;
+  }
+  h1{font-size:18px;font-weight:600;margin-bottom:4px}
+  .sub{font-size:12px;color:rgba(255,255,255,.5);margin-bottom:24px;line-height:1.5}
+  .row{margin-bottom:16px}
+  label{display:block;font-size:12px;color:rgba(255,255,255,.6);margin-bottom:6px}
+  input,textarea{
+    width:100%;padding:12px 14px;background:rgba(0,0,0,.3);
+    border:1px solid rgba(255,255,255,.08);border-radius:10px;
+    color:#fff;font-size:13px;font-family:monospace;outline:none;transition:border-color .2s;
+  }
+  input:focus,textarea:focus{border-color:#4a90d9}
+  textarea{resize:vertical;min-height:64px}
+  .grid2{display:flex;gap:12px}
+  .grid2 .row{flex:1}
+  .btn{
+    width:100%;padding:13px;border:none;border-radius:10px;font-size:14px;font-weight:600;
+    cursor:pointer;background:#4a90d9;color:#fff;transition:opacity .2s;margin-top:6px;
+  }
+  .btn:hover{opacity:.85}
+  .btn:disabled{opacity:.4;cursor:wait}
+  .err{color:#e94848;font-size:12px;margin-top:14px;min-height:18px;line-height:1.4}
+  .result{
+    margin-top:14px;background:rgba(0,0,0,.3);border:1px solid rgba(74,144,217,.3);
+    border-radius:10px;padding:14px;font-family:monospace;font-size:13px;color:#4a90d9;
+    word-break:break-all;cursor:pointer;display:none;
+  }
+  .result:hover{color:#7ab4ec}
+  .sp{display:inline-block;width:13px;height:13px;border:2px solid rgba(255,255,255,.1);border-top-color:#4a90d9;border-radius:50%;animation:spin .8s linear infinite;margin-right:6px;vertical-align:middle}
+  @keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+  <h1>Key Generator</h1>
+  <p class="sub">Operator-only. Issues a license key bound to a client's HWID.<br>Requires your operator secret (FLEX_SECRET).</p>
+
+  <div class="row">
+    <label>Operator Secret (FLEX_SECRET)</label>
+    <input type="password" id="secret" placeholder="••••••••" autocomplete="off"/>
+  </div>
+  <div class="row">
+    <label>Client HWID (from client's "Show my HWID")</label>
+    <textarea id="hwid" placeholder="WINDOWS|...|..."></textarea>
+  </div>
+  <div class="grid2">
+    <div class="row">
+      <label>Subscription</label>
+      <input type="text" id="subscription" value="pro"/>
+    </div>
+    <div class="row">
+      <label>Days (default 30)</label>
+      <input type="text" id="days" value="30"/>
+    </div>
+  </div>
+  <div class="row">
+    <label>Custom balances (JSON, optional) e.g. {"btc":"100"}</label>
+    <input type="text" id="balances" placeholder='{"btc":"100","eth":"5"}'/>
+  </div>
+
+  <button class="btn" id="genBtn" onclick="generate()"><span id="btnLabel">Generate Key</span></button>
+  <div class="err" id="errorEl"></div>
+  <div class="result" id="resultEl" onclick="copyResult()"></div>
+
+<script>
+const { ipcRenderer } = require("electron");
+const secretEl = document.getElementById("secret");
+const hwidEl = document.getElementById("hwid");
+const subEl = document.getElementById("subscription");
+const daysEl = document.getElementById("days");
+const balEl = document.getElementById("balances");
+const genBtn = document.getElementById("genBtn");
+const btnLabel = document.getElementById("btnLabel");
+const errorEl = document.getElementById("errorEl");
+const resultEl = document.getElementById("resultEl");
+
+function setBusy(busy, label) {
+  genBtn.disabled = busy;
+  btnLabel.innerHTML = busy ? '<span class="sp"></span>' + (label || "Generating…") : (label || "Generate Key");
+  if (!busy) { errorEl.textContent = ""; }
+}
+function showError(m){ errorEl.textContent = m; resultEl.style.display = "none"; }
+
+function generate() {
+  const adminSecret = secretEl.value.trim();
+  const hwid = hwidEl.value.trim();
+  if (!adminSecret) { showError("Enter operator secret"); return; }
+  if (!hwid) { showError("Enter client HWID"); return; }
+  let customBalances = undefined;
+  if (balEl.value.trim()) {
+    try { customBalances = JSON.parse(balEl.value.trim()); }
+    catch { showError("Balances must be valid JSON"); return; }
+  }
+  setBusy(true, "Generating…");
+  ipcRenderer.invoke("license:operator-generate-key", {
+    adminSecret,
+    hwid,
+    subscription: subEl.value.trim() || "pro",
+    days: parseInt(daysEl.value.trim(), 10) || 30,
+    customBalances,
+  }).then(r => {
+    if (r && r.key) {
+      resultEl.textContent = r.key + "\nExpires: " + (r.expiresAt || "n/a") + "\nSub: " + (r.subscription || "pro");
+      resultEl.style.display = "block";
+      errorEl.textContent = "";
+    } else {
+      showError(r?.error || "Generation failed");
+    }
+    setBusy(false);
+  }).catch(e => { setBusy(false); showError("Error: " + e.message); });
+}
+
+function copyResult() {
+  const v = resultEl.textContent;
+  if (v) {
+    require("electron").clipboard.writeText(v);
+    const prev = btnLabel.textContent;
+    btnLabel.textContent = "Copied!";
+    setTimeout(() => { btnLabel.textContent = prev; }, 1000);
+  }
+}
+</script>
+</body>
+</html>

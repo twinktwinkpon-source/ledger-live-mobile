@@ -155,6 +155,8 @@ export enum ScreenName {
   TransactionAlreadyValidatedError = "TransactionAlreadyValidatedError",
   SendValidationSuccess = "SendValidationSuccess",
   SettingsScreen = "SettingsScreen",
+  LedgerSync = "LedgerSync",
+  LedgerSyncScan = "LedgerSyncScan",
   SignConnectDevice = "SignConnectDevice",
   SignSelectDevice = "SignSelectDevice",
   SignSummary = "SignSummary",

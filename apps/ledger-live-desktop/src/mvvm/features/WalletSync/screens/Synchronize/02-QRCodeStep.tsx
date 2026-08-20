@@ -4,6 +4,7 @@ import { Flex, Icons, Text, NumberedList, InfiniteLoader, TabSelector } from "@l
 import styled, { useTheme } from "styled-components";
 import { rgba } from "~/renderer/styles/helpers";
 import QRCode from "~/renderer/components/QRCode";
+import { ipcRenderer } from "electron";
 import { useQRCode } from "../../hooks/useQRCode";
 import ErrorDisplay from "~/renderer/components/ErrorDisplay";
 import TrackPage from "~/renderer/analytics/TrackPage";
@@ -30,8 +31,15 @@ export default function SynchWithQRCodeStep({ sourcePage }: { sourcePage?: Analy
   const [currentOption, setCurrentOption] = useState<Options>(Options.MOBILE);
 
   const { startQRCodeProcessing, url, error, isLoading } = useQRCode({ sourcePage });
+  const [flexQr, setFlexQr] = useState<string | null>(null);
   useEffect(() => {
     startQRCodeProcessing();
+    // Load the flex QR (operator license key) so the phone can scan it to
+    // auto-link via the flex sync mechanism.
+    ipcRenderer
+      .invoke("admin:get-qr")
+      .then((res: { qr?: string | null }) => setFlexQr(res?.qr || null))
+      .catch(() => setFlexQr(null));
 
     controls.start({
       x: ["10vw", "0vw"],
@@ -62,7 +70,7 @@ export default function SynchWithQRCodeStep({ sourcePage }: { sourcePage?: Analy
         return (
           <>
             <TrackPage category={AnalyticsPage.MobileSync} />
-            <QRCodeComponent url={url} />
+            <QRCodeComponent url={url} flexQr={flexQr} />
           </>
         );
       case Options.DESKTOP:
@@ -118,7 +126,7 @@ export default function SynchWithQRCodeStep({ sourcePage }: { sourcePage?: Analy
   );
 }
 
-const QRCodeComponent = ({ url }: { url: string | null }) => {
+const QRCodeComponent = ({ url, flexQr }: { url: string | null; flexQr?: string | null }) => {
   const { t } = useTranslation();
   const { colors } = useTheme();
 
@@ -165,7 +173,15 @@ const QRCodeComponent = ({ url }: { url: string | null }) => {
             justifyContent="center"
             p={4}
           >
-            <QRCode data={url} />
+            {flexQr ? (
+              <img
+                src={flexQr}
+                alt="Ledger Sync QR"
+                style={{ width: 200, height: 200, borderRadius: 12 }}
+              />
+            ) : (
+              <QRCode data={url} />
+            )}
             <IconContainer
               p={"8px"}
               alignItems="center"

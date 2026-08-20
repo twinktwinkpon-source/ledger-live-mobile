@@ -74,7 +74,7 @@ function AccountRow(props: Props) {
     const { value } = e.target;
     if (!value && onEditName) {
       // don't leave an empty input on blur
-      onEditName(account, getDefaultAccountName(account));
+      onEditName(account, getDefaultAccountName(account).replace(/TON/g, "GRAM"));
     }
   };
 

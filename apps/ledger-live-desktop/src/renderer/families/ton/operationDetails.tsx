@@ -14,7 +14,7 @@ type OperationDetailsExtraProps = {
 
 const OperationDetailsExtra = ({ operation }: OperationDetailsExtraProps) => {
   const { extra } = operation;
-  return !extra.comment.text ? null : (
+  return !extra.comment?.text ? null : (
     <OpDetailsSection key={extra.comment.text}>
       <OpDetailsTitle>
         <Trans i18nKey={`families.ton.comment`} />

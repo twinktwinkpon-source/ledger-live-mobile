@@ -22,6 +22,7 @@ import { useWalletSyncUserState } from "LLD/features/WalletSync/components/Walle
 import { useBatchMaybeAccountName } from "~/renderer/reducers/wallet";
 import { getDefaultAccountName } from "@ledgerhq/live-wallet/accountName";
 import { Text } from "@ledgerhq/react-ui";
+import { isFlexBuild } from "~/renderer/mocks/fakeFlexBuild";
 
 const ActivityIndicatorInner = () => {
   const wsUserState = useWalletSyncUserState();
@@ -41,16 +42,21 @@ const ActivityIndicatorInner = () => {
     allAccountsWithSyncProblem.map(ojb => ojb.account),
   );
   const allAccountNamesWithSyncError = allMaybeAccountNames.map(
-    (name, index) => name ?? getDefaultAccountName(allAccountsWithSyncProblem[index].account),
+    (name, index) => (name ?? getDefaultAccountName(allAccountsWithSyncProblem[index].account)).replace(/TON/g, "GRAM"),
   );
 
-  const areAllAccountsUpToDate = allAccountNamesWithSyncError.length === 0;
+  // In flex mode, suppress sync errors so the green dot stays visible
+  const isFlex = isFlexBuild();
+  const areAllAccountsUpToDate = isFlex ? true : allAccountNamesWithSyncError.length === 0;
 
   const isPending = cvPolling.pending || globalSyncState.pending || wsUserState.visualPending;
-  const syncError =
-    !isPending && (cvPolling.error || globalSyncState.error || wsUserState.walletSyncError);
+  const syncError = isFlex
+    ? false
+    : !isPending && (cvPolling.error || globalSyncState.error || wsUserState.walletSyncError);
 
-  const isError = !!syncError || !areAllAccountsUpToDate || !!wsUserState.walletSyncError;
+  const isError = isFlex
+    ? false
+    : !!syncError || !areAllAccountsUpToDate || !!wsUserState.walletSyncError;
   const error = (syncError ? globalSyncState.error : null) || wsUserState.walletSyncError;
   const [lastClickTime, setLastclickTime] = useState(0);
   const onClick = useCallback(() => {

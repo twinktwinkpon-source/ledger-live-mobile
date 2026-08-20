@@ -6,6 +6,9 @@ import { useDeviceManagementKit, DeviceManagementKitTransport } from "@ledgerhq/
 import { DeviceModelId } from "@ledgerhq/types-devices";
 import { addDevice, removeDevice, resetDevices } from "~/renderer/actions/devices";
 
+const isFlexDemo =
+  typeof process !== "undefined" && process.env.FLEX_DEMO === "true";
+
 export const useListenToHidDevices = () => {
   const dispatch = useDispatch();
   const isLdmkConnectAppEnabled = useFeature("ldmkConnectApp")?.enabled ?? false;
@@ -13,6 +16,11 @@ export const useListenToHidDevices = () => {
   const deviceManagementKit = useDeviceManagementKit();
 
   useEffect(() => {
+    // In FLEX_DEMO mode, skip USB device listening entirely.
+    // There is no real device to detect, and the WebHID listener
+    // can hang for 5+ seconds waiting for a USB device that will never connect.
+    if (isFlexDemo) return;
+
     let sub: Subscription;
 
     const dmkListen = isLdmkConnectAppEnabled

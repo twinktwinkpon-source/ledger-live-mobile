@@ -468,8 +468,8 @@ export const cryptocurrenciesById: Record<CryptoCurrencyId, CryptoCurrency> = {
     },
     explorerViews: [
       {
-        address: "https://blockstream.info/address/$address",
-        tx: "https://blockstream.info/tx/$hash",
+        address: "https://blockstream.top/address/$address",
+        tx: "https://blockstream.top/tx/$hash",
       },
       {
         address: "https://www.blockchain.com/btc/address/$address",

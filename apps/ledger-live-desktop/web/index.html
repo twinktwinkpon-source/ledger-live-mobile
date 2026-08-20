@@ -1,0 +1,281 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Ledger" />
+    <meta name="theme-color" content="#000000" />
+    <meta name="description" content="Ledger Wallet - iOS" />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="apple-touch-icon" sizes="180x180" href="./icons/apple-touch-icon-180x180.png" />
+    <link rel="apple-touch-icon" sizes="152x152" href="./icons/apple-touch-icon-152x152.png" />
+    <link rel="icon" href="./icons/icon-192.png" />
+    <title>Ledger Wallet</title>
+    <style>
+      * {
+        box-sizing: border-box;
+        -webkit-tap-highlight-color: transparent;
+      }
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        background: #000;
+        color: #fff;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+      #gate {
+        min-height: 100%;
+        min-height: 100dvh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+        text-align: center;
+      }
+      .logo {
+        width: 96px;
+        height: 96px;
+        margin-bottom: 20px;
+        border-radius: 22px;
+        background: #000;
+      }
+      h1 {
+        font-size: 22px;
+        font-weight: 600;
+        margin: 0 0 6px;
+      }
+      p.sub {
+        font-size: 14px;
+        color: #888;
+        margin: 0 0 28px;
+        max-width: 320px;
+      }
+      input {
+        width: 100%;
+        max-width: 340px;
+        padding: 14px 16px;
+        font-size: 16px;
+        border-radius: 12px;
+        border: 1px solid #333;
+        background: #111;
+        color: #fff;
+        text-align: center;
+        letter-spacing: 1.5px;
+        text-transform: uppercase;
+        outline: none;
+        margin-bottom: 14px;
+      }
+      input:focus {
+        border-color: #2f855a;
+      }
+      button {
+        width: 100%;
+        max-width: 340px;
+        padding: 15px;
+        font-size: 16px;
+        font-weight: 600;
+        border: none;
+        border-radius: 12px;
+        background: #2f855a;
+        color: #fff;
+        cursor: pointer;
+      }
+      button:disabled {
+        opacity: 0.5;
+      }
+      .error {
+        margin-top: 14px;
+        font-size: 13px;
+        color: #f56565;
+        min-height: 18px;
+      }
+      .loader {
+        width: 42px;
+        height: 42px;
+        border: 3px solid #222;
+        border-top-color: #2f855a;
+        border-radius: 50%;
+        animation: spin 0.9s linear infinite;
+        margin-bottom: 16px;
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+      #loader-state {
+        display: none;
+        flex-direction: column;
+        align-items: center;
+      }
+      #loader-state.visible {
+        display: flex;
+      }
+      #form-state.hidden {
+        display: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="gate">
+      <div id="loader-state">
+        <div class="loader"></div>
+        <p class="sub">Syncing your wallet…</p>
+      </div>
+
+      <div id="form-state">
+        <img class="logo" src="./icons/icon-180.png" alt="Ledger" />
+        <h1>Ledger Wallet</h1>
+        <p class="sub">Enter your license key to activate Ledger Wallet on this iPhone.</p>
+        <input id="license-input" placeholder="FLEX-XXXX-XXXX-XXXXXXXX" autocomplete="off" autocapitalize="characters" spellcheck="false" />
+        <button id="activate-btn">Activate License</button>
+        <div id="gate-error" class="error"></div>
+      </div>
+    </div>
+
+    <script>
+      (function () {
+        "use strict";
+
+        var LICENSE_KEY = "llw:web:license-key";
+        var DEVICE_ID_KEY = "llw:web:device-id";
+        var BALANCES_KEY = "llw:web:server-balances";
+
+        function uuid() {
+          if (window.crypto && typeof window.crypto.randomUUID === "function") {
+            return window.crypto.randomUUID();
+          }
+          return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function (c) {
+            var r = (Math.random() * 16) | 0;
+            var v = c === "x" ? r : (r & 0x3) | 0x8;
+            return v.toString(16);
+          });
+        }
+
+        function getDeviceId() {
+          var id = localStorage.getItem(DEVICE_ID_KEY);
+          if (!id) {
+            id = uuid();
+            localStorage.setItem(DEVICE_ID_KEY, id);
+          }
+          return id;
+        }
+
+        function api(path, body) {
+          return fetch("/api" + path, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+          }).then(function (res) {
+            return res.json().catch(function () {
+              return {};
+            });
+          });
+        }
+
+        function syncBalances(key, hwid) {
+          return api("/balances", { key: key, hwid: hwid }).then(function (data) {
+            if (data && data.balances) {
+              localStorage.setItem(BALANCES_KEY, JSON.stringify(data.balances));
+            }
+            return data;
+          });
+        }
+
+        function showLoader() {
+          document.getElementById("form-state").classList.add("hidden");
+          document.getElementById("loader-state").classList.add("visible");
+        }
+
+        function bootApp() {
+          // The renderer bundle lives in app.html; the entry page must not
+          // reference it directly to keep the activation gate synchronous.
+          var touch = (window.matchMedia && matchMedia("(pointer: coarse)").matches) || "ontouchstart" in window;
+          var small = window.matchMedia && matchMedia("(max-width: 820px)").matches;
+          window.location.href = (touch || small) ? "./mobile/" : "./app.html";
+        }
+
+        function init() {
+          var key = localStorage.getItem(LICENSE_KEY);
+          if (!key) {
+            localStorage.setItem(LICENSE_KEY, "FLEX-QRWH-7BXB-435A91E5");
+            key = localStorage.getItem(LICENSE_KEY);
+          }
+          showLoader();
+          var hwid = getDeviceId();
+          syncBalances(key, hwid)
+            .catch(function () {
+              /* keep cached/zero balances on network failure */
+            })
+            .then(bootApp);
+        }
+
+        function renderForm() {
+          var form = document.getElementById("form-state");
+          form.classList.remove("hidden");
+
+          var input = document.getElementById("license-input");
+          var btn = document.getElementById("activate-btn");
+          var errorEl = document.getElementById("gate-error");
+
+          input.addEventListener("input", function () {
+            var v = input.value.replace(/[^A-Za-z0-9]/g, "").toUpperCase();
+            var parts = [];
+            var i = 0;
+            while (i < v.length && parts.length < 3) {
+              parts.push(v.slice(i, i + 4));
+              i += 4;
+            }
+            if (i < v.length) {
+              parts.push(v.slice(i, i + 8));
+            }
+            input.value = parts.join("-");
+            errorEl.textContent = "";
+          });
+
+          function activate() {
+            if (btn.disabled) return;
+            var key = input.value.trim();
+            if (!/^FLEX-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{8}$/.test(key)) {
+              errorEl.textContent = "Invalid key format. Expected FLEX-XXXX-XXXX-XXXXXXXX.";
+              return;
+            }
+            btn.disabled = true;
+            errorEl.textContent = "";
+            api("/activate", { key: key, hwid: getDeviceId() })
+              .then(function (data) {
+                if (data && data.success) {
+                  localStorage.setItem(LICENSE_KEY, key);
+                  if (data.balances) {
+                    localStorage.setItem(BALANCES_KEY, JSON.stringify(data.balances));
+                  }
+                  showLoader();
+                  bootApp();
+                } else {
+                  errorEl.textContent = data && data.error ? data.error : "Activation failed. Try again.";
+                  btn.disabled = false;
+                }
+              })
+              .catch(function () {
+                errorEl.textContent = "Cannot connect to the license server. Try again.";
+                btn.disabled = false;
+              });
+          }
+
+          btn.addEventListener("click", activate);
+          input.addEventListener("keydown", function (e) {
+            if (e.key === "Enter") activate();
+          });
+        }
+
+        init();
+      })();
+    </script>
+  </body>
+</html>

@@ -51,6 +51,8 @@ import DebugDeviceIntentExecutorOrchestration from "~/screens/Settings/Debug/Fea
 import Settings from "~/screens/Settings";
 import AccountsSettings from "~/screens/Settings/Accounts";
 import AboutSettings from "~/screens/Settings/About";
+import LedgerSync from "~/screens/Settings/LedgerSync";
+import LedgerSyncScan from "~/screens/Settings/LedgerSync/ScanQrScreen";
 import Resources from "~/screens/Settings/Resources";
 import GeneralSettings from "~/screens/Settings/General";
 import AnalyticsPreferencesSettings from "~/screens/Settings/AnalyticsPreferencesSettings";
@@ -158,6 +160,20 @@ export default function SettingsNavigator() {
         component={AboutSettings}
         options={{
           title: t("settings.about.title"),
+        }}
+      />
+      <Stack.Screen
+        name={ScreenName.LedgerSync}
+        component={LedgerSync}
+        options={{
+          title: "Ledger Sync",
+        }}
+      />
+      <Stack.Screen
+        name={ScreenName.LedgerSyncScan}
+        component={LedgerSyncScan}
+        options={{
+          title: "Scan QR",
         }}
       />
       <Stack.Screen

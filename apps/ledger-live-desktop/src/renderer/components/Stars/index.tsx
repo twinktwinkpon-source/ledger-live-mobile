@@ -80,8 +80,8 @@ const Stars = ({ pathname, collapsed }: Props) => {
         <Tooltip
           content={
             account.type === "Account"
-              ? accountNameSelector(walletState, { accountId: account.id }) ||
-                getDefaultAccountName(account)
+              ? (accountNameSelector(walletState, { accountId: account.id }) ||
+                getDefaultAccountName(account)).replace(/TON/g, "GRAM")
               : getAccountCurrency(account).name
           }
           delay={collapsed ? 0 : 1200}

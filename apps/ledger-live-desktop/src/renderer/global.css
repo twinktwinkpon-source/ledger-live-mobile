@@ -8,6 +8,10 @@ body {
   font-family: Inter;
 }
 
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
 #react-root {
   display: flex;
   flex-direction: column;

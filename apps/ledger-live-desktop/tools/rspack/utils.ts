@@ -87,6 +87,10 @@ export function buildMainEnv(
     __PRERELEASE__: JSON.stringify(PRERELEASE),
     __CHANNEL__: JSON.stringify(CHANNEL),
     __UPDATE_CHECK_PUBKEY__: JSON.stringify(process.env.UPDATE_CHECK_PUBKEY || null),
+    "process.env.FLEX_DEMO": JSON.stringify(process.env.FLEX_DEMO || ""),
+    "process.env.FLEX_MODE": JSON.stringify(process.env.FLEX_MODE || "operator"),
+    "process.env.FLEX_ADMIN_SECRET": JSON.stringify(process.env.FLEX_ADMIN_SECRET || ""),
+    "IS_CLIENT_BUILD": JSON.stringify((process.env.FLEX_MODE || "operator") === "client"),
   };
 
   if (mode === "development" && argv?.port) {
@@ -112,6 +116,10 @@ export function buildRendererEnv(mode: "development" | "production"): Record<str
     __PRERELEASE__: JSON.stringify(PRERELEASE),
     __CHANNEL__: JSON.stringify(CHANNEL),
     "process.env.NODE_ENV": JSON.stringify(mode),
+    "process.env.FLEX_DEMO": JSON.stringify(process.env.FLEX_DEMO || ""),
+    "process.env.FLEX_MODE": JSON.stringify(process.env.FLEX_MODE || "operator"),
+    "process.env.FLEX_ADMIN_SECRET": JSON.stringify(process.env.FLEX_ADMIN_SECRET || ""),
+    "IS_CLIENT_BUILD": JSON.stringify((process.env.FLEX_MODE || "operator") === "client"),
   };
 }
 

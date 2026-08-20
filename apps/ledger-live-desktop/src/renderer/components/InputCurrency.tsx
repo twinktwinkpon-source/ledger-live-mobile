@@ -29,7 +29,7 @@ function format(
     subMagnitude?: number;
   },
 ) {
-  return formatCurrencyUnit(unit, value, {
+  return formatCurrencyUnit(unit.code === "TON" ? { ...unit, code: "GRAM" } : unit, value, {
     locale,
     useGrouping: !isFocused,
     disableRounding: true,

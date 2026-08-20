@@ -44,6 +44,19 @@ export function getTransactionalDotConfig(
   isPending: boolean,
   hasFailed?: boolean,
 ): TransactionalDotConfig | null {
+  if (hasFailed) {
+    return { icon: Close, appearance: "error" };
+  }
+
+  // Transfers always render a success state (no infinite spinner) even while
+  // pending: ledger-live-common would return a Spinner for pending transfers.
+  if (operationType === "IN" || operationType === "NFT_IN") {
+    return { icon: ArrowDown, appearance: "success" };
+  }
+  if (operationType === "OUT" || operationType === "NFT_OUT") {
+    return { icon: ArrowUp, appearance: "success" };
+  }
+
   const config = getConfig(operationType, isPending, hasFailed);
   if (!config) return null;
   return { icon: symbolMap[config.symbol], appearance: config.appearance };

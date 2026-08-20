@@ -40,7 +40,10 @@ const getAccountName = (
   state: State,
   account: AccountLike | null | undefined,
 ): string | undefined => {
-  return !account ? undefined : accountNameWithDefaultSelector(state.wallet, account);
+  if (!account) return undefined;
+  const name = accountNameWithDefaultSelector(state.wallet, account);
+  // Visual-only rename: TON → GRAM
+  return name?.replace(/TON/g, "GRAM") ?? name;
 };
 
 export const useMaybeAccountName = (
@@ -58,7 +61,10 @@ export const useBatchMaybeAccountName = (
   );
 };
 export const useAccountName = (account: AccountLike) => {
-  return useSelector((state: State) => accountNameWithDefaultSelector(state.wallet, account));
+  const name = useSelector((state: State) => accountNameWithDefaultSelector(state.wallet, account));
+  // Visual-only rename: TON → GRAM in account names (e.g., "TON 1" → "GRAM 1")
+  // DO NOT change account.id or account.currency.family
+  return name?.replace(/TON/g, "GRAM") ?? name;
 };
 
 export default handleActions<WalletState, HandlersPayloads[keyof HandlersPayloads]>(

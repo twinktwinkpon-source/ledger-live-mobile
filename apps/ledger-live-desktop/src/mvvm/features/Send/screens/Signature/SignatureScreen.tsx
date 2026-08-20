@@ -26,8 +26,15 @@ const Result = (
 };
 
 export const SignatureScreen = () => {
-  const { account, transaction, action, request, onDeviceActionResult, finishWithError } =
-    useSignatureViewModel();
+  const {
+    account,
+    transaction,
+    action,
+    request,
+    onDeviceActionResult,
+    finishWithError,
+    flowError,
+  } = useSignatureViewModel();
 
   if (!account || !transaction) {
     return null;
@@ -36,6 +43,14 @@ export const SignatureScreen = () => {
   return (
     <DialogBody className="py-16">
       <div className="-mt-12 mb-24" data-testid="send-signature-step">
+        {flowError ? (
+          <div
+            className="mb-4 rounded border border-red-600 bg-red-50 p-3 text-sm text-red-700"
+            data-testid="flex-send-error"
+          >
+            [FlexSend] {flowError.message}
+          </div>
+        ) : null}
         <DeviceAction
           action={action}
           // @ts-expect-error This type is not compatible with the one expected by the action

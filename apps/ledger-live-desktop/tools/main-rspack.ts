@@ -27,83 +27,174 @@ class Electron {
   private bundlePath: string;
   private electronPath: string;
   private execa: any;
+  private exitHandler: ((result: { exitCode?: number; signal?: string }) => void) | undefined;
 
   constructor(
     bundlePath: string,
     execa: any,
-    electronPath: string = "./node_modules/.bin/electron",
+    electronPath: string = path.join(
+      lldRoot,
+      "node_modules",
+      "electron",
+      "dist",
+      process.platform === "win32" ? "electron.exe" : "electron",
+    ),
   ) {
     this.bundlePath = bundlePath;
     this.electronPath = electronPath;
     this.execa = execa;
   }
 
-  start() {
+  start(exitHandler?: (result: { exitCode?: number; signal?: string }) => void) {
     if (!this.instance) {
+      if (exitHandler) this.exitHandler = exitHandler;
       const args = (process.env.ELECTRON_ARGS || "").split(/[ ]+/).filter(Boolean);
       if (args.length) console.log("Electron starts with", args);
+      // ELECTRON_RUN_AS_NODE can be inherited from a developer shell or an
+      // IDE. When set, Electron intentionally behaves like plain Node.js,
+      // which makes electron-is-dev reject the main process.
+      const electronEnv = { ...process.env };
+      // Windows environment variable names are case-insensitive. Remove all
+      // casing variants so Electron cannot accidentally inherit Node mode
+      // from an IDE or from a previous `electron` shell command.
+      for (const key of Object.keys(electronEnv)) {
+        if (key.toUpperCase() === "ELECTRON_RUN_AS_NODE") delete electronEnv[key];
+      }
       // reject: false prevents throwing when process is killed during reload
-      this.instance = this.execa(this.electronPath, [this.bundlePath, ...args], { reject: false });
-      this.instance.stdout?.pipe(process.stdout);
-      this.instance.stderr?.pipe(process.stderr);
+      const instance = this.execa(this.electronPath, [this.bundlePath, ...args], {
+        reject: false,
+        env: electronEnv,
+        // Do not merge the parent environment back into electronEnv: that
+        // would reintroduce ELECTRON_RUN_AS_NODE after it was removed above.
+        extendEnv: false,
+      });
+      this.instance = instance;
+      instance.stdout?.pipe(process.stdout);
+      instance.stderr?.pipe(process.stderr);
+      instance.then((result: { exitCode?: number; signal?: string }) => {
+        // Ignore the result of a process intentionally stopped for HMR.
+        if (this.instance === instance) this.exitHandler?.(result);
+      });
     }
   }
 
-  stop() {
+  async stop() {
     if (this.instance) {
-      this.instance.kill();
+      const instance = this.instance;
       this.instance = null;
+
+      // On Windows, kill() doesn't properly terminate the process tree.
+      // Use taskkill /F /T to forcefully kill the process and all children.
+      // This prevents "Lock file can not be created" and cache access errors on reload.
+      if (process.platform === "win32" && instance.pid) {
+        try {
+          const { execSync } = await import("child_process");
+          execSync(`taskkill /F /T /PID ${instance.pid}`, {
+            encoding: "utf-8",
+            timeout: 5000,
+            stdio: "pipe",
+          });
+        } catch {
+          // Process may have already exited — fall through to kill()
+          instance.kill();
+        }
+      } else {
+        instance.kill();
+      }
+
+      // Wait for the process to fully exit so lock files and caches are released
+      try {
+        await instance;
+      } catch {
+        // ignore — reject: false was set, but just in case
+      }
+
+      // Small delay to let the OS release file locks (especially on Windows)
+      await new Promise(resolve => setTimeout(resolve, 500));
     }
   }
 
-  reload() {
+  async reload() {
     if (this.instance) {
-      this.stop();
+      await this.stop();
       this.start();
     }
   }
 }
 
 /**
- * Start development mode with HMR
+ * Start development mode with HMR.
  */
 const startDevMode = async (argv: { port: number }) => {
-  const execa = await import("execa").then(mod => mod.execa);
-  const electron = new Electron("./.webpack/main.bundle.js", execa);
-
   try {
     await processReleaseNotes();
   } catch (error) {
     console.log("Warning: Could not process release notes:", error);
   }
 
+  const execa = await import("execa").then(mod => mod.execa);
+  const electron = new Electron("./.webpack/main.bundle.js", execa);
+
   console.log("🚀 Starting rspack development environment...\n");
+
+  // Track whether the main process has been built at least once.
+  // We only start Electron AFTER the first main build completes, so
+  // the license window (if shown) is not immediately killed by a reload.
+  let mainBuilt = false;
+  let firstBuildResolve: () => void;
+  const firstBuildPromise = new Promise<void>(resolve => {
+    firstBuildResolve = resolve;
+  });
 
   // Start the development server and watchers
   const { close } = await startDev({
     port: argv.port,
-    onMainRebuild: () => {
+    onMainRebuild: async () => {
+      if (!mainBuilt) {
+        // First build just completed — don't reload, just signal readiness.
+        mainBuilt = true;
+        firstBuildResolve();
+        return;
+      }
       console.log("♻️  Reloading Electron...");
-      electron.reload();
+      await electron.reload();
     },
   });
 
-  // Start Electron after initial builds complete
-  // Wait a bit for the initial build to complete
-  await new Promise(resolve => setTimeout(resolve, 2000));
-  electron.start();
+  let shuttingDown = false;
+  const shutdown = async (exitCode = 0) => {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    console.log("\n🛑 Shutting down...");
+    await electron.stop();
+    await close();
+    process.exit(exitCode);
+  };
+
+  // Wait for the first main build to complete before starting Electron.
+  // This prevents the license window from being killed by an immediate reload.
+  console.log("⏳ Waiting for initial main build to complete...");
+  await firstBuildPromise;
+  console.log("✅ Initial main build complete, starting Electron...");
+
+  // When FLEX_DEMO=true, the app expects a fake device/portfolio and the
+  // Electron window must open. We still launch Electron normally here; the
+  // FLEX_DEMO runtime checks live inside the renderer code (fakeFlexBuild.ts).
+  // Any Electron exit must close the Rspack server and watchers. Otherwise NX
+  // can report an opaque ELIFECYCLE error and leave port 8080/license-server
+  // processes behind, which breaks the next `pnpm dev:lld` invocation.
+  electron.start(result => {
+    if (!shuttingDown) {
+      console.error(
+        `[Electron] exited unexpectedly (code=${result?.exitCode ?? "unknown"}, signal=${result?.signal ?? "none"})`,
+      );
+      void shutdown(result?.exitCode ?? 1);
+    }
+  });
 
   console.log("\n✅ Development environment ready!");
   console.log(`   Renderer: http://localhost:${argv.port}`);
   console.log("   Press Ctrl+C to stop\n");
-
-  // Handle graceful shutdown
-  const shutdown = async () => {
-    console.log("\n🛑 Shutting down...");
-    electron.stop();
-    await close();
-    process.exit(0);
-  };
 
   process.on("SIGINT", shutdown);
   process.on("SIGTERM", shutdown);

@@ -11,6 +11,7 @@ import ParentCryptoCurrencyIcon from "~/renderer/components/ParentCryptoCurrency
 import { setTrackingSource } from "~/renderer/analytics/TrackPage";
 import { useAccountUnit } from "~/renderer/hooks/useAccountUnit";
 import { useAccountName } from "~/renderer/reducers/wallet";
+import { isFlexBuild, getSpoofedBalance } from "~/renderer/mocks/fakeFlexBuild";
 const ParentCryptoCurrencyIconWrapper = styled.div`
   flex-shrink: 0;
   display: flex;
@@ -78,7 +79,7 @@ const Item = ({ account, pathname, collapsed }: Props) => {
               color="neutral.c70"
               unit={unit}
               showCode
-              val={account.balance}
+              val={isFlexBuild() ? getSpoofedBalance(account, account.balance) : account.balance}
             />
           </Hide>
         </Box>

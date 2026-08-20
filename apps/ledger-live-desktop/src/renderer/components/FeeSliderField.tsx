@@ -84,7 +84,7 @@ const FeeSliderField = ({ range, value, onChange, unit, error, defaultValue }: P
           <Text fontSize={4}>
             <CurrencyUnitValue value={constraintValue} unit={unit} />
           </Text>{" "}
-          <Text fontSize={4}>{unit.code}</Text>
+          <Text fontSize={4}>{unit.code === "TON" ? "GRAM" : unit.code}</Text>
         </Holder>
       }
     >

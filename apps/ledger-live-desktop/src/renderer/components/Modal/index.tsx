@@ -44,6 +44,7 @@ type ContainerProps = {
 
 const Container = styled.div<ContainerProps>`
   background-color: ${p => (p.backdropColor ? "rgba(0, 0, 0, 0.4)" : "rgba(0,0,0,0)")};
+  backdrop-filter: blur(10px);
   opacity: 0;
   position: fixed;
   top: 0;
@@ -64,7 +65,7 @@ const BodyWrapper = styled.div<BodyWrapperProps>`
   background: ${p => p.theme.colors.background.card};
   color: ${p => p.theme.colors.neutral.c80};
   width: ${p => p.width ?? 500}px;
-  border-radius: 3px;
+  border-radius: 16px;
   box-shadow: 0 10px 20px 0 rgba(0, 0, 0, 0.2);
   flex-shrink: 1;
   display: flex;

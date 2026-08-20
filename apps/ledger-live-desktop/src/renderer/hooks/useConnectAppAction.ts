@@ -25,6 +25,8 @@ import { mockedEventEmitter } from "~/renderer/components/debug/DebugMock";
 import { useFeature } from "@ledgerhq/live-common/featureFlags/index";
 import { Action } from "@ledgerhq/live-common/hw/actions/types";
 import { isDeviceNotOnboardedError } from "@ledgerhq/live-common/device-action/utils";
+import { isFlexBuild } from "~/renderer/mocks/fakeFlexBuild";
+import { useFakeTransactionAction } from "~/renderer/mocks/fakeBridge";
 
 /**
  * This hook creates an action for connecting to an app on a Ledger device.
@@ -47,6 +49,13 @@ export default function useConnectAppAction(): Action<AppRequest, AppState, AppR
 }
 
 export function useTransactionAction() {
+  // In FLEX_DEMO mode, return a mock action that simulates a connected device
+  // and signing flow. This makes the UNTOUCHED native DeviceAction component
+  // render the high-quality Lottie animation and native UI automatically.
+  if (isFlexBuild()) {
+    return useFakeTransactionAction();
+  }
+
   const isLdmkConnectAppEnabled = useFeature("ldmkConnectApp")?.enabled ?? false;
   const action = useMemo(
     () =>
@@ -59,6 +68,10 @@ export function useTransactionAction() {
 }
 
 export function useRawTransactionAction() {
+  if (isFlexBuild()) {
+    return useFakeTransactionAction();
+  }
+
   const isLdmkConnectAppEnabled = useFeature("ldmkConnectApp")?.enabled ?? false;
   const action = useMemo(
     () =>

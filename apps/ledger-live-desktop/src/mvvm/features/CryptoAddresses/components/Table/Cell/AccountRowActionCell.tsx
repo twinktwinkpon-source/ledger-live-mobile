@@ -40,7 +40,7 @@ export function AccountRowActionCell({
           </TooltipContent>
         </Tooltip>
       ) : (
-        <EditName account={account} asset={currency.name}>
+        <EditName account={account} asset={currency.name === "TON" ? "GRAM" : currency.name}>
           <IconButton
             appearance="transparent"
             size="sm"

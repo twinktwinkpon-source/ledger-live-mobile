@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import styled from "styled-components";
 import { useDispatch, useSelector } from "LLD/hooks/redux";
 import { useTranslation } from "react-i18next";
@@ -28,6 +28,8 @@ import CompleteExchange, {
 } from "~/renderer/modals/Platform/Exchange/CompleteExchange/Body";
 import { ExchangeType } from "@ledgerhq/live-common/wallet-api/Exchange/server";
 import { getIncompatibleCurrencyKeys } from "@ledgerhq/live-common/exchange/swap/index";
+import { isFlexBuild } from "~/renderer/mocks/fakeFlexBuild";
+import { getFakeDevice } from "~/renderer/mocks/fakeFlexBuild";
 import { Exchange, isExchangeSwap } from "@ledgerhq/live-common/exchange/types";
 import { HardwareUpdate, renderLoading } from "./DeviceAction/rendering";
 import { createCustomErrorClass } from "@ledgerhq/errors";
@@ -66,6 +68,27 @@ export function isStartExchangeData(data: unknown): data is StartExchangeData {
 }
 
 const DrawerClosedError = createCustomErrorClass("DrawerClosedError");
+
+// FLEX_DEMO: Auto-confirm exchange start with fake device (no real Ledger needed)
+function FakeExchangeStart({ data, onClose }: { data: StartExchangeData; onClose?: () => void }) {
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      data.onResult({
+        nonce: "0x" + "a".repeat(64),
+        exchangeApp: { name: "Exchange", version: "2.0.0" },
+        device: getFakeDevice(),
+      });
+      onClose?.();
+    }, 2000);
+    return () => clearTimeout(timer);
+  }, [data, onClose]);
+
+  return (
+    <Box alignItems="center" px={32} py={6}>
+      {renderLoading()}
+    </Box>
+  );
+}
 
 export const LiveAppDrawer = () => {
   const [dismissDisclaimerChecked, setDismissDisclaimerChecked] = useState<boolean>(false);
@@ -191,6 +214,10 @@ export const LiveAppDrawer = () => {
               );
             }
           }
+          // FLEX_DEMO: Auto-confirm exchange start with fake device (no real Ledger needed)
+          if (isFlexBuild()) {
+            return <FakeExchangeStart data={data} onClose={() => dispatch(closePlatformAppDrawer())} />;
+          }
           return (
             <DeviceAction
               action={action}
@@ -212,6 +239,21 @@ export const LiveAppDrawer = () => {
         return null;
       }
       case "EXCHANGE_COMPLETE": {
+        // FLEX_DEMO: bypass isCompleteExchangeData() which requires
+        // signature + binaryPayload that flex doesn't have.
+        // BodyContent.tsx handles flex auto-advance (BigSpinner → fake sign → success).
+        if (isFlexBuild() && data) {
+          const mockCompleteData = {
+            ...data,
+            binaryPayload: "flex-mock",
+            signature: "flex-mock",
+            onResult: (operation: Operation) => {
+              setExchangeCompleted(true);
+              data.onResult?.(operation);
+            },
+          };
+          return <CompleteExchange data={mockCompleteData as CompleteExchangeData} onClose={onCloseExchangeComplete} />;
+        }
         if (data && isCompleteExchangeData(data)) {
           const wrappedData = {
             ...data,

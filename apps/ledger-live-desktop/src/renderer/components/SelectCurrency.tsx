@@ -205,8 +205,8 @@ export function CurrencyOption({
   const isParentTagDisplayed = !hideParentTag && (currency as TokenCurrency).parentCurrency;
   const textContents = singleLineLayout ? (
     <>
-      <OptionTitleBox title={`${currency.name} (${currency.ticker})`}>
-        {`${currency.name} (${currency.ticker})`}
+      <OptionTitleBox title={`${currency.name === "TON" ? "GRAM" : currency.name} (${currency.ticker === "TON" ? "GRAM" : currency.ticker})`}>
+        {`${currency.name === "TON" ? "GRAM" : currency.name} (${currency.ticker === "TON" ? "GRAM" : currency.ticker})`}
       </OptionTitleBox>
       {isParentTagDisplayed ? (
         <CurrencyLabel>{(currency as TokenCurrency).parentCurrency.name}</CurrencyLabel>

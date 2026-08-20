@@ -93,9 +93,19 @@ function useCacheManager() {
   }, [state, userSettings]);
 }
 
+const isFlexDemo =
+  typeof process !== "undefined" && process.env.FLEX_DEMO === "true";
+
 function usePollingManager() {
   const { start, stop } = useCountervaluesPolling();
   useEffect(() => {
+    // In FLEX_DEMO mode, disable countervalues polling entirely.
+    // The fake portfolio already has hardcoded countervalues, so network
+    // polling is unnecessary and can block the React render cycle for 5+ seconds.
+    if (isFlexDemo) {
+      stop();
+      return;
+    }
     window.addEventListener("blur", stop);
     window.addEventListener("focus", start);
     return () => {

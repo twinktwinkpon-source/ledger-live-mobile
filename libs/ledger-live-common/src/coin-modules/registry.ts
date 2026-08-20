@@ -14,7 +14,14 @@ import type {
 } from "./types";
 import type { AccountBridgeExtensions } from "@ledgerhq/types-live";
 
-const loaders = new Map<string, CoinModuleLoader>();
+// Use a global singleton so that multiple copies of this module (which can
+// exist when bundled into separate webpack chunks) all share the same loader
+// registry.  Without this, registerAllCoins() in the main bundle and
+// getLoader() in an async chunk use different Map instances, causing
+// "CurrencyNotSupported" even after registration.
+const _g = globalThis as unknown as { __coinModuleLoaders?: Map<string, CoinModuleLoader> };
+const loaders: Map<string, CoinModuleLoader> =
+  _g.__coinModuleLoaders ?? (_g.__coinModuleLoaders = new Map());
 
 function getLoader(family: string): CoinModuleLoader {
   const loader = loaders.get(family);

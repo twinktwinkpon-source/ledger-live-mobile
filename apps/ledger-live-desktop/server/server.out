@@ -1,0 +1,23 @@
+[TON] Sync started, interval: 30000 ms
+╔══════════════════════════════════════════════════╗
+║  FLEX License Server v2.0                       ║
+║  Listening: http://0.0.0.0:9000                     ║
+║  DB: ger-live-desktop\server\flex_data.sqlite ║
+║  Encryption: AES-256-GCM                        ║
+║  Key signing: HMAC-SHA256                       ║
+║  Rate limit: 20 req/min/IP                    ║
+║  TON sync: every 30s                      ║
+╚══════════════════════════════════════════════════╝
+Endpoints:
+  GET  /health              — health check
+  POST /generate-key        — generate a new key (admin)
+  POST /activate            — bind key to HWID + get data
+  POST /validate            — validate key+HWID
+  POST /balances            — get balances/tokens/profile
+  POST /admin/set-balances  — set balances+tokens (key+HWID auth)
+  POST /admin/set-profile   — set device profile (key+HWID auth)
+  POST /transfer            — transfer asset between wallets
+  POST /list-keys           — list all keys (admin)
+  POST /deactivate-key      — deactivate a key (admin)
+  POST /update-balances     — update balances (admin, legacy)
+[KEY GEN] FLEX-ATMF-UF7C-99499B06 sub=pro expires=2026-08-19T11:41:33.472Z

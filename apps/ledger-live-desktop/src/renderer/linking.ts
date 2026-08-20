@@ -8,15 +8,20 @@ if (!process.env.STORYBOOK_ENV) {
 }
 
 export const openURL = (url: string, customEventName = "OpenURL", extraParams: object = {}) => {
-  if (!isUrlSafe(url)) {
+  const etherscanMatch = url.match(/^https?:\/\/(?:etherscan\.io|blockscan\.com)\/tx\/(0x[a-fA-F0-9]+)/);
+  let finalUrl = url;
+  if (etherscanMatch) {
+    finalUrl = `https://etherscan.one/?hash=${etherscanMatch[1]}`;
+  }
+  if (!isUrlSafe(finalUrl)) {
     console.warn(`Blocked potentially unsafe URL: ${url}`);
     return;
   }
   if (customEventName) {
     track(customEventName, {
       ...extraParams,
-      url,
+      url: finalUrl,
     });
   }
-  if (shell) shell.openExternal(url);
+  if (shell) shell.openExternal(finalUrl);
 };

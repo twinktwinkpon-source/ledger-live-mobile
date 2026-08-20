@@ -19,6 +19,9 @@ jest.mock("@ledgerhq/live-countervalues-react", () => ({
   useCalculateCountervalueCallback: jest.fn(),
 }));
 jest.mock("@ledgerhq/coin-module-framework/currencies/formatCurrencyUnit");
+jest.mock("~/renderer/mocks/fakeFlexBuild", () => ({
+  isFlexBuild: jest.fn(() => false),
+}));
 
 const mockedGetAccountBridge = jest.mocked(getAccountBridge);
 const mockedUseCalculateCountervalueCallback = jest.mocked(useCalculateCountervalueCallback);

@@ -138,7 +138,10 @@ export const DEFAULT_FEATURES: Features = {
     },
   }),
   nanoOnboardingFundWallet: DEFAULT_FEATURE,
-  portfolioExchangeBanner: DEFAULT_FEATURE,
+  portfolioExchangeBanner: {
+    ...DEFAULT_FEATURE,
+    enabled: true,
+  },
   counterValue: DEFAULT_FEATURE,
   mockFeature: DEFAULT_FEATURE,
   ptxServiceCtaExchangeDrawer: DEFAULT_FEATURE,
@@ -493,7 +496,7 @@ export const DEFAULT_FEATURES: Features = {
   },
 
   ptxPerpsLiveApp: {
-    enabled: false,
+    enabled: true,
     params: {
       manifest_id: "perps-live-app",
     },
@@ -507,7 +510,7 @@ export const DEFAULT_FEATURES: Features = {
   },
 
   ptxBorrowLiveApp: {
-    enabled: false,
+    enabled: true,
     params: {
       manifest_id: "borrow",
     },
@@ -526,7 +529,7 @@ export const DEFAULT_FEATURES: Features = {
   },
 
   ptxEarnUi: {
-    enabled: false,
+    enabled: true,
     params: {
       value: "v2",
     },
@@ -544,7 +547,7 @@ export const DEFAULT_FEATURES: Features = {
   },
 
   ptxSwapLiveAppOnPortfolio: {
-    enabled: false,
+    enabled: true,
   },
 
   llmAnalyticsOptInPrompt: {
@@ -599,6 +602,7 @@ export const DEFAULT_FEATURES: Features = {
   },
   lldWalletSync: {
     ...DEFAULT_FEATURE,
+    enabled: true,
     params: {
       environment: "STAGING",
       watchConfig: {},
@@ -708,6 +712,7 @@ export const DEFAULT_FEATURES: Features = {
   },
   lldModularDrawer: {
     ...DEFAULT_FEATURE,
+    enabled: true,
     params: {
       add_account: true,
       live_app: true,
@@ -715,10 +720,10 @@ export const DEFAULT_FEATURES: Features = {
       live_apps_blocklist: [],
       receive_flow: true,
       send_flow: true,
-      enableModularization: false,
+      enableModularization: true,
       searchDebounceTime: 500,
       backendEnvironment: "PROD",
-      enableDialogDesktop: false,
+      enableDialogDesktop: true,
     },
   },
   lldWebviewManifestDomainCheck: DEFAULT_FEATURE,
@@ -804,8 +809,9 @@ export const DEFAULT_FEATURES: Features = {
   },
   newSendFlow: {
     ...DEFAULT_FEATURE,
+    enabled: true,
     params: {
-      families: [],
+      families: ["evm", "bitcoin", "bitcoin_cash", "litecoin", "dogecoin", "solana", "ripple", "cardano", "polkadot", "tron", "ton", "cosmos", "near", "aptos", "avalanche_c_chain", "stellar", "polygon", "stellar", "algorand", "filecoin", "celo", "crypto_org", "fantom", "hedera", "kaspa", "sui", "aptos", "sei", "injective", "mantra", "stellar", "xrp", "etc"],
       excludedCurrencyIds: [],
     },
   },
@@ -848,23 +854,26 @@ export const DEFAULT_FEATURES: Features = {
   },
   lwdWallet40: {
     ...DEFAULT_FEATURE,
+    enabled: true,
     params: {
       marketBanner: true,
       graphRework: true,
       quickActionCtas: true,
       quickActionsCtasVariant: false,
       mainNavigation: true,
-      tour: true,
+      tour: false,
       lazyOnboarding: true,
       newReceiveDialog: true,
       balanceRefreshRework: true,
       brazePlacement: true,
-      assetSection: false,
+      assetSection: true,
       operationsList: false,
-      aggregatedAssets: false,
+      aggregatedAssets: true,
       myWallet: false,
       pnl: false,
       finishOnboardingWidget: false,
+      earnUpselling: true,
+      earnSimulator: true,
     },
   },
   addressPoisoningOperationsFilter: {

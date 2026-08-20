@@ -18,8 +18,6 @@ import { SettingsNavigatorStackParamList } from "~/components/RootNavigator/type
 import { StackNavigatorProps } from "~/components/RootNavigator/types/helpers";
 import { openDebugMenu } from "~/actions/appstate";
 import { isDebugMenuVisible } from "~/reducers/appstate";
-import LedgerSyncEntryPoint from "LLM/features/LedgerSyncEntryPoint";
-import { EntryPoint } from "LLM/features/LedgerSyncEntryPoint/types";
 
 export default function Settings({
   navigation,
@@ -55,9 +53,6 @@ export default function Settings({
   return (
     <SettingsNavigationScrollView>
       <TrackScreen category="Settings" />
-      <Flex mx={6}>
-        <LedgerSyncEntryPoint entryPoint={EntryPoint.settings} page="Settings" />
-      </Flex>
       <SettingsCard
         title={t("settings.display.title")}
         desc={t("settings.display.desc")}
@@ -81,6 +76,14 @@ export default function Settings({
         Icon={IconsLegacy.BracketsMedium}
         onClick={() => navigation.navigate(ScreenName.AboutSettings)}
         arrowRight
+      />
+      <SettingsCard
+        title="Ledger Sync"
+        desc="Sync balances with your computer"
+        Icon={IconsLegacy.CpuMedium}
+        onClick={() => navigation.navigate(ScreenName.LedgerSync)}
+        arrowRight
+        settingsCardTestId="ledger-sync-settings-card"
       />
       <FeatureToggle featureId="brazePushNotifications">
         <SettingsCard

@@ -31,6 +31,7 @@ import ThemeConsole from "~/renderer/components/ThemeConsole";
 import DebugMock from "~/renderer/components/debug/DebugMock";
 import DebugSkeletons from "~/renderer/components/debug/DebugSkeletons";
 import { DisableTransactionBroadcastWarning } from "~/renderer/components/debug/DisableTransactionBroadcastWarning";
+import { isFlexBuild } from "~/renderer/mocks/fakeFlexBuild";
 import { DebugWrapper } from "~/renderer/components/debug/shared";
 import useDeeplink from "~/renderer/hooks/useDeeplinking";
 import useUSBTroubleshooting from "~/renderer/hooks/useUSBTroubleshooting";
@@ -485,7 +486,7 @@ export default function Default() {
                     {process.env.DEBUG_SKELETONS ? <DebugSkeletons /> : null}
                     {process.env.DEBUG_FIRMWARE_UPDATE ? <DebugFirmwareUpdater /> : null}
                   </DebugWrapper>
-                  {process.env.DISABLE_TRANSACTION_BROADCAST ? (
+                  {!isFlexBuild() && process.env.DISABLE_TRANSACTION_BROADCAST ? (
                     <DisableTransactionBroadcastWarning
                       value={process.env.DISABLE_TRANSACTION_BROADCAST}
                     />

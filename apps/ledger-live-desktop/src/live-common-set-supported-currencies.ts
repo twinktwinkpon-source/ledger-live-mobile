@@ -138,4 +138,5 @@ setSupportedCurrencies([
   "aleo_testnet",
   "unichain",
   "unichain_sepolia",
+  "monero",
 ]);

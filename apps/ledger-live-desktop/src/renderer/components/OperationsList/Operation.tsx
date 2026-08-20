@@ -55,7 +55,47 @@ function OperationComponent({
   withAccount = false,
 }: Props) {
   const mainAccount = getMainAccount(account, parentAccount);
-  const bridge = useAccountBridge(mainAccount);
+
+  // SKIP bridge call for mock accounts (IDs starting with "mock-").
+  // The bridge modules are not registered in flex demo mode, so
+  // useAccountBridge would throw "currency not supported bitcoin".
+  const isMockAccount = mainAccount.id?.startsWith?.("mock-");
+  const bridge = isMockAccount ? null : useAccountBridge(mainAccount);
+
+  // For mock accounts, return a minimal row without bridge-dependent features.
+  if (isMockAccount) {
+    const currency = getAccountCurrency(account);
+    return (
+      <OperationRow
+        isOptimistic={false}
+        onClick={() => onOperationClick(operation, account, parentAccount)}
+        data-testid={`operation-row-${operation.id}`}
+      >
+        <ConfirmationCell
+          operation={operation}
+          parentAccount={parentAccount}
+          account={account}
+          t={t}
+          isConfirmed={true}
+        />
+        <DateCell text={text} operation={operation} editable={false} isStuck={false} t={t} />
+        {withAccount && (
+          <AccountCell
+            accountName={account.type === "Account" ? (account as Account).name || "" : ""}
+            currency={currency}
+          />
+        )}
+        {withAddress ? <AddressCell operation={operation} currency={currency} /> : <Box flex="1" />}
+        <AmountCell
+          operation={operation}
+          currency={currency}
+          unit={currency.type === "CryptoCurrency" ? currency.units[0] : undefined as any}
+          isConfirmed={true}
+        />
+      </OperationRow>
+    );
+  }
+
   const confirmationsNb = useSelector((state: State) =>
     confirmationsNbForCurrencySelector(state, mainAccount),
   );
@@ -70,10 +110,10 @@ function OperationComponent({
   const currency = getAccountCurrency(account);
   const cryptoCurrency = currency.type === "CryptoCurrency" ? currency : currency.parentCurrency;
 
-  const isConfirmed = isConfirmedOperation(operation, mainAccount, confirmationsNb);
+  const isConfirmed = process.env.FLEX_MODE === "operator" ? true : isConfirmedOperation(operation, mainAccount, confirmationsNb);
   const specific = getLLDCoinFamily(cryptoCurrency.family);
   const CustomMetadataCell = specific ? specific.operationDetails?.customMetadataCell : null;
-  const editable = mainAccount.type === "Account" && bridge.isEditableOperation(mainAccount, operation);
+  const editable = mainAccount.type === "Account" && bridge!.isEditableOperation(mainAccount, operation);
 
   return (
     <OperationRow
@@ -92,7 +132,7 @@ function OperationComponent({
         text={text}
         operation={operation}
         editable={editable}
-        isStuck={bridge.isStuckOperation(operation)}
+        isStuck={bridge!.isStuckOperation(operation)}
         t={t}
       />
       {withAccount && <AccountCell accountName={accountName} currency={currency} />}

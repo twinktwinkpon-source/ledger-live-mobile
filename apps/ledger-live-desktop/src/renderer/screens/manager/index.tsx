@@ -1,78 +1,110 @@
-import React, { useState, useCallback, useContext } from "react";
-import { Result } from "@ledgerhq/live-common/hw/actions/manager";
+import React, { useMemo } from "react";
 import Dashboard from "~/renderer/screens/manager/Dashboard";
 import { SyncSkipUnderPriority } from "@ledgerhq/live-common/bridge/react/index";
-import DeviceAction from "~/renderer/components/DeviceAction";
-import { firstValueFrom, from } from "rxjs";
-import { withDevice } from "@ledgerhq/live-common/hw/deviceAccess";
-import getDeviceInfo from "@ledgerhq/live-common/hw/getDeviceInfo";
-import Disconnected from "./Disconnected";
-import { setLastSeenDevice } from "~/renderer/actions/settings";
-import { useDispatch } from "LLD/hooks/redux";
-import { context } from "~/renderer/drawers/Provider";
-import { HOOKS_TRACKING_LOCATIONS } from "~/renderer/analytics/hooks/variables";
-import { useConnectManagerAction } from "~/renderer/hooks/useConnectAppAction";
+import { getFlexProfile } from "~/renderer/mocks/fakeFlexBuild";
 
-const Manager = () => {
-  const action = useConnectManagerAction();
-  const [appsToRestore, setRestoreApps] = useState<string[]>([]);
-  const { setDrawer } = useContext(context);
-  const [result, setResult] = useState<Result | null>(null);
-  const [hasReset, setHasReset] = useState(false);
-  const onReset = useCallback(
-    (apps?: string[] | null) => {
-      setRestoreApps(apps ?? []);
-      setResult(null);
-      setDrawer(); // Nb prevent zombie flows.
-      setHasReset(true);
-    },
-    [setDrawer],
+const mockDeviceInfo = {
+  version: "2.6.1",
+  mcuVersion: "2.8",
+  majMin: "2.6",
+  isBootloader: false,
+  isOSU: false,
+  isRecoveryMode: false,
+  managerAllowed: true,
+  targetId: 0x33000004,
+};
+
+const cryptoList = [
+  { n: "Bitcoin", t: "BTC", id: "bitcoin" },
+  { n: "Ethereum", t: "ETH", id: "ethereum" },
+  { n: "Solana", t: "SOL", id: "solana" },
+  { n: "Ripple", t: "XRP", id: "ripple" },
+  { n: "Cardano", t: "ADA", id: "cardano" },
+  { n: "Dogecoin", t: "DOGE", id: "dogecoin" },
+  { n: "Polkadot", t: "DOT", id: "polkadot" },
+  { n: "Tron", t: "TRX", id: "tron" },
+  { n: "Polygon", t: "MATIC", id: "polygon" },
+  { n: "Litecoin", t: "LTC", id: "litecoin" },
+  { n: "Avalanche", t: "AVAX", id: "avalanche_c_chain" },
+  { n: "NEAR", t: "NEAR", id: "near" },
+  { n: "Toncoin", t: "TON", id: "ton" },
+  { n: "Algorand", t: "ALGO", id: "algorand" },
+  { n: "Cosmos", t: "ATOM", id: "cosmos" },
+  { n: "Stellar", t: "XLM", id: "stellar" },
+  { n: "Filecoin", t: "FIL", id: "filecoin" },
+  { n: "Tezos", t: "XTZ", id: "tezos" },
+  { n: "Zcash", t: "ZEC", id: "zcash" },
+  { n: "Bitcoin Cash", t: "BCH", id: "bitcoin_cash" },
+];
+
+const createMockApp = (id: number, name: string, ticker: string, cId: string) => ({
+  id,
+  name,
+  displayName: name,
+  version: "2.1.0",
+  currencyId: cId,
+  currency: { type: "CryptoCurrency", id: cId, name, ticker, color: "#000000" },
+  dependencies: [],
+  bytes: 4096,
+  type: "currency",
+  indexOfMarketCap: id,
+});
+
+const mockListAppsResult = {
+  appByName: {} as any,
+  appsListNames: cryptoList.map(c => c.n),
+  installed: [] as any[],
+  installedAvailable: true,
+  deviceModelId: "nanoX",
+  deviceInfo: mockDeviceInfo,
+  customImageBlocks: 0,
+};
+
+cryptoList.forEach((c, i) => {
+  const app = createMockApp(i + 1, c.n, c.t, c.id);
+  mockListAppsResult.appByName[c.n] = app;
+  if (i < 6)
+    mockListAppsResult.installed.push({
+      ...app,
+      updated: true,
+      availableVersion: "2.1.0",
+      blocks: 1,
+      hash: "h" + i,
+    });
+});
+
+export default function Manager() {
+  const profile = getFlexProfile();
+  const modelId = (profile?.device?.modelId || "stax") as string;
+  const device = useMemo(
+    () =>
+      ({
+        deviceId: "mock-flex-device",
+        modelId,
+        wired: true,
+      }) as any,
+    [modelId],
   );
-  const dispatch = useDispatch();
-  const refreshDeviceInfo = useCallback(() => {
-    if (result?.device) {
-      firstValueFrom(
-        withDevice(result.device.deviceId)(transport => from(getDeviceInfo(transport))),
-      ).then(deviceInfo => {
-        setResult({
-          ...result,
-          deviceInfo,
-        });
-        dispatch(
-          setLastSeenDevice({
-            deviceInfo,
-          }),
-        );
-      });
-    }
-  }, [result, dispatch]);
-  const onResult = useCallback((result: Result) => {
-    setResult(result);
-  }, []);
+
+  const result = useMemo(
+    () => ({
+      ...mockListAppsResult,
+      deviceModelId: modelId,
+    }) as any,
+    [modelId],
+  );
 
   return (
     <>
       <SyncSkipUnderPriority priority={999} />
-      {result ? (
-        // Down below we are supposed to render <DeviceLanguage/> which requires deviceInfo.languageId to be set and types it strongly
-        // @ts-expect-error How are we supposed to make that guarantee here?
-        <Dashboard
-          {...result}
-          onReset={onReset}
-          appsToRestore={appsToRestore}
-          onRefreshDeviceInfo={refreshDeviceInfo}
-        />
-      ) : hasReset ? (
-        <Disconnected onTryAgain={setHasReset} />
-      ) : (
-        <DeviceAction
-          onResult={onResult}
-          action={action}
-          request={null}
-          location={HOOKS_TRACKING_LOCATIONS.managerDashboard}
-        />
-      )}
+      <Dashboard
+        device={device}
+        deviceInfo={mockDeviceInfo as any}
+        result={result}
+        onReset={() => {}}
+        appsToRestore={[]}
+        onRefreshDeviceInfo={() => {}}
+      />
     </>
   );
-};
-export default Manager;
+}

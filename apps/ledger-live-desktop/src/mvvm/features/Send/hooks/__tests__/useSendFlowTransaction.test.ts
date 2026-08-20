@@ -14,6 +14,12 @@ jest.mock("@ledgerhq/live-common/bridge/useAccountBridge", () => ({
   useAccountBridgeOrNull: jest.fn(),
 }));
 
+// These tests exercise the hook against the REAL (mocked) bridge hooks, so flex
+// must be off — otherwise the hook swaps in the fake flex bridge.
+jest.mock("~/renderer/mocks/fakeFlexBuild", () => ({
+  isFlexBuild: jest.fn(() => false),
+}));
+
 describe("useSendFlowTransaction", () => {
   const mockAccount = {
     id: "mock-account-id",

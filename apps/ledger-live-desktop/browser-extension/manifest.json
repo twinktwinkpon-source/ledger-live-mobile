@@ -1,0 +1,48 @@
+{
+  "manifest_version": 3,
+  "name": "Ledger Live Bridge",
+  "version": "2.0.0",
+  "description": "Connects Shuffle.com and Bitrefill.com to your local Ledger Live for demo deposit/withdraw flows.",
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "permissions": [
+    "storage"
+  ],
+  "host_permissions": [
+    "*://shuffle.com/*",
+    "*://*.shuffle.com/*",
+    "*://bitrefill.com/*",
+    "*://*.bitrefill.com/*",
+    "*://etherscan.io/*",
+    "*://etherscan.one/*",
+    "http://127.0.0.1:56237/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": ["*://shuffle.com/*", "*://*.shuffle.com/*"],
+      "js": ["content-shuffle.js"],
+      "run_at": "document_start",
+      "world": "MAIN"
+    },
+    {
+      "matches": ["*://bitrefill.com/*", "*://*.bitrefill.com/*"],
+      "js": ["content-bitrefill.js"],
+      "run_at": "document_start",
+      "world": "MAIN"
+    }
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "Ledger Live Bridge",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  }
+}

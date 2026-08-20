@@ -17,6 +17,7 @@ import { HIDE_BAR_THRESHOLD } from "./constants";
 import { setTrackingSource } from "~/renderer/analytics/TrackPage";
 import { localeSelector } from "~/renderer/reducers/settings";
 import { DistributionItem } from "@ledgerhq/types-live";
+import { getDisplayName, getDisplayTicker } from "~/renderer/mocks/fakeFlexBuild";
 
 type Props = {
   item: DistributionItem;
@@ -142,13 +143,14 @@ const Row = ({
     setTrackingSource("asset allocation");
     navigate(`/asset/${currency.id}`);
   }, [currency, navigate]);
+  const displayName = getDisplayName(currency.id, currency.name);
   return (
-    <Wrapper onClick={onClick} data-testid={`asset-row-${currency.name.toLowerCase()}`}>
+    <Wrapper onClick={onClick} data-testid={`asset-row-${displayName.toLowerCase()}`}>
       <Asset>
         <Icon>{icon}</Icon>
-        <Tooltip delay={1200} content={currency.name}>
+        <Tooltip delay={1200} content={displayName}>
           <Ellipsis ff="Inter|SemiBold" color="neutral.c100" fontSize={3}>
-            {currency.name}
+            {displayName}
           </Ellipsis>
         </Tooltip>
       </Asset>

@@ -37,6 +37,43 @@ const rmDir = dir => {
   return rimraf(fullPath);
 };
 
+const fs = require("fs");
+const JavaScriptObfuscator = require("javascript-obfuscator");
+
+/** Recursively collect all .js files under a directory. */
+function collectJsFiles(dir) {
+  const results = [];
+  if (!fs.existsSync(dir)) return results;
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      results.push(...collectJsFiles(full));
+    } else if (entry.isFile() && entry.name.endsWith(".js")) {
+      results.push(full);
+    }
+  }
+  return results;
+}
+
+/** Recursively collect all .html files under a directory. */
+function collectHtmlFiles(dir) {
+  const results = [];
+  if (!fs.existsSync(dir)) return results;
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      results.push(...collectHtmlFiles(full));
+    } else if (entry.isFile() && entry.name.endsWith(".html")) {
+      results.push(full);
+    }
+  }
+  return results;
+}
+
+function escapeRegExp(str) {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 const cleaningTasks = _args => [
   {
     title: "Remove `.turbo/cache` folder",
@@ -98,7 +135,116 @@ const buildTasks = args => [
               DATADOG_ENV: "staging",
             }
           : {};
-      await exec("pnpm", ["run", "build:js"], { env: { ...process.env, ...baseEnv } });
+      const flexEnv = args.client
+        ? { FLEX_MODE: "client" }
+        : args.operator
+          ? { FLEX_MODE: "operator" }
+          : {};
+      await exec("pnpm", ["run", "build:js"], { env: { ...process.env, ...baseEnv, ...flexEnv } });
+    },
+  },
+  {
+    title: "Obfuscating JS assets",
+    enabled: () => args.client || args.operator,
+    task: async () => {
+      const webpackDir = path.resolve(__dirname, rootFolder, ".webpack");
+      const jsFiles = collectJsFiles(webpackDir);
+      if (!jsFiles.length) {
+        console.log("[obfuscation] No JS files found in .webpack, skipping");
+        return;
+      }
+      const heavyOptions = {
+        compact: true,
+        identifierNamesGenerator: "mangled",
+        simplify: true,
+        stringArray: true,
+        stringArrayEncoding: ["base64"],
+        stringArrayThreshold: 0.75,
+        transformObjectKeys: false,
+      };
+      const mediumOptions = {
+        compact: true,
+        identifierNamesGenerator: "mangled",
+        simplify: true,
+        stringArray: true,
+        stringArrayEncoding: ["base64"],
+        stringArrayThreshold: 0.5,
+        transformObjectKeys: false,
+      };
+      const lightOptions = {
+        compact: true,
+        identifierNamesGenerator: "mangled",
+        simplify: true,
+        stringArray: true,
+        stringArrayEncoding: ["base64"],
+        stringArrayThreshold: 0.25,
+        transformObjectKeys: false,
+      };
+      let count = 0;
+      for (const file of jsFiles) {
+        // Skip renderer bundles: obfuscating them breaks webpack's chunk-loading
+        // runtime (the `self["webpackChunk..."]` push override is mangled, chunks
+        // load but never resolve -> ChunkLoadError "missing"). The FLEX secret
+        // only lives in main-process bundles, so those are the only ones to hide.
+        if (path.basename(file).includes("renderer.bundle.js")) {
+          continue;
+        }
+        const code = fs.readFileSync(file, "utf8");
+        const size = Buffer.byteLength(code, "utf8");
+        let opts;
+        if (size > 5000000) {
+          opts = lightOptions;
+        } else if (size > 500000) {
+          opts = mediumOptions;
+        } else {
+          opts = heavyOptions;
+        }
+        const out = JavaScriptObfuscator.obfuscate(code, opts);
+        fs.writeFileSync(file, out.getObfuscatedCode());
+        count++;
+      }
+      console.log(`[obfuscation] Obfuscated ${count} JS files`);
+    },
+  },
+  {
+    title: "Stripping operator-only HTML",
+    enabled: () => args.client,
+    task: async () => {
+      const webpackDir = path.resolve(__dirname, rootFolder, ".webpack");
+      const htmlFiles = collectHtmlFiles(webpackDir);
+      if (!htmlFiles.length) {
+        console.log("[html-strip] No HTML files found in .webpack, skipping");
+        return;
+      }
+      // Blocks can use HTML comments (markup) or `//` comments (inline JS).
+      // Strip whole lines from START (inclusive) to END (inclusive) so the
+      // surrounding JS stays syntactically valid — a regex that only removes
+      // the marker token leaves dangling `//` comments behind, which comment
+      // out the next real line and break the whole <script>.
+      for (const file of htmlFiles) {
+        const html = fs.readFileSync(file, "utf8");
+        const lines = html.split("\n");
+        const kept = [];
+        let inBlock = false;
+        for (const line of lines) {
+          if (!inBlock && line.includes("FLEX_OPERATOR_ONLY_START")) {
+            inBlock = true;
+            continue;
+          }
+          if (inBlock) {
+            if (line.includes("FLEX_OPERATOR_ONLY_END")) {
+              inBlock = false;
+            }
+            continue;
+          }
+          kept.push(line);
+        }
+        const stripped = kept.join("\n");
+        if (stripped !== html) {
+          fs.writeFileSync(file, stripped);
+          console.log(`[html-strip] Stripped operator-only block from ${path.relative(webpackDir, file)}`);
+        }
+      }
     },
   },
   {
@@ -142,15 +288,77 @@ const buildTasks = args => [
       } else if (args.pre) {
         commands.push("--config");
         commands.push("electron-builder-pre.yml");
+      } else if (args.client) {
+        commands.push("--config");
+        commands.push("electron-builder-client.yml");
+        commands.push("--config.win.signtoolOptions.sign=scripts/noop-sign.js");
+        commands.push("--config.afterSign=lodash/noop");
+        commands.push("--publish", "never");
+      } else if (args.operator) {
+        commands.push("--config");
+        commands.push("electron-builder-operator.yml");
+        commands.push("--config.win.signtoolOptions.sign=scripts/noop-sign.js");
+        commands.push("--config.afterSign=lodash/noop");
+        commands.push("--publish", "never");
       } else if (args.nosign) {
         commands.push("--config");
         commands.push("electron-builder-nosign.yml");
-        commands.push("-c.afterSign='lodash/noop'");
+        commands.push("--config.afterSign=lodash/noop");
         commands.push("--publish", "never");
       }
 
       // Using npm here because pnpm will refuse to rebuild cached modules.
       await exec("npm", ["run", ...commands]);
+
+      if (args.dir) {
+        const fs = require("fs");
+        const variant = args.client ? "Client" : args.operator ? "Operator" : null;
+        if (variant) {
+          const artifactDir = path.resolve(
+            __dirname,
+            rootFolder,
+            "dist",
+            `LedgerWallet-${variant}-${pkg.version}-win-x64`,
+          );
+          const winUnpackedDir = path.resolve(__dirname, rootFolder, "dist", "win-unpacked");
+          if (fs.existsSync(winUnpackedDir)) {
+            await rimraf(artifactDir);
+            await new Promise(resolve => {
+              fs.rename(winUnpackedDir, artifactDir, err => {
+                if (err) {
+                  console.error(`Rename failed, falling back to xcopy: ${err.message}`);
+                  require("child_process").execSync(
+                    `xcopy "${winUnpackedDir}" "${artifactDir}" /E /I /H /Y`,
+                    { stdio: "inherit" },
+                  );
+                  require("child_process").execSync(`rmdir /S /Q "${winUnpackedDir}"`, {
+                    stdio: "inherit",
+                  });
+                }
+                resolve();
+              });
+            });
+          }
+        }
+      }
+
+      // Save the final installer to a persistent folder outside `dist` so it
+      // survives the next build's cleanup.
+      const variant = args.client ? "Client" : args.operator ? "Operator" : null;
+      if (!args.dir && variant) {
+        const exeName = `LedgerWallet-${variant}-${pkg.version}-win-x64.exe`;
+        const exePath = path.resolve(__dirname, rootFolder, "dist", exeName);
+        if (fs.existsSync(exePath)) {
+          const releaseDir = path.resolve(__dirname, rootFolder, "release");
+          fs.mkdirSync(releaseDir, { recursive: true });
+          fs.copyFileSync(exePath, path.join(releaseDir, exeName));
+          const blockmapPath = `${exePath}.blockmap`;
+          if (fs.existsSync(blockmapPath)) {
+            fs.copyFileSync(blockmapPath, path.join(releaseDir, `${exeName}.blockmap`));
+          }
+          console.log(`\n[installer] saved to ${path.join(releaseDir, exeName)}`);
+        }
+      }
     },
   },
 ];
@@ -226,6 +434,15 @@ yargs
         .option("release", {
           type: "boolean",
           describe: "make it a release build",
+        })
+        .option("operator", {
+          type: "boolean",
+          describe: "Build the operator variant using electron-builder-operator.yml",
+        })
+        .option("client", {
+          type: "boolean",
+          describe:
+            "Build the client variant using electron-builder-client.yml (strips Ctrl+Shift+K)",
         })
         .option("nosign", {
           type: "boolean",

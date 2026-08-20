@@ -15,7 +15,7 @@ export function AccountNameCell({ account, displayName }: AccountNameCellProps) 
     <TableCellContent
       leadingContent={<CryptoCurrencyIcon currency={currency} size={32} />}
       title={displayName}
-      description={currency.ticker}
+       description={currency.ticker === "TON" ? "GRAM" : currency.ticker}
     />
   );
 }

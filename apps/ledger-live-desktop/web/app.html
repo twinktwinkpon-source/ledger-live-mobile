@@ -1,0 +1,92 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Ledger" />
+    <meta name="theme-color" content="#000000" />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="apple-touch-icon" sizes="180x180" href="./icons/apple-touch-icon-180x180.png" />
+    <link rel="apple-touch-icon" sizes="152x152" href="./icons/apple-touch-icon-152x152.png" />
+    <link rel="icon" href="./icons/icon-192.png" />
+    <title>Ledger Wallet</title>
+    <style>
+      html {
+        overflow: hidden;
+        background: #000;
+      }
+      body {
+        background: #000;
+        margin: 0;
+        overscroll-behavior: none;
+      }
+      #react-root {
+        visibility: hidden;
+      }
+      #loader-container {
+        z-index: 10099;
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        pointer-events: none;
+        background-color: black;
+      }
+      #loader-container svg {
+        width: 50vmin;
+        height: 50vmin;
+      }
+      #loader-container.fade-out {
+        transition: opacity 0.3s ease-out;
+        opacity: 0;
+      }
+    </style>
+  </head>
+
+  <body>
+    <script>
+      // Node-only globals used by some bundled libs (e.g. winston) at init.
+      if (typeof globalThis.setImmediate !== "function") {
+        globalThis.setImmediate = function (fn) {
+          const args = Array.prototype.slice.call(arguments, 1);
+          return setTimeout(function () {
+            fn.apply(null, args);
+          }, 0);
+        };
+        globalThis.clearImmediate = function (id) {
+          clearTimeout(id);
+        };
+      }
+    </script>
+    <script>
+      // Direct access to app.html (bookmark/deep-link) must go through the
+      // activation gate first, which pre-seeds balances before the bundle boots.
+      if (!localStorage.getItem("llw:web:license-key")) {
+        window.location.replace("./");
+      }
+    </script>
+
+    <div id="react-root"></div>
+    <div id="ll-modal-root"></div>
+    <div id="loader-container">
+      <svg id="Layer_1" xmlns="http://www.w3.org/2000/svg" version="1.1" viewBox="0 0 1920 1920">
+        <path
+          fill="#fff"
+          d="M522.6,1011.4v67.5h102.9v-15h-87.9v-52.6h-15ZM781.2,1011.4v52.6h-87.9v15h102.9v-67.5h-15ZM625.7,908.6v102.8h67.6v-13.5h-52.6v-89.3h-15ZM522.6,841.1v67.5h15v-52.6h87.9v-15h-102.9ZM693.3,841.1v15h87.9v52.6h15v-67.5h-102.9Z"
+        />
+        <path
+          fill="#fff"
+          d="M866.7,911.4h15l6.1,87.1h2.1l7.3-69.4h22.5l7.4,69.4h2.1l6.4-87.1h14.4l-9.7,104.1h-23l-7.9-69.4h-2.1l-7.9,69.4h-23l-9.7-104.1ZM1037.7,1015.5h-15.9l-6.7-25.3h-35.2l-7,25.3h-15.5l30-104.1h21.1l29.1,104.1ZM983.5,976.6h28l-12.6-48.2h-2.1l-13.2,48.2ZM1056.2,911.4h15.2v90.4h53.2v13.7h-68.4v-104.1ZM1145.3,911.4h15.2v90.4h53.2v13.7h-68.4v-104.1ZM1233,911.4h65.4v13.7h-50.3v31.2h45.8v13.7h-45.8v31.8h52.5v13.7h-67.6v-104.1ZM1346.5,925.1h-32.6v-13.7h80.3v13.7h-32.6v90.4h-15.2v-90.4Z"
+        />
+      </svg>
+    </div>
+    <div id="modals"></div>
+  </body>
+</html>

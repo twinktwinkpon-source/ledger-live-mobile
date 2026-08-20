@@ -7,7 +7,7 @@ import {
 import { useLocalLiveAppManifest } from "@ledgerhq/live-common/wallet-api/LocalLiveAppProvider/index";
 import React from "react";
 import styled from "styled-components";
-import SwapWebView from "~/renderer/screens/exchange/Swap2/Form/SwapWebViewDemo3";
+import SwapWebView from "~/renderer/screens/exchange/swap2/Form/SwapWebViewDemo3";
 import { NetworkErrorScreen } from "~/renderer/components/Web3AppWebview/NetworkError";
 
 const Root = styled.div`

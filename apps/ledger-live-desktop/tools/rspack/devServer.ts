@@ -9,10 +9,75 @@ import { createWebviewDappPreloaderConfig } from "./rspack.webviewDappPreloader"
 import { createZcashUtilityConfig } from "./rspack.zcashUtility";
 import { lldRoot } from "./utils";
 import path from "path";
+import { execSync } from "child_process";
 
 export interface DevServerOptions {
   port: number;
   onMainRebuild?: () => void;
+}
+
+/**
+ * Kills any process currently listening on the given port.
+ * This prevents EADDRINUSE errors from zombie processes left by previous dev sessions.
+ */
+function killPortProcess(port: number): void {
+  try {
+    if (process.platform === "win32") {
+      // On Windows, use netstat to find the PID, then taskkill to terminate it
+      const output = execSync(`netstat -ano | findstr :${port}`, {
+        encoding: "utf-8",
+        timeout: 5000,
+      });
+      const pids = new Set<string>();
+      for (const line of output.split("\n")) {
+        const trimmed = line.trim();
+        if (trimmed && trimmed.includes("LISTENING")) {
+          const parts = trimmed.split(/\s+/);
+          const pid = parts[parts.length - 1];
+          if (pid && /^\d+$/.test(pid)) {
+            pids.add(pid);
+          }
+        }
+      }
+      for (const pid of pids) {
+        try {
+          execSync(`taskkill /F /PID ${pid}`, {
+            encoding: "utf-8",
+            timeout: 5000,
+            stdio: "pipe",
+          });
+          console.log(`🔪 Killed zombie process (PID ${pid}) on port ${port}`);
+        } catch {
+          // Process may have already exited
+        }
+      }
+    } else {
+      // On Unix-like systems (macOS, Linux), use lsof
+      try {
+        const output = execSync(`lsof -ti :${port}`, {
+          encoding: "utf-8",
+          timeout: 5000,
+          stdio: "pipe",
+        });
+        const pids = output
+          .split("\n")
+          .map(p => p.trim())
+          .filter(p => p && /^\d+$/.test(p));
+        for (const pid of pids) {
+          try {
+            process.kill(parseInt(pid, 10), "SIGKILL");
+            console.log(`🔪 Killed zombie process (PID ${pid}) on port ${port}`);
+          } catch {
+            // Process may have already exited
+          }
+        }
+      } catch {
+        // lsof returns non-zero exit code when no process found — that's fine
+      }
+    }
+  } catch {
+    // netstat/lsof failed — no process on the port, nothing to kill
+  }
 }
 
 /**
@@ -106,7 +171,7 @@ export function createMainWatchers(options: DevServerOptions): Promise<Watching[
 }
 
 /**
- * Starts the full development environment
+ * Starts the full development environment.
  */
 export async function startDev(options: DevServerOptions): Promise<{
   server: RspackDevServer;
@@ -114,6 +179,9 @@ export async function startDev(options: DevServerOptions): Promise<{
   close: () => Promise<void>;
 }> {
   console.log("Starting rspack development server...");
+
+  // Kill any zombie process left on the port from a previous dev session
+  killPortProcess(options.port);
 
   // Start renderer dev server
   const server = await createDevServer(options);

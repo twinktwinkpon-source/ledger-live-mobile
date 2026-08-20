@@ -13,6 +13,7 @@ import Image from "~/renderer/components/Image";
 import lightEmptyStateAccount from "~/renderer/images/light-empty-state-account.svg";
 import darkEmptyStateAccount from "~/renderer/images/dark-empty-state-account.svg";
 import Text from "~/renderer/components/Text";
+import { getDisplayTicker } from "~/renderer/mocks/fakeFlexBuild";
 import Button from "~/renderer/components/Button";
 import styled from "styled-components";
 import { useNavigate, useLocation } from "react-router";
@@ -75,13 +76,13 @@ function EmptyStateAccount({ t, account, parentAccount, openModal }: Props) {
         >
           {hasTokens ? (
             <Trans i18nKey="account.emptyState.descToken">
-              {"Make sure the"}
+               {"Make sure the"}
               <Text ff="Inter|SemiBold" color="neutral.c100">
                 {mainAccount.currency.managerAppName}
               </Text>
               {"app is installed and start receiving"}
               <Text ff="Inter|SemiBold" color="neutral.c100">
-                {mainAccount.currency.ticker}
+                {getDisplayTicker(mainAccount.currency.id, mainAccount.currency.ticker)}
               </Text>
               {"and"}
               <Text ff="Inter|SemiBold" color="neutral.c100">

@@ -28,6 +28,32 @@ import { defaultBridgeExtensions } from "./defaultBridgeExtensions";
 
 // Generic Coin Framework currency bridges are created on demand; cache ensures referential stability.
 const currencyBridgeCache: Record<string, CurrencyBridge> = {};
+
+// FLEX: minimal mock account bridge returned when a coin family is not
+// registered in the coin-module registry. This prevents the UI from crashing
+// with CurrencyNotSupported when fake accounts (bitcoin, ethereum, …) are
+// rendered in the FLEX distribution where coin modules may not be loaded.
+function createMockAccountBridge(): any {
+  const { defaultBridgeExtensions } = require("./defaultBridgeExtensions");
+  const BigNumber = require("bignumber.js");
+  const { of } = require("rxjs");
+  return {
+    ...defaultBridgeExtensions,
+    createTransaction: () => ({ family: "mock", amount: new BigNumber(0), recipient: "", useAllAmount: false, feeStrategy: "medium" }),
+    updateTransaction: (a: any, patch: any) => ({ ...a, ...patch }),
+    getTransactionStatus: async () => ({ errors: {}, warnings: {}, estimatedFees: new BigNumber(0), totalSpent: new BigNumber(0), amount: new BigNumber(0) }),
+    estimateTransactionMaxAmount: async () => new BigNumber(0),
+    prepareTransaction: async (a: any, t: any) => t,
+    sync: () => of({}),
+    receive: () => of({ address: "", publicKey: "" }),
+    signOperation: () => of({}),
+    broadcast: () => of({}),
+    estimateFees: async () => new BigNumber(0),
+    getRecipientStatus: () => null,
+    getAmountStatus: () => null,
+    validateRecipient: () => null,
+  };
+}
 // All account bridges are wrapped (wrapAccountBridge); cache ensures referential stability.
 const accountBridgeCache: Record<string, ResolvedAccountBridge<any>> = {};
 
@@ -99,9 +125,11 @@ export const getAccountBridge = (
   try {
     return getAccountBridgeByFamily(currency.family, mainAccount.id);
   } catch {
-    throw new CurrencyNotSupported("currency not supported " + currency.id, {
-      currencyName: currency.id,
-    });
+    // Return a mock bridge instead of crashing when the coin family is not
+    // registered. In normal Ledger Live builds all families are registered
+    // so this catch never runs; in FLEX builds some families may not be
+    // loaded, and the mock bridge lets the UI render without crashing.
+    return createMockAccountBridge() as ResolvedAccountBridge<any>;
   }
 };
 

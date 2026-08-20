@@ -1,0 +1,253 @@
+{
+  "keys": {
+    "FLEX-WCXQ-JFV0-QIFN-1Y4J": {
+      "hwid": "5b7fbf4b3b806b431b276779af7bd89706f2db13fdf329f091a5a57ae81829d4",
+      "activatedAt": "2026-07-13T17:33:24.239Z",
+      "active": true,
+      "balances": {
+        "bitcoin": "15000000000",
+        "ethereum": "5000000000000000000000",
+        "solana": "25000000000000",
+        "ripple": "500000000000",
+        "cardano": "100000000000",
+        "dogecoin": "500000000000",
+        "polkadot": "300000000000",
+        "tron": "100000000000",
+        "polygon": "200000000000",
+        "ton": "5000000000000000000"
+      },
+      "lastSession": "bec1a499bfa34adaadabcbb68af5dd69b0139d5f517136f0f3a6f5284e216b9e",
+      "lastAccess": "2026-07-13T17:33:57.786Z"
+    },
+    "FLEX-EEZ0-G256-IKP6-V2QN": {
+      "hwid": null,
+      "activatedAt": null,
+      "active": true,
+      "balances": {
+        "bitcoin": "15000000000",
+        "ethereum": "5000000000000000000000",
+        "solana": "25000000000000",
+        "ripple": "500000000000",
+        "cardano": "100000000000",
+        "dogecoin": "500000000000",
+        "polkadot": "300000000000",
+        "tron": "100000000000",
+        "polygon": "200000000000",
+        "ton": "5000000000000000000"
+      }
+    },
+    "FLEX-2PU3-2PCI-O7JV-ISMK": {
+      "hwid": null,
+      "activatedAt": null,
+      "active": true,
+      "balances": {
+        "bitcoin": "15000000000",
+        "ethereum": "5000000000000000000000",
+        "solana": "25000000000000",
+        "ripple": "500000000000",
+        "cardano": "100000000000",
+        "dogecoin": "500000000000",
+        "polkadot": "300000000000",
+        "tron": "100000000000",
+        "polygon": "200000000000",
+        "ton": "5000000000000000000"
+      }
+    },
+    "FLEX-R7AA-KOBL-VQW9-HXN3": {
+      "hwid": "edab0e2e6e51c9f27f1e05b3cd5534edc33d964e44724f4b5770bd03092b3cf5",
+      "activatedAt": "2026-07-13T17:55:56.792Z",
+      "active": true,
+      "balances": {
+        "bitcoin": "15000000000",
+        "ethereum": "5000000000000000000000",
+        "solana": "25000000000000",
+        "ripple": "500000000000",
+        "cardano": "100000000000",
+        "dogecoin": "500000000000",
+        "polkadot": "300000000000",
+        "tron": "100000000000",
+        "polygon": "200000000000",
+        "ton": "5000000000000000000"
+      }
+    },
+    "FLEX-G7B3-RT9R-IKAV-0IXG": {
+      "hwid": "f56195d4d8274c2080293c6d3c914fc41689f383eac92a1a93cb6b517d0cea61",
+      "activatedAt": "2026-07-13T17:58:18.787Z",
+      "active": true,
+      "balances": {
+        "bitcoin": "15000000000",
+        "ethereum": "5000000000000000000000",
+        "solana": "25000000000000",
+        "ripple": "500000000000",
+        "cardano": "100000000000",
+        "dogecoin": "500000000000",
+        "polkadot": "300000000000",
+        "tron": "100000000000",
+        "polygon": "200000000000",
+        "ton": "5000000000000000000"
+      },
+      "lastSession": "4755717730dd04635b6d4d114e9313dd25db777ad2703bdb912092d39943b61f",
+      "lastAccess": "2026-07-13T18:00:12.227Z"
+    },
+    "FLEX-ST47-OZ4U-DZNB-ELYD": {
+      "hwid": null,
+      "activatedAt": null,
+      "active": true,
+      "balances": {
+        "bitcoin": "15000000000",
+        "ethereum": "5000000000000000000000",
+        "solana": "25000000000000",
+        "ripple": "500000000000",
+        "cardano": "100000000000",
+        "dogecoin": "500000000000",
+        "polkadot": "300000000000",
+        "tron": "100000000000",
+        "polygon": "200000000000",
+        "ton": "5000000000000000000"
+      }
+    },
+    "FLEX-0F9A-NHTH-OM8L-9EP0": {
+      "hwid": "dfd2eff2264b20af2a61290ceb1360d426f9561028947a30b47fab889cc7d92b",
+      "activatedAt": "2026-07-13T20:54:33.944Z",
+      "active": true,
+      "balances": {
+        "bitcoin": "15000000000",
+        "ethereum": "5000000000000000000000",
+        "solana": "25000000000000",
+        "ripple": "500000000000",
+        "cardano": "100000000000",
+        "dogecoin": "500000000000",
+        "polkadot": "300000000000",
+        "tron": "100000000000",
+        "polygon": "200000000000",
+        "ton": "5000000000000000000"
+      }
+    },
+    "FLEX-2TM3-BPCM-E2PP-J1UD": {
+      "hwid": null,
+      "activatedAt": null,
+      "active": true,
+      "balances": {
+        "bitcoin": "15000000000",
+        "ethereum": "5000000000000000000000",
+        "solana": "25000000000000",
+        "ripple": "500000000000",
+        "cardano": "100000000000",
+        "dogecoin": "500000000000",
+        "polkadot": "300000000000",
+        "tron": "100000000000",
+        "polygon": "200000000000",
+        "ton": "5000000000000000000"
+      }
+    },
+    "FLEX-RD5M-HUXC-HF8U-CKOF": {
+      "hwid": null,
+      "activatedAt": null,
+      "active": true,
+      "subscription": "pro",
+      "expiresAt": "2026-08-14T13:41:03.320Z",
+      "balances": {
+        "bitcoin": "15000000000",
+        "ethereum": "5000000000000000000000",
+        "solana": "25000000000000",
+        "ripple": "500000000000",
+        "cardano": "100000000000",
+        "dogecoin": "500000000000",
+        "polkadot": "300000000000",
+        "tron": "100000000000",
+        "polygon": "200000000000",
+        "ton": "5000000000000000000"
+      },
+      "tokens": {}
+    },
+    "FLEX-8YNK-37YG-K2CC-YDQM": {
+      "hwid": null,
+      "activatedAt": null,
+      "active": true,
+      "subscription": "pro",
+      "expiresAt": "2026-08-14T13:41:16.671Z",
+      "balances": {
+        "bitcoin": "15000000000",
+        "ethereum": "5000000000000000000000",
+        "solana": "25000000000000",
+        "ripple": "500000000000",
+        "cardano": "100000000000",
+        "dogecoin": "500000000000",
+        "polkadot": "300000000000",
+        "tron": "100000000000",
+        "polygon": "200000000000",
+        "ton": "5000000000000000000"
+      },
+      "tokens": {}
+    },
+    "FLEX-SV49-97SC-AV6P-JOBL": {
+      "hwid": null,
+      "activatedAt": null,
+      "active": true,
+      "subscription": "pro",
+      "expiresAt": "2026-08-14T13:41:20.554Z",
+      "balances": {
+        "bitcoin": "15000000000",
+        "ethereum": "5000000000000000000000",
+        "solana": "25000000000000",
+        "ripple": "500000000000",
+        "cardano": "100000000000",
+        "dogecoin": "500000000000",
+        "polkadot": "300000000000",
+        "tron": "100000000000",
+        "polygon": "200000000000",
+        "ton": "5000000000000000000"
+      },
+      "tokens": {}
+    },
+    "FLEX-PAYG-QOID-G0TB-3SYW": {
+      "hwid": null,
+      "activatedAt": null,
+      "active": true,
+      "subscription": "pro",
+      "expiresAt": "2026-08-14T13:41:27.567Z",
+      "balances": {
+        "bitcoin": "15000000000",
+        "ethereum": "5000000000000000000000",
+        "solana": "25000000000000",
+        "ripple": "500000000000",
+        "cardano": "100000000000",
+        "dogecoin": "500000000000",
+        "polkadot": "300000000000",
+        "tron": "100000000000",
+        "polygon": "200000000000",
+        "ton": "5000000000000000000"
+      },
+      "tokens": {}
+    },
+    "FLEX-UC4Y-IK1K-VANV-0IHZ": {
+      "hwid": "3e4d6a53b56332cb8e2637162882766e9fda4c2d63e2c0c6c71671c064066715",
+      "activatedAt": "2026-07-15T13:41:33.286Z",
+      "active": true,
+      "subscription": "pro",
+      "expiresAt": "2026-08-14T13:41:30.875Z",
+      "balances": {
+        "bitcoin": "15000000000",
+        "ethereum": "5000000000000000000000",
+        "solana": "25000000000000",
+        "ripple": "500000000000",
+        "cardano": "100000000000",
+        "dogecoin": "500000000000",
+        "polkadot": "300000000000",
+        "tron": "100000000000",
+        "polygon": "200000000000",
+        "ton": "5000000000000000000"
+      },
+      "tokens": {},
+      "lastSession": "94fabe03a1d7b54b257047dfb34236636e605605a35a8d41974064e437ae1597",
+      "lastAccess": "2026-07-15T13:47:05.567Z"
+    }
+  },
+  "hwidMap": {
+    "5b7fbf4b3b806b431b276779af7bd89706f2db13fdf329f091a5a57ae81829d4": "FLEX-WCXQ-JFV0-QIFN-1Y4J",
+    "edab0e2e6e51c9f27f1e05b3cd5534edc33d964e44724f4b5770bd03092b3cf5": "FLEX-R7AA-KOBL-VQW9-HXN3",
+    "f56195d4d8274c2080293c6d3c914fc41689f383eac92a1a93cb6b517d0cea61": "FLEX-G7B3-RT9R-IKAV-0IXG",
+    "dfd2eff2264b20af2a61290ceb1360d426f9561028947a30b47fab889cc7d92b": "FLEX-0F9A-NHTH-OM8L-9EP0",
+    "3e4d6a53b56332cb8e2637162882766e9fda4c2d63e2c0c6c71671c064066715": "FLEX-UC4Y-IK1K-VANV-0IHZ"
+  }
+}

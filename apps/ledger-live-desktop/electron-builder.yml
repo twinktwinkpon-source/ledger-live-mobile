@@ -104,3 +104,4 @@ publish:
 
 asarUnpack:
   - "node_modules/@ledgerhq/zcash-utils/**/*"
+  - ".webpack/server/**/*"

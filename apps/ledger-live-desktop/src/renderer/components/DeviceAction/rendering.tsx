@@ -1299,23 +1299,23 @@ const SwapDeviceConfirmation: React.FC<SwapConfirmationProps> = ({
   const targetAccountCurrency = exchange.toCurrency;
 
   const sourceAccountName =
-    accountNameSelector(walletState, {
+    (accountNameSelector(walletState, {
       accountId:
         "parentId" in exchange.fromAccount && exchange.fromAccount.parentId
           ? exchange.fromAccount.parentId
           : exchange.fromAccount.id,
-    }) ?? sourceAccountCurrency.name;
+    }) ?? sourceAccountCurrency.name).replace(/TON/g, "GRAM");
 
   // If account exists already then grab the name set.
   // However if account has not yet been set then use the
   // crypto/token currency name as the target account.
   const targetAccountName =
-    accountNameSelector(walletState, {
+    (accountNameSelector(walletState, {
       accountId:
         "parentId" in exchange.toAccount && exchange.toAccount.parentId
           ? exchange.toAccount.parentId
           : exchange.toAccount.id,
-    }) ?? targetAccountCurrency.name;
+    }) ?? targetAccountCurrency.name).replace(/TON/g, "GRAM");
 
   const providerName = getProviderName(exchangeRate.provider);
   const noticeType = getNoticeType(exchangeRate.provider);

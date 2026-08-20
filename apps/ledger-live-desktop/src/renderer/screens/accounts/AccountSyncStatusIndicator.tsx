@@ -14,6 +14,7 @@ import IconError from "~/renderer/icons/Error";
 import IconLoader from "~/renderer/icons/Loader";
 import { isUpToDateAccountSelector } from "~/renderer/reducers/accounts";
 import { colors } from "~/renderer/styles/theme";
+import { isFlexBuild } from "~/renderer/mocks/fakeFlexBuild";
 const mapStateToProps = createStructuredSelector({
   isUpToDateAccount: isUpToDateAccountSelector,
 });
@@ -99,6 +100,8 @@ type OwnProps = {
 type Props = OwnProps & {
   isUpToDateAccount: boolean;
 };
+const isFlex = isFlexBuild();
+
 const AccountSyncStatusIndicator = ({ accountId, isUpToDateAccount }: Props) => {
   const { pending, error } = useAccountSyncState({
     accountId,
@@ -106,6 +109,12 @@ const AccountSyncStatusIndicator = ({ accountId, isUpToDateAccount }: Props) => 
   const sync = useBridgeSync();
   const [userAction, setUserAction] = useState(false);
   const timeout = useRef<ReturnType<typeof setTimeout>>(undefined);
+
+  // In flex build mode, always show up-to-date (green check) since accounts are
+  // static mock data and BridgeSync is disabled.
+  if (isFlex) {
+    return <StatusUpToDate onClick={() => {}} />;
+  }
   const onClick = useCallback(
     (e: React.SyntheticEvent<HTMLDivElement>) => {
       e.stopPropagation();

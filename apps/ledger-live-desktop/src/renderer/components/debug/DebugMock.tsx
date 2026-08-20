@@ -120,6 +120,7 @@ const helpfulEvents = [
     },
   },
 ];
+
 const swapEvents = [
   {
     name: "result without Exchange",
@@ -177,6 +178,7 @@ const swapEvents = [
     },
   },
 ];
+
 const localizationEvents = [
   {
     name: "listAppsWithLocalization",
@@ -325,218 +327,10 @@ if (getEnv("MOCK")) {
 }
 
 export const mockedEventEmitter = getEnv("MOCK") ? window.mock.events.emitter : null;
-const DebugMock = () => {
-  const [queue, setQueue] = useState(window.mock.events.queue);
-  const [history, setHistory] = useState(window.mock.events.history);
-  const [nonce, setNonce] = useState(0);
-  const [expanded, setExpanded] = useState(true);
-  const [expandedQueue, setExpandedQueue] = useState(true);
-  const [expandedSwap, setExpandedSwap] = useState(false);
-  const [expandedLocalization, setExpandedLocalization] = useState(false);
-  const [expandedQuick, setExpandedQuick] = useState(false);
-  const [expandedHistory, setExpandedHistory] = useState(true);
-  const [expandedNotif, setExpandedNotif] = useState(false);
-  const { updateData } = useFilteredServiceStatus();
-  useInterval(() => {
-    setQueue(window.mock.events.queue);
-    setHistory(window.mock.events.history);
-    setNonce(nonce + 1);
-  }, 2000);
-  const toggleExpanded = useCallback(() => setExpanded(!expanded), [expanded, setExpanded]);
-  const toggleExpandedQueue = useCallback(() => setExpandedQueue(!expandedQueue), [expandedQueue]);
-  const toggleExpandedQuick = useCallback(() => setExpandedQuick(!expandedQuick), [expandedQuick]);
-  const toggleExpandedHistory = useCallback(
-    () => setExpandedHistory(!expandedHistory),
-    [expandedHistory],
-  );
-  const toggleExpandedSwap = useCallback(() => setExpandedSwap(!expandedSwap), [expandedSwap]);
-  const toggleExpandedLocalization = useCallback(
-    () => setExpandedLocalization(!expandedLocalization),
-    [expandedLocalization],
-  );
-  const toggleExpandedNotif = useCallback(() => setExpandedNotif(!expandedNotif), [expandedNotif]);
-  const queueEvent = useCallback(
-    (event: RawEvents) => {
-      setQueue([...queue, event]);
-      window.mock.events.mockDeviceEvent(event);
-    },
-    [queue, setQueue],
-  );
-  const unQueueEventByIndex = useCallback(
-    (i: number) => {
-      window.mock.events.queue.splice(i, 1);
-      setQueue(window.mock.events.queue);
-    },
-    [setQueue],
-  );
-  return (
-    <MockContainer id={`${nonce}`}>
-      <Box>
-        <Item
-          id={`${nonce}`}
-          color="neutral.c100"
-          ff="Inter|Medium"
-          fontSize={3}
-          onClick={toggleExpanded}
-        >
-          {expanded ? "mock [ - ]" : "m"}
-        </Item>
-      </Box>
-      {expanded ? (
-        <>
-          {queue.length ? (
-            <Box px={1}>
-              <Text
-                color="neutral.c100"
-                ff="Inter|SemiBold"
-                fontSize={3}
-                onClick={toggleExpandedQueue}
-              >
-                {"queue "}
-                {expandedQueue ? "[ - ]" : "[ + ]"}
-              </Text>
-              {expandedQueue
-                ? queue.map((e, i) => (
-                    <Box horizontal key={i}>
-                      <Text
-                        style={{
-                          marginLeft: 10,
-                        }}
-                        ff="Inter|Medium"
-                        color="neutral.c100"
-                        fontSize={3}
-                        onClick={() => unQueueEventByIndex(i)}
-                      >
-                        {"[ x ] "}
-                      </Text>
-                      <EllipsesText title={JSON.stringify(e)}>{JSON.stringify(e)}</EllipsesText>
-                    </Box>
-                  ))
-                : null}
-            </Box>
-          ) : null}
-          {history.length ? (
-            <Box px={1}>
-              <Text
-                color="neutral.c100"
-                ff="Inter|SemiBold"
-                fontSize={3}
-                onClick={toggleExpandedHistory}
-              >
-                {"history "}
-                {expandedHistory ? "[ - ]" : "[ + ]"}
-              </Text>
-              {expandedHistory
-                ? history.map((e, i) => (
-                    <Box horizontal key={i} onClick={() => queueEvent(e)}>
-                      <EllipsesText title={JSON.stringify(e)}>{JSON.stringify(e)}</EllipsesText>
-                    </Box>
-                  ))
-                : null}
-            </Box>
-          ) : null}
-          {/* Events here are supposed to be generic and not for a specific flow */}
-          <Box px={1}>
-            <Text
-              color="neutral.c100"
-              ff="Inter|SemiBold"
-              fontSize={3}
-              onClick={toggleExpandedQuick}
-            >
-              {"quick-list "}
-              {expandedQuick ? "[ - ]" : "[ + ]"}
-            </Text>
-            {expandedQuick
-              ? helpfulEvents.map(({ name, event }, i) => (
-                  <Text
-                    mx={1}
-                    ff="Inter|Regular"
-                    color="neutral.c100"
-                    fontSize={3}
-                    key={i}
-                    onClick={() => queueEvent(event)}
-                  >
-                    {name}
-                  </Text>
-                ))
-              : null}
-          </Box>
-          <Box px={1}>
-            <Text
-              color="neutral.c100"
-              ff="Inter|SemiBold"
-              fontSize={3}
-              onClick={toggleExpandedSwap}
-            >
-              {"swap "}
-              {expandedSwap ? "[ - ]" : "[ + ]"}
-            </Text>
-            {expandedSwap
-              ? swapEvents.map(({ name, event }, i) => (
-                  <Text
-                    ff="Inter|Regular"
-                    color="neutral.c100"
-                    fontSize={3}
-                    key={i}
-                    onClick={() => queueEvent(event)}
-                  >
-                    {name}
-                  </Text>
-                ))
-              : null}
-          </Box>
-          <Box px={1}>
-            <Text
-              color="neutral.c100"
-              ff="Inter|SemiBold"
-              fontSize={3}
-              onClick={toggleExpandedLocalization}
-            >
-              {"localization "}
-              {expandedLocalization ? "[ - ]" : "[ + ]"}
-            </Text>
-            {expandedLocalization
-              ? localizationEvents.map(({ name, event }, i) => (
-                  <Text
-                    ff="Inter|Regular"
-                    color="neutral.c100"
-                    fontSize={3}
-                    key={i}
-                    onClick={() => queueEvent(event)}
-                  >
-                    {name}
-                  </Text>
-                ))
-              : null}
-          </Box>
-          <Box px={1}>
-            <Text
-              color="neutral.c100"
-              ff="Inter|SemiBold"
-              fontSize={3}
-              onClick={toggleExpandedNotif}
-            >
-              {"notif "}
-              {expandedNotif ? "[ - ]" : "[ + ]"}
-            </Text>
-            {expandedNotif ? (
-              <Text
-                ff="Inter|Regular"
-                color="neutral.c100"
-                mb={2}
-                fontSize={3}
-                onClick={() => {
-                  toggleMockIncident();
-                  updateData();
-                }}
-              >
-                {"Toggle service status"}
-              </Text>
-            ) : null}
-          </Box>
-        </>
-      ) : null}
-    </MockContainer>
-  );
-};
-export default process.env.HIDE_DEBUG_MOCK ? MockedGlobalStyle : DebugMock;
+
+export default process.env.HIDE_DEBUG_MOCK
+  ? MockedGlobalStyle
+  : // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    function DebugMock() {
+      return null;
+    };

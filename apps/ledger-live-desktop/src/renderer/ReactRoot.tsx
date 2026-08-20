@@ -1,4 +1,4 @@
-import React, { Component } from "react";
+import React, { Component, Suspense } from "react";
 import { UnknownAction, Store } from "redux";
 import { State as StoreState } from "~/renderer/reducers";
 import App from "./App";
@@ -31,7 +31,9 @@ class ReactRoot extends Component<Props, State> {
     return error ? (
       String(error)
     ) : (
-      <App store={store} initialCountervalues={initialCountervalues as CounterValuesStateRaw} />
+      <Suspense fallback={<span />}>
+        <App store={store} initialCountervalues={initialCountervalues as CounterValuesStateRaw} />
+      </Suspense>
     );
   }
 }

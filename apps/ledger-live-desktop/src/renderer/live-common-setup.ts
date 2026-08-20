@@ -2,6 +2,18 @@ import "~/live-common-setup-base";
 import "~/live-common-set-supported-currencies";
 import "./families";
 
+import { setCoinConfig as setEvmCoinConfig, type EvmConfigInfo } from "@ledgerhq/coin-evm/config";
+import { LiveConfig } from "@ledgerhq/live-config/LiveConfig";
+
+// Initialize EVM coin config so useGasOptions works before the bridge resolves.
+// setCoinConfig is normally called inside createApi() which runs lazily,
+// but useGasOptions in SendAmountFields needs it at render time.
+setEvmCoinConfig((currencyId: string) => {
+  const data = LiveConfig.getValueByKey(`config_currency_${currencyId}`);
+  if (data) return { info: data as EvmConfigInfo };
+  return { info: { node: { type: "external", uri: "" }, explorer: { type: "none" }, showNfts: false } } as any;
+});
+
 import { Store } from "redux";
 import VaultTransport from "@ledgerhq/hw-transport-vault";
 import { userIdSelector } from "@ledgerhq/client-ids/store";

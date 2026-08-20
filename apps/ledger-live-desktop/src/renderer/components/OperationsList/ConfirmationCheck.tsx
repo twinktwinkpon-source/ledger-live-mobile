@@ -35,9 +35,19 @@ const border = (p: ThemedProps<ContainerProps>) =>
           p.type === "IN" ? p.theme.colors.legacyWarning : rgba(p.theme.colors.neutral.c70, 0.2)
         }`;
 function inferColor(p: ThemedProps<ContainerProps>) {
+  if (p.isConfirmed) {
+    switch (p.type) {
+      case "FREEZE":
+        return p.theme.colors.wallet;
+      case "REWARD":
+        return p.theme.colors.gold;
+      default:
+        return p.theme.colors.positiveGreen;
+    }
+  }
   switch (p.type) {
     case "IN":
-      return p.isConfirmed ? p.marketColor : p.theme.colors.legacyWarning;
+      return p.theme.colors.legacyWarning;
     case "FREEZE":
       return p.theme.colors.wallet;
     case "REWARD":

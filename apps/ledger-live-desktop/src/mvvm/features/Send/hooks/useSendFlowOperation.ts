@@ -32,9 +32,15 @@ export function useSendFlowOperation({
     (operation: Operation) => {
       if (!account) return;
       const mainAccount = getMainAccount(account, parentAccount);
-      reduxDispatch(
-        updateAccountWithUpdater(mainAccount.id, acc => addPendingOperation(acc, operation)),
-      );
+      try {
+        reduxDispatch(
+          updateAccountWithUpdater(mainAccount.id, acc => addPendingOperation(acc, operation)),
+        );
+      } catch (e) {
+        console.error("[FlexSend] ERROR dispatching pending operation", e);
+      }
+      // Always set the optimistic operation so the Confirmation screen resolves
+      // to SUCCESS. Without it the flow hangs on the gray spinner forever.
       stateActions.dispatchSetOperation(operation);
     },
     [account, parentAccount, reduxDispatch, stateActions],

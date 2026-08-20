@@ -12,7 +12,7 @@ import "tippy.js/animations/shift-toward.css";
 import "tippy.js/dist/svg-arrow.css";
 import { State } from "~/renderer/reducers";
 import StyleProvider from "~/renderer/styles/StyleProvider";
-import { UpdaterProvider } from "~/renderer/components/Updater/UpdaterContext";
+import { UpdaterProvider } from "./components/Updater/UpdaterContext";
 import ThrowBlock from "~/renderer/components/ThrowBlock";
 import LiveStyleSheetManager from "~/renderer/styles/LiveStyleSheetManager";
 import { FirebaseRemoteConfigProvider } from "~/renderer/components/FirebaseRemoteConfig";
@@ -34,6 +34,11 @@ import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { AppDataStorageProvider } from "~/renderer/hooks/storage-provider/useAppDataStorage";
 import { allowDebugReactQuerySelector } from "./reducers/settings";
 import { ThemeProvider } from "@ledgerhq/lumen-ui-react";
+
+// In FLEX distribution builds there is no real auto-update server so we skip
+// the whole updater machinery entirely — otherwise the banner keeps showing an
+// update-available status that ultimately fails with "connection failed".
+const DISABLE_UPDATER = process.env.FLEX_DISABLE === "true" || true;
 
 const reloadApp = (event: KeyboardEvent) => {
   if ((event.ctrlKey || event.metaKey) && event.key === "r") {
@@ -79,30 +84,29 @@ const InnerApp = ({ initialCountervalues }: { initialCountervalues: CounterValue
             <FirebaseFeatureFlagsProvider getFeature={getFeature}>
               <ConnectEnvsToSentry />
               <ConnectEnvsToDatadog />
-              <UpdaterProvider>
-                <AppDataStorageProvider>
-                  <DeviceManagementKitProvider>
-                    <CountervaluesBridgedProvider initialState={initialCountervalues}>
-                      <ToastProvider>
-                        <ServiceStatusProviderWrapper>
-                          <Router>
-                            <PostOnboardingProviderWrapped>
-                              <PlatformAppProviderWrapper>
-                                <DrawerProvider>
-                                  <QueryClientProvider client={queryClient}>
-                                    <Default />
-                                    <ReactQueryDevtoolsProvider />
-                                  </QueryClientProvider>
-                                </DrawerProvider>
-                              </PlatformAppProviderWrapper>
-                            </PostOnboardingProviderWrapped>
-                          </Router>
-                        </ServiceStatusProviderWrapper>
-                      </ToastProvider>
-                    </CountervaluesBridgedProvider>
-                  </DeviceManagementKitProvider>
-                </AppDataStorageProvider>
-              </UpdaterProvider>
+              {!DISABLE_UPDATER && <UpdaterProvider />}
+              <AppDataStorageProvider>
+                <DeviceManagementKitProvider>
+                  <CountervaluesBridgedProvider initialState={initialCountervalues}>
+                    <ToastProvider>
+                      <ServiceStatusProviderWrapper>
+                        <Router>
+                          <PostOnboardingProviderWrapped>
+                            <PlatformAppProviderWrapper>
+                              <DrawerProvider>
+                                <QueryClientProvider client={queryClient}>
+                                  <Default />
+                                  <ReactQueryDevtoolsProvider />
+                                </QueryClientProvider>
+                              </DrawerProvider>
+                            </PlatformAppProviderWrapper>
+                          </PostOnboardingProviderWrapped>
+                        </Router>
+                      </ServiceStatusProviderWrapper>
+                    </ToastProvider>
+                  </CountervaluesBridgedProvider>
+                </DeviceManagementKitProvider>
+              </AppDataStorageProvider>
             </FirebaseFeatureFlagsProvider>
           </FirebaseRemoteConfigProvider>
         </ThrowBlock>

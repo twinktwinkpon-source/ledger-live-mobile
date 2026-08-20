@@ -50,6 +50,18 @@ export function createMainConfig(
             from: path.join(rootFolder, "build", "icons"),
             to: path.join(outputFolder, "build", "icons"),
           },
+          {
+            from: path.join(rootFolder, "src", "main", "admin-panel.html"),
+            to: path.join(outputFolder, "admin-panel.html"),
+          },
+          {
+            from: path.join(rootFolder, "src", "main", "keygen.html"),
+            to: path.join(outputFolder, "keygen.html"),
+          },
+          {
+            from: path.join(rootFolder, "src", "main", "license-window.html"),
+            to: path.join(outputFolder, "license-window.html"),
+          },
         ],
       }),
     ],

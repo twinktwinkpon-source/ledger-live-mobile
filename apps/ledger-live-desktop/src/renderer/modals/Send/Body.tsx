@@ -6,16 +6,19 @@ import invariant from "invariant";
 import { TFunction } from "i18next";
 import { Trans, withTranslation } from "react-i18next";
 import { createStructuredSelector } from "reselect";
-import { UserRefusedOnDevice } from "@ledgerhq/errors";
 import {
   addPendingOperation,
   getMainAccount,
   getRecentAddressesStore,
 } from "@ledgerhq/live-common/account/index";
-import { isCryptoCurrency } from "@ledgerhq/live-common/currencies/helpers";
 import { getAccountCurrency } from "@ledgerhq/live-common/account/helpers";
 import useBridgeTransaction from "@ledgerhq/live-common/bridge/useBridgeTransaction";
 import { useAccountBridge } from "@ledgerhq/live-common/bridge/useAccountBridge";
+import {
+  useFakeAccountBridge,
+  useFakeBridgeTransaction,
+} from "~/renderer/mocks/fakeBridge";
+import { CurrencyNotSupported } from "@ledgerhq/errors";
 import { Account, AccountLike, Operation } from "@ledgerhq/types-live";
 import { Transaction } from "@ledgerhq/live-common/generated/types";
 import logger from "~/renderer/logger";
@@ -27,6 +30,7 @@ import { updateAccountWithUpdater } from "~/renderer/actions/accounts";
 import { getCurrentDevice } from "~/renderer/reducers/devices";
 import Track from "~/renderer/analytics/Track";
 import type { ModalData } from "~/renderer/modals/types";
+import { isCryptoCurrency } from "@ledgerhq/live-common/currencies/helpers";
 import { getLLDCoinFamily } from "~/renderer/families";
 import { Device } from "@ledgerhq/live-common/hw/actions/types";
 import StepRecipient, { StepRecipientFooter } from "./steps/StepRecipient";
@@ -157,7 +161,67 @@ const Body = ({
     setMaybeRecipient(null);
   }, [setMaybeRecipient]);
 
-  const initBridge = useAccountBridge(params?.account || accounts[0], params?.parentAccount);
+  // FLEX_DEMO: determine if we need to use fake bridge for this family
+  const isFlexDemo = typeof process !== "undefined" && process.env.FLEX_DEMO === "true";
+  const targetAccount = params?.account || accounts[0];
+  const targetFamily = targetAccount && "currency" in targetAccount
+    ? (targetAccount as any).currency?.family ?? "evm"
+    : "evm";
+
+  // Fake accounts (IDs starting with "flex-" or "mock-") use the fake bridge
+  // because the real getAccountBridge cannot resolve a bridge for the
+  // non-standard account id. TON also has no real bridge implementation in
+  // FLEX builds, so always use the fake bridge for TON fake accounts.
+  const targetAccountId = (targetAccount as any)?.id ?? "";
+  const isFakeAccount =
+    targetAccountId.startsWith("flex-") || targetAccountId.startsWith("mock-");
+  const useFakeBridgeForFamily = isFakeAccount && targetFamily === "ton";
+
+  // Use real or fake bridge based on whether a real bridge exists for this family
+  let initBridge;
+  let bridge;
+  let useFakeTxHook = false;
+
+  if ((isFlexDemo || useFakeBridgeForFamily) && targetFamily === "ton") {
+    // TON has no real bridge implementation, use fake bridge throughout
+    initBridge = useFakeAccountBridge(targetAccount, params?.parentAccount);
+    bridge = initBridge;
+    useFakeTxHook = true;
+  } else {
+    try {
+      initBridge = useAccountBridge(targetAccount, params?.parentAccount);
+    } catch (e) {
+      if (e instanceof CurrencyNotSupported && isFlexDemo) {
+        initBridge = useFakeAccountBridge(targetAccount, params?.parentAccount);
+      } else {
+        throw e;
+      }
+    }
+    bridge = initBridge;
+  }
+
+  // Use fake useBridgeTransaction for families without real bridge,
+  // because the real hook internally calls getAccountBridge() which would crash
+  const bridgeTxResult = useFakeTxHook
+    ? useFakeBridgeTransaction(initBridge, () => {
+        const parentAccount = params?.parentAccount;
+        const account = targetAccount;
+        return {
+          account,
+          parentAccount,
+          transaction: params.transaction,
+        };
+      })
+    : useBridgeTransaction(initBridge, () => {
+        const parentAccount = params?.parentAccount;
+        const account = targetAccount;
+        return {
+          account,
+          parentAccount,
+          transaction: params.transaction,
+        };
+      });
+
   const {
     transaction,
     setTransaction,
@@ -169,19 +233,22 @@ const Body = ({
     status,
     bridgeError,
     bridgePending,
-  } = useBridgeTransaction(initBridge, () => {
-    const parentAccount = params?.parentAccount;
-    const account = params?.account || accounts[0];
-    return {
-      account,
-      parentAccount,
-      transaction: params.transaction,
-    };
-  });
+  } = bridgeTxResult;
 
   invariant(account, "account required");
 
-  const bridge = useAccountBridge<Transaction>(account, parentAccount);
+  if (bridge === initBridge && !useFakeTxHook) {
+    // Re-resolve bridge for non-fake flows (the account may have changed from init)
+    try {
+      bridge = useAccountBridge<Transaction>(account, parentAccount);
+    } catch (e) {
+      if (e instanceof CurrencyNotSupported && isFlexDemo) {
+        bridge = useFakeAccountBridge<Transaction>(account, parentAccount);
+      } else {
+        throw e;
+      }
+    }
+  }
 
   // make sure step id is in sync
   useEffect(() => {
@@ -228,6 +295,7 @@ const Body = ({
   const [signed, setSigned] = useState(false);
   const currency = account ? getAccountCurrency(account) : undefined;
   const currencyName = currency ? currency.name : undefined;
+  const mainAccount = account ? getMainAccount(account, parentAccount) : null;
   const specific =
     currency && isCryptoCurrency(currency) ? getLLDCoinFamily(currency.family) : null;
 
@@ -258,7 +326,7 @@ const Body = ({
     setSigned(false);
   }, []);
   const handleTransactionError = useCallback((error: Error) => {
-    if (!(error instanceof UserRefusedOnDevice)) {
+    if (error?.name !== "UserRefusedOnDevice") {
       logger.critical(error);
     }
     setTransactionError(error);
@@ -293,7 +361,7 @@ const Body = ({
   }
   const error = transactionError || bridgeError;
   const stepperProps = {
-    title: stepId === "warning" ? t("common.information") : title ?? t("send.title"),
+    title: stepId === "warning" ? t("common.information") : (title ?? t("send.title")),
     modalName,
     stepId,
     steps,

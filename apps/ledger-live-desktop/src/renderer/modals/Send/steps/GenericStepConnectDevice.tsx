@@ -14,6 +14,8 @@ import { closeModal } from "~/renderer/actions/modals";
 import { mevProtectionSelector } from "~/renderer/reducers/settings";
 import { HOOKS_TRACKING_LOCATIONS } from "~/renderer/analytics/hooks/variables";
 import { useTransactionAction } from "~/renderer/hooks/useConnectAppAction";
+import { isFlexBuild } from "~/renderer/mocks/fakeFlexBuild";
+import { useFakeBroadcast } from "~/renderer/mocks/fakeBridge";
 import type { ModalData } from "~/renderer/modals/types";
 
 const Result = (
@@ -72,12 +74,19 @@ export default function StepConnectDevice({
     }),
     [mevProtected],
   );
-  const broadcast = useBroadcast({
-    account,
-    parentAccount,
-    broadcastConfig,
-    logger: broadcastLogger,
-  });
+  const broadcast = isFlexBuild()
+    ? useFakeBroadcast({
+        account,
+        parentAccount,
+        broadcastConfig,
+        logger: broadcastLogger,
+      })
+    : useBroadcast({
+        account,
+        parentAccount,
+        broadcastConfig,
+        logger: broadcastLogger,
+      });
   const tokenCurrency = (account && account.type === "TokenAccount" && account.token) || undefined;
   const request = useMemo(
     () => ({

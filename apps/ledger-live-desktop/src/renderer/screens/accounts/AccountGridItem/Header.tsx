@@ -13,6 +13,7 @@ import AccountTagDerivationMode from "~/renderer/components/AccountTagDerivation
 import { useAccountUnit } from "~/renderer/hooks/useAccountUnit";
 import { useAccountName } from "~/renderer/reducers/wallet";
 import { Divider } from "@ledgerhq/react-ui/index";
+import { getDisplayName, isFlexBuild, getSpoofedBalance } from "~/renderer/mocks/fakeFlexBuild";
 
 function HeadText(props: { account: AccountLike; title: string; name: string }) {
   const { title, name, account } = props;
@@ -59,7 +60,7 @@ const Header = ({
   let title;
   switch (account.type) {
     case "Account":
-      title = currency.name;
+      title = getDisplayName(currency.id, currency.name);
       break;
     case "TokenAccount":
       title = "token";
@@ -87,7 +88,7 @@ const Header = ({
           color="neutral.c100"
           unit={unit}
           showCode
-          val={account.balance}
+              val={isFlexBuild() ? getSpoofedBalance(account, account.balance) : account.balance}
         />
       </Box>
     </Box>
