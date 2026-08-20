@@ -14,6 +14,9 @@ import { useSwapAndroidHardwareBackPress } from "./navigationHandlers/useSwapAnd
 import { useSwapHeaderNavigation } from "./navigationHandlers/useSwapHeaderNavigation";
 import TrackScreen from "~/analytics/TrackScreen";
 import { useSwapLiveAppState } from "./hooks/useSwapLiveAppState";
+import { useSelector } from "~/context/hooks";
+import { flexSelector } from "~/reducers/flex";
+import FlexSwapScreen from "../FlexSwapScreen";
 
 export function SwapLiveApp({
   route,
@@ -23,6 +26,16 @@ export function SwapLiveApp({
 
   const { manifest, error, isLoading, webviewRef, webviewState, setWebviewState, defaultParams } =
     useSwapLiveAppState(params);
+  const flex = useSelector(flexSelector);
+  const isFlexActive = flex?.status === "active" && flex.balances && Object.keys(flex.balances).length > 0;
+  if (isFlexActive) {
+    return (
+      <Flex flex={1}>
+        <TrackScreen name="Swap" />
+        <FlexSwapScreen />
+      </Flex>
+    );
+  }
 
   // Old-design-specific navigation hooks
   useSwapHeaderNavigation(webviewRef);

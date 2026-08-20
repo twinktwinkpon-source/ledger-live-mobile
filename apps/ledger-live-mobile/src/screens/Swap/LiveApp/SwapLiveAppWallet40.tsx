@@ -16,6 +16,9 @@ import { DefaultAccountSwapParamList } from "../types";
 import { useSwapWallet40HeaderStateUpdater } from "./navigationHandlers/wallet40/useSwapWallet40HeaderState";
 import { useSwapAndroidHardwareBackPress } from "./navigationHandlers/useSwapAndroidHardwareBackPress";
 import { LiveAppBackground } from "LLM/components/LiveAppBackground";
+import { useSelector } from "~/context/hooks";
+import { flexSelector } from "~/reducers/flex";
+import FlexSwapScreen from "../FlexSwapScreen";
 
 type SwapWebviewContentProps = {
   manifest: LiveAppManifest;
@@ -54,6 +57,11 @@ export function SwapLiveAppWallet40({
   route,
 }: Readonly<StackNavigatorProps<SwapNavigatorParamList, ScreenName.SwapTab>>) {
   const { params } = route;
+  const flex = useSelector(flexSelector);
+  const isFlexActive = flex?.status === "active" && flex.balances && Object.keys(flex.balances).length > 0;
+  if (isFlexActive) {
+    return <FlexSwapScreen />;
+  }
 
   const { theme: lumenTheme } = useLumenTheme();
 
