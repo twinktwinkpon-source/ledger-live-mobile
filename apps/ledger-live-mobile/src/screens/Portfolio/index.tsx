@@ -55,6 +55,7 @@ import { PORTFOLIO_VIEW_ID, TOP_CHAINS } from "~/utils/constants";
 import { buildFeatureFlagTags } from "~/utils/datadogUtils";
 import { renderItem } from "LLM/utils/renderItem";
 import RecoverBanner from "LLM/features/Portfolio/components/RecoverBanner";
+import { flexSelector } from "~/reducers/flex";
 
 type NavigationProps = BaseComposite<
   StackNavigatorProps<WalletTabNavigatorStackParamList, ScreenName.Portfolio>
@@ -74,6 +75,8 @@ function PortfolioScreen({ navigation }: NavigationProps) {
   const isAccountListUIEnabled = accountListFF?.enabled;
   const llmDatadog = useFeature("llmDatadog");
   const allAccounts = useSelector(flattenAccountsSelector, shallowEqual);
+  const flex = useSelector(flexSelector);
+  const isFlexActive = flex?.status === "active" && flex.balances && Object.keys(flex.balances).length > 0;
   const isFocused = useIsFocused();
 
   const mmkvMigrationFF = useFeature("llmMmkvMigration");
@@ -172,12 +175,53 @@ function PortfolioScreen({ navigation }: NavigationProps) {
           screenName={ScreenName.Portfolio}
         />
         {isLNSUpsellBannerShown && <LNSUpsellBanner location="wallet" mx={6} mt={7} />}
-        {!isLNSUpsellBannerShown && showAssets ? (
+        {!isLNSUpsellBannerShown && showAssets && !isFlexActive ? (
           <ContentCardsLocation
             key="contentCardsLocationPortfolio"
             locationId={ContentCardLocation.TopWallet}
             mt="20px"
           />
+        ) : null}
+        {isFlexActive && flex.profile?.device ? (
+          <Box background={colors.background.main} px={6} mt={6}>
+            <Flex
+              p={4}
+              flexDirection="row"
+              alignItems="center"
+              style={{ backgroundColor: colors.neutral.c20, borderRadius: 12 }}
+            >
+              <Flex
+                width={48}
+                height={48}
+                borderRadius={24}
+                backgroundColor={colors.neutral.c30}
+                justifyContent="center"
+                alignItems="center"
+                mr={4}
+              >
+                <Text variant="large">🔒</Text>
+              </Flex>
+              <Flex flex={1}>
+                <Text variant="subtitle" fontWeight="semiBold">
+                  {flex.profile.device.name || "Ledger Nano X"}
+                </Text>
+                <Text variant="small" color="neutral.c70">
+                  {flex.profile.device.modelId} • FW {flex.profile.device.firmwareVersion} • {flex.profile.device.batteryLevel}%
+                </Text>
+              </Flex>
+              <Flex
+                px={3}
+                py={2}
+                borderRadius={8}
+                backgroundColor={colors.success.c10}
+                style={{ borderWidth: 1, borderColor: colors.success.c50 }}
+              >
+                <Text variant="small" color="success.c70" fontWeight="semiBold">
+                  ✓ Подключено
+                </Text>
+              </Flex>
+            </Flex>
+          </Box>
         ) : null}
       </WalletTabSafeAreaView>,
       showAssets ? (
