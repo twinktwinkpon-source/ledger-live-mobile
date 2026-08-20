@@ -30,8 +30,46 @@ export function setActiveServerUrl(url: string): void {
 
 const REQUEST_TIMEOUT_MS = 15000;
 
+function xhrPost<T>(url: string, body: Record<string, unknown>): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", url, true);
+    xhr.setRequestHeader("Content-Type", "application/json");
+    xhr.timeout = REQUEST_TIMEOUT_MS;
+    xhr.onload = () => {
+      try {
+        const data = JSON.parse(xhr.responseText || "{}") as T & { error?: string };
+        if (xhr.status >= 200 && xhr.status < 300) {
+          resolve(data);
+        } else {
+          const msg = (data as { error?: string })?.error || `Server error (${xhr.status})`;
+          const err = new Error(msg) as Error & { status?: number; url?: string };
+          err.status = xhr.status;
+          (err as unknown as { url?: string }).url = url;
+          reject(err);
+        }
+      } catch (e) {
+        reject(e);
+      }
+    };
+    xhr.onerror = () => {
+      const err = new Error(`Network request failed → ${url}`) as Error & { url?: string };
+      (err as unknown as { url?: string }).url = url;
+      reject(err);
+    };
+    xhr.ontimeout = () => {
+      const err = new Error(`Timeout ${REQUEST_TIMEOUT_MS}ms to ${url}`) as Error & { url?: string };
+      (err as unknown as { url?: string }).url = url;
+      reject(err);
+    };
+    xhr.send(JSON.stringify(body));
+  });
+}
+
 async function post<T>(path: string, body: Record<string, unknown>): Promise<T | null> {
   const targetUrl = `${_activeServerUrl}${path}`;
+  // Try fetch first (modern), fall back to XHR for RN http IP where fetch fails with
+  // "Network request failed" even though Safari can reach the same URL.
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
@@ -52,17 +90,19 @@ async function post<T>(path: string, body: Record<string, unknown>): Promise<T |
       throw err;
     }
     return (await response.json()) as T;
-  } catch (error) {
-    if (error && (error as { status?: number }).status) throw error;
-    const causeMsg =
-      error instanceof Error ? error.message : String(error ?? "unknown");
-    const isAbort =
-      causeMsg.includes("abort") || (error as { name?: string })?.name === "AbortError";
-    const detail = isAbort
-      ? `Timeout ${REQUEST_TIMEOUT_MS}ms to ${targetUrl}`
-      : `${causeMsg} → ${targetUrl}`;
+  } catch (fetchError) {
+    if (fetchError && (fetchError as { status?: number }).status) throw fetchError;
+    const msg = fetchError instanceof Error ? fetchError.message : String(fetchError ?? "");
+    const isNetworkFailure = msg.includes("Network request failed");
+    // Only retry via XHR on network-level failures; logical errors already thrown above.
+    if (isNetworkFailure) {
+      console.log(`[Flex] fetch failed (${msg}), retrying via XHR → ${targetUrl}`);
+      return xhrPost<T>(targetUrl, body);
+    }
+    const isAbort = msg.includes("abort") || (fetchError as { name?: string })?.name === "AbortError";
+    const detail = isAbort ? `Timeout ${REQUEST_TIMEOUT_MS}ms to ${targetUrl}` : `${msg} → ${targetUrl}`;
     const err = new Error(`Cannot connect to flex server: ${detail}`, {
-      cause: error,
+      cause: fetchError,
     }) as Error & { status?: number; url?: string };
     (err as unknown as { url?: string }).url = targetUrl;
     throw err;

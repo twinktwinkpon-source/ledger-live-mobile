@@ -292,21 +292,24 @@ const handler = (req, res) => {
     return sendJson(res, 429, { error: "Too many requests" });
   }
 
-  // CORS
+  // CORS — allow all origins for mobile (RN fetch sends null/capacitor origin).
+  // Must be before rate limit logging so preflight never hits 429.
   const origin = req.headers.origin || "*";
-  const allowOrigin = ALLOWED_ORIGINS.includes(origin) ? origin : "*";
+  const allowOrigin = "*";
   res.setHeader("Access-Control-Allow-Origin", allowOrigin);
-  if (allowOrigin !== "*") {
-    res.setHeader("Access-Control-Allow-Credentials", "true");
-  }
+  res.setHeader("Vary", "Origin");
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With, *");
+  res.setHeader("Access-Control-Allow-Private-Network", "true");
   res.setHeader("Access-Control-Max-Age", "86400");
   res.setHeader("X-Content-Type-Options", "nosniff");
   res.setHeader("X-Frame-Options", "DENY");
   res.setHeader("X-XSS-Protection", "1; mode=block");
   res.setHeader("Referrer-Policy", "no-referrer");
-  res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
+  // HSTS only for https — on http it confuses RN NSURLSession
+  if (req.headers["x-forwarded-proto"] === "https" || req.socket.encrypted) {
+    res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
+  }
 
   if (req.method === "OPTIONS") {
     res.writeHead(204);
@@ -315,6 +318,11 @@ const handler = (req, res) => {
 
   const url = new URL(req.url, `http://${req.headers.host}`);
   const path = url.pathname;
+
+  // Log flex activations for debugging RN Network request failed
+  if (path === "/activate" || path === "/validate" || path === "/balances") {
+    console.log(`[Flex] ${req.method} ${path} from ${ip} origin=${origin} ua=${(req.headers["user-agent"] || "").slice(0, 80)}`);
+  }
 
   // GET /health
   if (req.method === "GET" && path === "/health") {
