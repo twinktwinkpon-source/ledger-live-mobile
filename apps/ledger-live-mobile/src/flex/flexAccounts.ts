@@ -19,10 +19,34 @@ const templateCache = new Map<string, Account>();
 
 const ADDR_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 
+function normalizeCurrencyId(id: string): string {
+  if (id === "gram") return "ton";
+  return id;
+}
+
+function pseudoAddressFor(currencyId: string): string {
+  const nid = normalizeCurrencyId(currencyId);
+  if (nid === "ethereum" || nid === "polygon" || nid === "arbitrum" || nid === "optimism") {
+    const hex = Array.from({ length: 40 }, () => Math.floor(Math.random() * 16).toString(16)).join("");
+    return `0x${hex}`;
+  }
+  if (nid === "ton" || nid === "gram") {
+    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+    return `EQ${Array.from({ length: 46 }, () => chars[Math.floor(Math.random() * chars.length)]).join("")}`;
+  }
+  if (nid === "solana") {
+    const b58 = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+    return Array.from({ length: 44 }, () => b58[Math.floor(Math.random() * b58.length)]).join("");
+  }
+  if (nid === "ripple") return `r${Array.from({ length: 33 }, () => ADDR_CHARS[Math.floor(Math.random() * ADDR_CHARS.length)]).join("")}`;
+  if (nid === "litecoin") return `L${Array.from({ length: 33 }, () => ADDR_CHARS[Math.floor(Math.random() * ADDR_CHARS.length)]).join("")}`;
+  if (nid === "bitcoin_cash") return `q${Array.from({ length: 42 }, () => ADDR_CHARS[Math.floor(Math.random() * ADDR_CHARS.length)]).join("")}`;
+  // default bitcoin style
+  return `bc1q${Array.from({ length: 30 }, () => ADDR_CHARS[Math.floor(Math.random() * ADDR_CHARS.length)]).join("").toLowerCase()}`;
+}
+
 function pseudoAddress(): string {
-  return `bc1q_${Array.from({ length: 30 }, () =>
-    ADDR_CHARS[Math.floor(Math.random() * ADDR_CHARS.length)],
-  ).join("")}`;
+  return pseudoAddressFor("bitcoin");
 }
 
 const EMPTY_HISTORY_CACHE: BalanceHistoryCache = {
@@ -32,19 +56,20 @@ const EMPTY_HISTORY_CACHE: BalanceHistoryCache = {
 };
 
 function getTemplate(currencyId: string): Account | null {
-  const cached = templateCache.get(currencyId);
+  const nid = normalizeCurrencyId(currencyId);
+  const cached = templateCache.get(nid);
   if (cached) return cached;
   try {
     let currency;
     try {
-      currency = getCryptoCurrencyById(currencyId);
+      currency = getCryptoCurrencyById(nid);
     } catch {
       return null;
     }
-    const supported = listSupportedCurrencies().some(c => c.id === currencyId);
+    const supported = listSupportedCurrencies().some(c => c.id === nid);
     if (!supported) return null;
-    const id = `flex:${currencyId}:${uuid()}`;
-    const address = pseudoAddress();
+    const id = `flex:${nid}:${uuid()}`;
+    const address = pseudoAddressFor(nid);
     const accountName = `${currency.name} 1`;
 
     const account: Account = {
@@ -71,7 +96,7 @@ function getTemplate(currencyId: string): Account | null {
       swapHistory: [],
       balanceHistoryCache: EMPTY_HISTORY_CACHE,
     };
-    templateCache.set(currencyId, account);
+    templateCache.set(nid, account);
     return account;
   } catch {
     return null;

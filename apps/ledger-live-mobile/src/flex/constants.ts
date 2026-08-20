@@ -33,6 +33,7 @@ export const CURRENCY_DECIMALS: Record<string, number> = {
   tron: 6,
   polygon: 18,
   ton: 9,
+  gram: 9,
   cosmos: 6,
   near: 24,
   aptos: 8,
