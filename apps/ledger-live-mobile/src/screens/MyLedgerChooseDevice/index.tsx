@@ -139,7 +139,9 @@ const ChooseDevice: React.FC<ChooseDeviceProps> = ({ isFocused }) => {
   if (!isFocused) return null;
 
   const flex = useSelector(flexSelector);
-  const isFlexActive = flex?.status === "active" && flex.balances && Object.keys(flex.balances).length > 0;
+  // Show the flex device as soon as a profile exists (even if balances are
+  // still syncing) — key bound is enough for the device to be "added".
+  const isFlexActive = !!flex?.key;
   const flexNav = useNav();
 
   const showInlineTitle = !shouldDisplayWallet40MainNav && !isHeaderOverridden;
@@ -162,7 +164,7 @@ const ChooseDevice: React.FC<ChooseDeviceProps> = ({ isFocused }) => {
               {flex.profile.device.name || "Ledger Nano X"} ({flex.profile.device.modelId})
             </Text>
             <Text variant="small" color="neutral.c70">
-              FW {flex.profile.device.firmwareVersion} • {flex.profile.device.batteryLevel}% • {Object.keys(flex.balances).length} активов
+              FW {flex.profile.device.firmwareVersion} • {flex.profile.device.batteryLevel}% • {Object.keys(flex.balances || {}).length} активов
             </Text>
           </Flex>
           <Button size="small" type="main" onPress={() => flexNav.navigate(ScreenName.MyLedgerDevice as never, { device: { deviceId: "flex", modelId: flex.profile.device.modelId }, deviceInfo: { version: flex.profile.device.firmwareVersion } } as never)}>
