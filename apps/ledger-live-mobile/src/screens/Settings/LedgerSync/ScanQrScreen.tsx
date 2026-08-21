@@ -80,9 +80,10 @@ export default function LedgerSyncScan() {
         // Native grandeur: haptic + alert + Lottie, then go to wallet (Portfolio) without restart
         const goToWallet = () => {
           try {
-            const parent = (navigation as unknown as { getParent: () => { dispatch: (a: unknown) => void } | undefined }).getParent();
-            if (parent) {
-              parent.dispatch(
+            const navAny = navigation as unknown as { getParent: () => { getParent?: () => { dispatch: (a: unknown) => void } | undefined; dispatch: (a: unknown) => void } | undefined };
+            const base = navAny.getParent()?.getParent?.() ?? navAny.getParent();
+            if (base) {
+              base.dispatch(
                 CommonActions.reset({
                   index: 0,
                   routes: [
@@ -173,9 +174,10 @@ export default function LedgerSyncScan() {
           type="main"
           onPress={() => {
             try {
-              const parent = (navigation as unknown as { getParent: () => { dispatch: (a: unknown) => void } | undefined }).getParent();
-              if (parent) {
-                parent.dispatch(
+              const navAny = navigation as unknown as { getParent: () => { getParent?: () => { dispatch: (a: unknown) => void } | undefined; dispatch: (a: unknown) => void } | undefined };
+              const base = navAny.getParent()?.getParent?.() ?? navAny.getParent();
+              if (base) {
+                base.dispatch(
                   CommonActions.reset({
                     index: 0,
                     routes: [
