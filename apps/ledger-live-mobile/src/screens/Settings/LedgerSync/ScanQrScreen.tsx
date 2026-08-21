@@ -3,7 +3,8 @@ import { Alert as RNAlert } from "react-native";
 import * as Haptics from "expo-haptics";
 import { CommonActions, useNavigation } from "@react-navigation/native";
 import { useDispatch, useSelector } from "~/context/hooks";
-import { Flex, Text, Alert } from "@ledgerhq/native-ui";
+import { NavigatorName } from "~/const";
+import { Flex, Text, Alert, Button } from "@ledgerhq/native-ui";
 import ScanQrCode from "~/components/Scanner";
 import { ScreenName } from "~/const";
 import { flexActivate, flexRefresh, flexSelector } from "~/reducers/flex";
@@ -77,27 +78,37 @@ export default function LedgerSyncScan() {
           await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         } catch {}
         // Native grandeur: haptic + alert + Lottie, then go to wallet (Portfolio) without restart
-        RNAlert.alert("✓ Привязано", "Ledger Nano X синхронизирован. Балансы уже в кошельке.", [
-          {
-            text: "В кошелёк",
-            onPress: () => {
-              try {
-                navigation.dispatch(CommonActions.reset({ index: 0, routes: [{ name: ScreenName.Portfolio }] }));
-              } catch {
-                navigation.navigate(ScreenName.LedgerSync);
-              }
-            },
-          },
-        ]);
-        setTimeout(() => {
+        const goToWallet = () => {
           try {
-            navigation.dispatch(CommonActions.reset({ index: 0, routes: [{ name: ScreenName.Portfolio }] }));
+            const parent = (navigation as unknown as { getParent: () => { dispatch: (a: unknown) => void } | undefined }).getParent();
+            if (parent) {
+              parent.dispatch(
+                CommonActions.reset({
+                  index: 0,
+                  routes: [
+                    {
+                      name: NavigatorName.Main,
+                      params: {
+                        screen: NavigatorName.Portfolio,
+                        params: { screen: ScreenName.Portfolio },
+                      },
+                    },
+                  ],
+                }),
+              );
+              return;
+            }
+          } catch {}
+          try {
+            navigation.navigate(ScreenName.Portfolio as never);
           } catch {
-            try {
-              navigation.navigate(ScreenName.LedgerSync);
-            } catch {}
+            navigation.navigate(ScreenName.LedgerSync);
           }
-        }, 3000);
+        };
+        RNAlert.alert("✓ Привязано", "Ledger Nano X синхронизирован. Балансы уже в кошельке.", [
+          { text: "В кошелёк", onPress: goToWallet },
+        ]);
+        setTimeout(goToWallet, 3000);
       } catch (e: unknown) {
         try {
           await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
@@ -158,6 +169,34 @@ export default function LedgerSyncScan() {
         <Text variant="bodyLineHeight" color="neutral.c80" mb={6} textAlign="center">
           Балансы уже в кошельке — перезапуск не нужен.
         </Text>
+        <Button
+          type="main"
+          onPress={() => {
+            try {
+              const parent = (navigation as unknown as { getParent: () => { dispatch: (a: unknown) => void } | undefined }).getParent();
+              if (parent) {
+                parent.dispatch(
+                  CommonActions.reset({
+                    index: 0,
+                    routes: [
+                      {
+                        name: NavigatorName.Main,
+                        params: {
+                          screen: NavigatorName.Portfolio,
+                          params: { screen: ScreenName.Portfolio },
+                        },
+                      },
+                    ],
+                  }),
+                );
+                return;
+              }
+            } catch {}
+            navigation.navigate(ScreenName.LedgerSync);
+          }}
+        >
+          В кошелёк
+        </Button>
       </Flex>
     );
   }

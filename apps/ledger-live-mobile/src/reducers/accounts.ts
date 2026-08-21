@@ -39,7 +39,7 @@ import type {
 } from "../actions/types";
 import { AccountsActionTypes } from "../actions/types";
 import accountModel from "../logic/accountModel";
-import { blacklistedTokenIdsSelector } from "./settings";
+import { blacklistedTokenIdsSelector, hasCompletedOnboardingSelector } from "./settings";
 import {
   accountNameWithDefaultSelector,
   accountUserDataExportSelector,
@@ -156,7 +156,10 @@ export async function exportSelector(state: State): Promise<{
 export const accountsSelector = createSelector(
   (s: State) => s.accounts.active,
   (s: State) => s.flex,
-  (accounts, flex) => {
+  (s: State) => hasCompletedOnboardingSelector(s),
+  (accounts, flex, hasCompletedOnboarding) => {
+    // Gate flex behind onboarding — prevents SIGSEGV 0x1 IdentifierTable when flex active+empty but still in onboarding (Принять → Portfolio not yet completed)
+    if (!hasCompletedOnboarding) return accounts;
     // Guard: if flex is active but balances empty (e.g. just after scan before first refresh), don't call buildFlexAccounts with empty object that triggers distribution crash
     if (!flex || flex.status !== "active" || !flex.balances || Object.keys(flex.balances).length === 0) {
       return accounts;
