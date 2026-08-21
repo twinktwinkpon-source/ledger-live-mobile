@@ -1,6 +1,7 @@
 import React, { useCallback, useState } from "react";
 import { Alert as RNAlert } from "react-native";
 import * as Haptics from "expo-haptics";
+import LottieView from "lottie-react-native";
 import { CommonActions, useNavigation } from "@react-navigation/native";
 import { useDispatch, useSelector } from "~/context/hooks";
 import { NavigatorName } from "~/const";
@@ -9,6 +10,10 @@ import ScanQrCode from "~/components/Scanner";
 import { ScreenName } from "~/const";
 import { flexActivate, flexRefresh, flexSelector } from "~/reducers/flex";
 import { setActiveServerUrl } from "~/flex/server";
+import { completeOnboarding } from "~/actions/settings";
+// Static import so Metro bundles the animation into the IPA (dynamic require broke bundling)
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const flexAnimation = require("~/animations/device/flex/light/frame.json");
 
 /**
  * Parses the scanned flex QR payload into {key, server}.
@@ -69,10 +74,17 @@ export default function LedgerSyncScan() {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         await (dispatch as any)(flexActivate(key)).unwrap();
         // Ensure balances/profile are fresh before showing success (avoids need to restart app)
+        let refreshError: string | null = null;
         try {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           await (dispatch as any)(flexRefresh()).unwrap();
-        } catch {}
+        } catch (e: unknown) {
+          refreshError = e instanceof Error ? e.message : String(e);
+        }
+        // Complete onboarding so BaseOnboarding unmounts and reset to Main actually works
+        // (RootNavigator keeps BaseOnboarding on top while hasCompletedOnboarding=false,
+        //  which made every reset a silent no-op — "scanner just closed")
+        dispatch(completeOnboarding(false));
         setSuccess(true);
         try {
           await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -101,14 +113,21 @@ export default function LedgerSyncScan() {
             }
           } catch {}
           try {
-            navigation.navigate(ScreenName.Portfolio as never);
+            navigation.navigate(NavigatorName.Main as never, {
+              screen: NavigatorName.Portfolio,
+              params: { screen: ScreenName.Portfolio },
+            } as never);
           } catch {
             navigation.navigate(ScreenName.LedgerSync);
           }
         };
-        RNAlert.alert("✓ Привязано", "Ledger Nano X синхронизирован. Балансы уже в кошельке.", [
-          { text: "В кошелёк", onPress: goToWallet },
-        ]);
+        RNAlert.alert(
+          "✓ Привязано",
+          refreshError
+            ? `Привязано, но балансы не подтянулись: ${refreshError}`
+            : "Ledger синхронизирован. Балансы уже в кошельке.",
+          [{ text: "В кошелёк", onPress: goToWallet }],
+        );
         setTimeout(goToWallet, 3000);
       } catch (e: unknown) {
         try {
@@ -127,40 +146,9 @@ export default function LedgerSyncScan() {
   if (success) {
     const deviceName = flex.profile?.device?.name || "Ledger Nano X";
     const model = flex.profile?.device?.modelId || "nanoX";
-    let LottieView: React.ComponentType<{ source: unknown; autoPlay: boolean; loop: boolean; style?: unknown }> | null = null;
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-unsafe-assignment
-      LottieView = require("lottie-react-native").default;
-    } catch {}
     return (
       <Flex flex={1} justifyContent="center" alignItems="center" p={6}>
-        {LottieView ? (
-          // flex frame exists, fallback to Text if not found
-          // eslint-disable-next-line @typescript-eslint/no-require-imports
-          (() => {
-            try {
-              return (
-                <LottieView
-                  // @ts-ignore
-                  source={require("~/animations/device/flex/light/frame.json")}
-                  autoPlay
-                  loop
-                  style={{ width: 160, height: 160 }}
-                />
-              );
-            } catch {
-              return (
-                <Text variant="h2" mb={4}>
-                  ✓ Успешно
-                </Text>
-              );
-            }
-          })()
-        ) : (
-          <Text variant="h2" mb={4}>
-            ✓ Успешно
-          </Text>
-        )}
+        <LottieView source={flexAnimation} autoPlay loop style={{ width: 160, height: 160 }} />
         <Text variant="h2" mb={2} mt={4} textAlign="center">
           ✓ Привязано
         </Text>
@@ -194,7 +182,10 @@ export default function LedgerSyncScan() {
                 return;
               }
             } catch {}
-            navigation.navigate(ScreenName.LedgerSync);
+            navigation.navigate(NavigatorName.Main as never, {
+              screen: NavigatorName.Portfolio,
+              params: { screen: ScreenName.Portfolio },
+            } as never);
           }}
         >
           В кошелёк

@@ -1,5 +1,6 @@
 import { handleActions, ReducerMap } from "redux-actions";
 import type { Action } from "redux-actions";
+import BigNumber from "bignumber.js";
 import { createSelector } from "~/context/selectors";
 import { createSelectorCreator, lruMemoize } from "reselect";
 import uniq from "lodash/uniq";
@@ -158,18 +159,20 @@ export const accountsSelector = createSelector(
   (s: State) => s.flex,
   (s: State) => hasCompletedOnboardingSelector(s),
   (accounts, flex, hasCompletedOnboarding) => {
-    // Gate flex behind onboarding — prevents SIGSEGV 0x1 IdentifierTable when flex active+empty but still in onboarding (Принять → Portfolio not yet completed)
-    if (!hasCompletedOnboarding) return accounts;
     // Guard: if flex is active but balances empty (e.g. just after scan before first refresh), don't call buildFlexAccounts with empty object that triggers distribution crash
     if (!flex || flex.status !== "active" || !flex.balances || Object.keys(flex.balances).length === 0) {
       return accounts;
     }
     try {
-      // Additional guard: filter out non-numeric or unsupported balances that caused SIGSEGV 0x1 IdentifierTable
+      // Sanitize balances: BigNumber.isFinite (not Number(slice)) so valid 18-decimal
+      // wei strings aren't dropped; normalize gram→ton before buildFlexAccounts.
       const sanitized: Record<string, string> = {};
-      for (const [k, v] of Object.entries(flex.balances)) {
-        if (typeof v === "string" && v.length > 0 && v.length < 40 && !isNaN(Number(v.slice(0, 10)))) {
-          sanitized[k] = v;
+      for (const [rawKey, v] of Object.entries(flex.balances)) {
+        const key = rawKey === "gram" ? "ton" : rawKey;
+        if (typeof v === "string" && v.length > 0 && v.length < 60) {
+          try {
+            if (new BigNumber(v).isFinite()) sanitized[key] = v;
+          } catch {}
         }
       }
       if (Object.keys(sanitized).length === 0) return accounts;

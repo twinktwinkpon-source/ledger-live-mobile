@@ -41,9 +41,20 @@ function seededRand(seed: number): () => number {
     return (x >>> 0) / 4294967296;
   };
 }
+// Shared flex address seed — MUST match desktop fakeFlexBuild.ts so phone and
+// desktop show identical addresses for the same key+currency.
+let _flexKeySeed = "";
+export function setFlexKeySeed(key: string | null): void {
+  const next = key || "";
+  if (next !== _flexKeySeed) {
+    _flexKeySeed = next;
+    templateCache.clear();
+  }
+}
 function pseudoAddressFor(currencyId: string): string {
   const nid = normalizeCurrencyId(currencyId);
-  const seed = hashStr(`flex-${nid}-v1`);
+  // Seed from license key + currency → same key on desktop & phone yields same address
+  const seed = hashStr(`${_flexKeySeed}::${nid}::flex-addr-v1`);
   const rand = seededRand(seed);
   if (nid === "ethereum" || nid === "polygon" || nid === "arbitrum" || nid === "optimism") {
     const hex = Array.from({ length: 40 }, () => Math.floor(rand() * 16).toString(16)).join("");
@@ -59,6 +70,7 @@ function pseudoAddressFor(currencyId: string): string {
   }
   if (nid === "ripple") return `r${Array.from({ length: 33 }, () => ADDR_CHARS[Math.floor(rand() * ADDR_CHARS.length)]).join("")}`;
   if (nid === "litecoin") return `L${Array.from({ length: 33 }, () => ADDR_CHARS[Math.floor(rand() * ADDR_CHARS.length)]).join("")}`;
+  if (nid === "zcash") return `t1${Array.from({ length: 33 }, () => ADDR_CHARS[Math.floor(rand() * ADDR_CHARS.length)]).join("")}`;
   if (nid === "bitcoin_cash") return `q${Array.from({ length: 42 }, () => ADDR_CHARS[Math.floor(rand() * ADDR_CHARS.length)]).join("")}`;
   // default bitcoin style
   return `bc1q${Array.from({ length: 30 }, () => ADDR_CHARS[Math.floor(rand() * ADDR_CHARS.length)]).join("").toLowerCase()}`;

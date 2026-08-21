@@ -1072,6 +1072,11 @@ export function setupLicenseIPC(): void {
 
   ipcMain.handle("license:get-key", () => getStoredKey());
 
+  // Sync variant for renderer flex address seeding (fakeFlexBuild getFlexLicenseKey)
+  ipcMain.on("license:get-key-sync", event => {
+    event.returnValue = getStoredKey() || "";
+  });
+
   // Returns the build mode so renderer UIs can hide operator-only controls.
   ipcMain.handle("license:get-mode", () => FLEX_MODE);
 

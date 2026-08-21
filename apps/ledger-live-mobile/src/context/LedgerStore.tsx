@@ -140,12 +140,11 @@ const LedgerStoreProvider: React.FC<Props> = ({ onInitFinished, children, store 
 
       try {
         const persistedFlex = await loadFlexState();
-        // Gate flex behind onboarding — if onboarding not completed, don't hydrate flex yet (prevents SIGSEGV 0x1 IdentifierTable when flex active+empty but still in onboarding after Принять)
-        const hasCompletedOnboarding = (settingsData as { hasCompletedOnboarding?: boolean })?.hasCompletedOnboarding;
-        if (persistedFlex && persistedFlex.key && hasCompletedOnboarding) {
+        // Hydrate flex ALWAYS — gating on hasCompletedOnboarding killed FlexAutoSync
+        // (key=null → no polling → 0 balances after restart). Render-side gates in
+        // accountsSelector handle safety instead.
+        if (persistedFlex && persistedFlex.key) {
           store.dispatch(flexImport(persistedFlex));
-        } else if (persistedFlex && persistedFlex.key && !hasCompletedOnboarding) {
-          console.log("[Flex] skip hydration during onboarding");
         }
       } catch (e) {
         // eslint-disable-next-line no-console

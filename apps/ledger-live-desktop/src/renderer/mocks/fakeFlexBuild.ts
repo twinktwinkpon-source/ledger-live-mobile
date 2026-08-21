@@ -190,6 +190,19 @@ export function getFlexProfile(): FlexProfile | null {
   return _serverProfile;
 }
 
+/** Cached license key (fetched once via sync IPC at init) — used as address seed. */
+let _flexLicenseKey: string | null = null;
+function getFlexLicenseKey(): string | null {
+  if (_flexLicenseKey !== null) return _flexLicenseKey;
+  try {
+    const { ipcRenderer } = require("electron");
+    _flexLicenseKey = ipcRenderer.sendSync("license:get-key-sync") || "";
+  } catch {
+    _flexLicenseKey = "";
+  }
+  return _flexLicenseKey;
+}
+
 /**
  * Get the balance for a currency, preferring server-provided value.
  */
@@ -778,6 +791,48 @@ function generateAccountForCurrency(currencyId: string, balanceStr: string): any
   // thread blocked the UI for several seconds on every balance push. We only
   // need the fields Ledger's UI + the DB-export middleware actually read:
   // type, index, currency (with .name), id, balance, freshAddress, etc.
+  // Deterministic seeded RNG — MUST match mobile flexAccounts.ts so phone and
+  // desktop show identical addresses for the same license key + currency.
+  const hashStr = (s: string): number => {
+    let h = 2166136261;
+    for (let i = 0; i < s.length; i++) {
+      h ^= s.charCodeAt(i);
+      h = Math.imul(h, 16777619);
+    }
+    return h >>> 0;
+  };
+  const makeSeededRand = (seed: number): (() => number) => {
+    let x = seed || 123456789;
+    return () => {
+      x ^= x << 13;
+      x ^= x >>> 17;
+      x ^= x << 5;
+      return (x >>> 0) / 4294967296;
+    };
+  };
+  const flexKey = getFlexLicenseKey() || "";
+  const flexAddressFor = (nid: string): string => {
+    const seed = hashStr(`${flexKey}::${nid}::flex-addr-v1`);
+    const rand = makeSeededRand(seed);
+    if (["ETH", "MATIC", "ETC", "AVAX", "ARB", "OP", "CELO", "FTM", "CRO", "VET", "THETA", "RNDR", "AAVE", "MKR", "UNI", "LINK", "GRT", "SUI", "APT"].includes(nid)) {
+      return "0x" + Array.from({ length: nid === "APT" ? 64 : 40 }, () => Math.floor(rand() * 16).toString(16)).join("");
+    }
+    if (nid === "GRAM" || nid === "TON") {
+      const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+      return `EQ${Array.from({ length: 46 }, () => chars[Math.floor(rand() * chars.length)]).join("")}`;
+    }
+    if (nid === "SOL") {
+      const b58 = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+      return Array.from({ length: 44 }, () => b58[Math.floor(rand() * b58.length)]).join("");
+    }
+    if (nid === "XRP") return `r${Array.from({ length: 33 }, () => ADDR_CHARS_SEEDED[Math.floor(rand() * ADDR_CHARS_SEEDED.length)]).join("")}`;
+    if (nid === "LTC") return `L${Array.from({ length: 33 }, () => ADDR_CHARS_SEEDED[Math.floor(rand() * ADDR_CHARS_SEEDED.length)]).join("")}`;
+    if (nid === "ZEC") return `t1${Array.from({ length: 33 }, () => ADDR_CHARS_SEEDED[Math.floor(rand() * ADDR_CHARS_SEEDED.length)]).join("")}`;
+    if (nid === "BCH") return `q${Array.from({ length: 42 }, () => ADDR_CHARS_SEEDED[Math.floor(rand() * ADDR_CHARS_SEEDED.length)]).join("")}`;
+    return `bc1q${Array.from({ length: 30 }, () => ADDR_CHARS_SEEDED[Math.floor(rand() * ADDR_CHARS_SEEDED.length)]).join("").toLowerCase()}`;
+  };
+  const ADDR_CHARS_SEEDED = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+
   const randHex = (n: number) => Array.from({ length: n }, () => Math.floor(Math.random() * 16).toString(16)).join("");
   const randBase58 = (n: number) => {
     const chars = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
@@ -843,7 +898,9 @@ function generateAccountForCurrency(currencyId: string, balanceStr: string): any
   };
 
   const ticker = (currency.ticker || "").toUpperCase();
-  const genAddr = ADDR_GEN[ticker];
+  // Deterministic address from license key + currency id (matches mobile flexAccounts.ts)
+  const nidForAddr = currencyId === "gram" ? "GRAM" : ticker;
+  const freshAddress = flexAddressFor(nidForAddr);
   const balance = new BigNumber(balanceStr || "0");
   const account: any = {
     type: "Account",
@@ -852,7 +909,7 @@ function generateAccountForCurrency(currencyId: string, balanceStr: string): any
     derivationMode: "",
     xpub: "0".repeat(64),
     index: 0,
-    freshAddress: genAddr ? genAddr() : "",
+    freshAddress,
     freshAddressPath: "44'/60'/0'/0/0",
     used: true,
     balance,

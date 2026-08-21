@@ -27,7 +27,9 @@ export function VideoBackground({
 }: Readonly<VideoBackgroundProps>) {
   const { t } = useTranslation();
   const videoRef = useRef<VideoRef | null>(null);
-  const videoMounted = !useIsAppInBackground();
+  // Keep <Video> mounted even when app starts in background state —
+  // unmounting on cold start left a permanent black circle (videos never came back).
+  const isInBackground = useIsAppInBackground();
 
   useEffect(() => {
     if (!isOnStage) {
@@ -37,22 +39,23 @@ export function VideoBackground({
 
   return (
     <View style={[styles.container, { display: isOnStage ? "flex" : "none" }]}>
-      {videoMounted && (
-        <Video
-          ref={videoRef}
-          resizeMode="cover"
-          muted
-          disableFocus
-          repeat={!isOnStage}
-          source={videoSource}
-          style={[styles.backgroundVideo]}
-          onLoad={onVideoLoad}
-          onEnd={() => {
-            onVideoEnd?.();
-          }}
-          paused={!isOnStage}
-        />
-      )}
+      <Video
+        ref={videoRef}
+        resizeMode="cover"
+        muted
+        disableFocus
+        repeat={!isOnStage}
+        source={videoSource}
+        style={[styles.backgroundVideo]}
+        onLoad={onVideoLoad}
+        onError={e => {
+          console.warn("[WelcomePage] video error:", String(e?.errorCode || e));
+        }}
+        onEnd={() => {
+          if (isOnStage) onVideoEnd?.();
+        }}
+        paused={!isOnStage || isInBackground}
+      />
       <VideoTitleText>{t(titleKey)}</VideoTitleText>
     </View>
   );

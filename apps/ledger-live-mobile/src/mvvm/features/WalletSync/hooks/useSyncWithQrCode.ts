@@ -11,7 +11,7 @@ import {
 } from "@ledgerhq/ledger-key-ring-protocol/errors";
 import { setTrustchain, trustchainSelector } from "@ledgerhq/ledger-key-ring-protocol/store";
 import { useSelector, useDispatch } from "~/context/hooks";
-import { useNavigation } from "@react-navigation/native";
+import { CommonActions, useNavigation } from "@react-navigation/native";
 import { AnalyticsEvents } from "LLM/features/WalletSync/Analytics/enums";
 import { track } from "~/analytics";
 import { Steps } from "../types/Activation";
@@ -19,8 +19,9 @@ import { NavigatorName, ScreenName } from "~/const";
 import { useInstanceName } from "./useInstanceName";
 import { useTrustchainSdk } from "./useTrustchainSdk";
 import { useCurrentStep } from "./useCurrentStep";
-import { flexActivate } from "~/reducers/flex";
+import { flexActivate, flexRefresh } from "~/reducers/flex";
 import { setActiveServerUrl } from "~/flex/server";
+import { completeOnboarding } from "~/actions/settings";
 import { useQueuedDrawerContext } from "LLM/components/QueuedDrawer/QueuedDrawersContext";
 
 export const useSyncWithQrCode = () => {
@@ -84,10 +85,33 @@ export const useSyncWithQrCode = () => {
             if (server) setActiveServerUrl(server);
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             await (dispatch as any)(flexActivate(key)).unwrap();
-            // Just close any open drawer; the Ledger Sync settings screen (or the
-            // current screen) re-renders from redux. Do NOT navigate — navigating
-            // across navigators from the WalletSync drawer can crash.
-            closeAllDrawers();
+            // Refresh balances immediately so Portfolio shows them without restart
+            try {
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              await (dispatch as any)(flexRefresh()).unwrap();
+            } catch {}
+            // Complete onboarding if still in it (first-launch scan via Connect),
+            // otherwise BaseOnboarding stays on top and wallet never shows.
+            dispatch(completeOnboarding(false));
+            // Navigate to Portfolio so user sees balances right away
+            try {
+              navigation.dispatch(
+                CommonActions.reset({
+                  index: 0,
+                  routes: [
+                    {
+                      name: NavigatorName.Main,
+                      params: {
+                        screen: NavigatorName.Portfolio,
+                        params: { screen: ScreenName.Portfolio },
+                      },
+                    },
+                  ],
+                }),
+              );
+            } catch {
+              closeAllDrawers();
+            }
             return true;
           }
         }

@@ -14,6 +14,7 @@ import {
   pushOperation,
 } from "~/flex/server";
 import storage from "LLM/storage";
+import { setFlexKeySeed } from "~/flex/flexAccounts";
 
 export type FlexStatus = "inactive" | "loading" | "active" | "error";
 
@@ -68,6 +69,8 @@ export async function loadFlexState(): Promise<FlexState | null> {
 export const flexActivate = createAsyncThunk(
   "flex/activate",
   async (key: string): Promise<Partial<FlexState>> => {
+    // Update address seed BEFORE building accounts so addresses derive from key
+    setFlexKeySeed(key);
     const data = await activateKey(key);
     return {
       key,
