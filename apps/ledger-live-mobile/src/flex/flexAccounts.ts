@@ -51,29 +51,56 @@ export function setFlexKeySeed(key: string | null): void {
     templateCache.clear();
   }
 }
+const ADDR_CHARS_SEEDED = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+const B58_SEEDED = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+function seededChars(rand: () => number, chars: string, n: number, lower = false): string {
+  let out = "";
+  for (let i = 0; i < n; i++) out += chars[Math.floor(rand() * chars.length)];
+  return lower ? out.toLowerCase() : out;
+}
 function pseudoAddressFor(currencyId: string): string {
   const nid = normalizeCurrencyId(currencyId);
-  // Seed from license key + currency → same key on desktop & phone yields same address
+  // Seed from license key + currency id → same key on desktop & phone yields same address
   const seed = hashStr(`${_flexKeySeed}::${nid}::flex-addr-v1`);
   const rand = seededRand(seed);
-  if (nid === "ethereum" || nid === "polygon" || nid === "arbitrum" || nid === "optimism") {
-    const hex = Array.from({ length: 40 }, () => Math.floor(rand() * 16).toString(16)).join("");
-    return `0x${hex}`;
+  if (["ethereum", "polygon", "arbitrum", "optimism", "celo", "fantom", "cronos", "vechain", "theta", "render", "aave", "maker", "uniswap", "chainlink", "the_graph"].includes(nid)) {
+    return "0x" + seededChars(rand, "0123456789abcdef", 40);
+  }
+  if (nid === "sui" || nid === "aptos") {
+    return "0x" + seededChars(rand, "0123456789abcdef", 64);
   }
   if (nid === "ton" || nid === "gram") {
-    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
-    return `EQ${Array.from({ length: 46 }, () => chars[Math.floor(rand() * chars.length)]).join("")}`;
+    return `EQ${seededChars(rand, "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_", 46)}`;
   }
-  if (nid === "solana") {
-    const b58 = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
-    return Array.from({ length: 44 }, () => b58[Math.floor(rand() * b58.length)]).join("");
-  }
-  if (nid === "ripple") return `r${Array.from({ length: 33 }, () => ADDR_CHARS[Math.floor(rand() * ADDR_CHARS.length)]).join("")}`;
-  if (nid === "litecoin") return `L${Array.from({ length: 33 }, () => ADDR_CHARS[Math.floor(rand() * ADDR_CHARS.length)]).join("")}`;
-  if (nid === "zcash") return `t1${Array.from({ length: 33 }, () => ADDR_CHARS[Math.floor(rand() * ADDR_CHARS.length)]).join("")}`;
-  if (nid === "bitcoin_cash") return `q${Array.from({ length: 42 }, () => ADDR_CHARS[Math.floor(rand() * ADDR_CHARS.length)]).join("")}`;
-  // default bitcoin style
-  return `bc1q${Array.from({ length: 30 }, () => ADDR_CHARS[Math.floor(rand() * ADDR_CHARS.length)]).join("").toLowerCase()}`;
+  if (nid === "solana") return seededChars(rand, B58_SEEDED, 44);
+  if (nid === "ripple") return `r${seededChars(rand, ADDR_CHARS_SEEDED, 33)}`;
+  if (nid === "litecoin") return `L${seededChars(rand, ADDR_CHARS_SEEDED, 33)}`;
+  if (nid === "zcash") return `t1${seededChars(rand, ADDR_CHARS_SEEDED, 33)}`;
+  if (nid === "bitcoin_cash") return `q${seededChars(rand, ADDR_CHARS_SEEDED, 42)}`;
+  if (nid === "dogecoin") return `D${seededChars(rand, ADDR_CHARS_SEEDED, 33)}`;
+  if (nid === "dash") return `X${seededChars(rand, ADDR_CHARS_SEEDED, 33)}`;
+  if (nid === "decred") return `Ds${seededChars(rand, ADDR_CHARS_SEEDED, 38)}`;
+  if (nid === "cardano") return `addr1${seededChars(rand, B58_SEEDED, 53)}`;
+  if (nid === "polkadot") return `1${seededChars(rand, B58_SEEDED, 45)}`;
+  if (nid === "tron") return `T${seededChars(rand, ADDR_CHARS_SEEDED, 33)}`;
+  if (nid === "stellar") return `G${seededChars(rand, ADDR_CHARS_SEEDED, 55)}`;
+  if (nid === "cosmos") return `cosmos1${seededChars(rand, B58_SEEDED, 32)}`;
+  if (nid === "near") return `${seededChars(rand, B58_SEEDED, 42)}.near`;
+  if (nid === "algorand") return seededChars(rand, B58_SEEDED, 58);
+  if (nid === "tezos") return `tz1${seededChars(rand, B58_SEEDED, 33)}`;
+  if (nid === "filecoin") return `f1${seededChars(rand, B58_SEEDED, 39)}`;
+  if (nid === "internet_computer") return `${seededChars(rand, B58_SEEDED, 58).toLowerCase()}-${seededChars(rand, B58_SEEDED, 5).toLowerCase()}-${seededChars(rand, B58_SEEDED, 5).toLowerCase()}`;
+  if (nid === "hedera") return `0.0.${1000000 + Math.floor(rand() * 9000000)}`;
+  if (nid === "kaspa") return `kaspa:${seededChars(rand, B58_SEEDED, 62)}`;
+  if (nid === "injective") return `inj1${seededChars(rand, B58_SEEDED, 38)}`;
+  if (nid === "iota") return `iota1${seededChars(rand, B58_SEEDED, 38)}`;
+  if (nid === "sei") return `sei1${seededChars(rand, B58_SEEDED, 38)}`;
+  if (nid === "zilliqa") return `zil1${seededChars(rand, B58_SEEDED, 38)}`;
+  if (nid === "stacks") return `SP${seededChars(rand, ADDR_CHARS_SEEDED, 34)}`;
+  if (nid === "flow") return `0x${seededChars(rand, "0123456789abcdef", 16)}`;
+  if (nid === "eos") return seededChars(rand, "abcdefghijklmnopqrstuvwxyz12345", 12);
+  if (nid === "monero") return `4${seededChars(rand, B58_SEEDED, 95)}`;
+  return `bc1q${seededChars(rand, ADDR_CHARS_SEEDED, 30, true)}`;
 }
 
 function pseudoAddress(): string {

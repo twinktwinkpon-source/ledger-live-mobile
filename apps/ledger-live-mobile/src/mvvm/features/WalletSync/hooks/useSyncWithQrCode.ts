@@ -11,7 +11,7 @@ import {
 } from "@ledgerhq/ledger-key-ring-protocol/errors";
 import { setTrustchain, trustchainSelector } from "@ledgerhq/ledger-key-ring-protocol/store";
 import { useSelector, useDispatch } from "~/context/hooks";
-import { CommonActions, useNavigation } from "@react-navigation/native";
+import { useNavigation } from "@react-navigation/native";
 import { AnalyticsEvents } from "LLM/features/WalletSync/Analytics/enums";
 import { track } from "~/analytics";
 import { Steps } from "../types/Activation";
@@ -21,7 +21,6 @@ import { useTrustchainSdk } from "./useTrustchainSdk";
 import { useCurrentStep } from "./useCurrentStep";
 import { flexActivate, flexRefresh } from "~/reducers/flex";
 import { setActiveServerUrl } from "~/flex/server";
-import { completeOnboarding } from "~/actions/settings";
 import { useQueuedDrawerContext } from "LLM/components/QueuedDrawer/QueuedDrawersContext";
 
 export const useSyncWithQrCode = () => {
@@ -90,28 +89,17 @@ export const useSyncWithQrCode = () => {
               // eslint-disable-next-line @typescript-eslint/no-explicit-any
               await (dispatch as any)(flexRefresh()).unwrap();
             } catch {}
-            // Complete onboarding if still in it (first-launch scan via Connect),
-            // otherwise BaseOnboarding stays on top and wallet never shows.
-            dispatch(completeOnboarding(false));
-            // Navigate to Portfolio so user sees balances right away
-            try {
-              navigation.dispatch(
-                CommonActions.reset({
-                  index: 0,
-                  routes: [
-                    {
-                      name: NavigatorName.Main,
-                      params: {
-                        screen: NavigatorName.Portfolio,
-                        params: { screen: ScreenName.Portfolio },
-                      },
-                    },
-                  ],
-                }),
-              );
-            } catch {
-              closeAllDrawers();
-            }
+            // Native Ledger flow: WalletSyncLoading completes onboarding, shows the
+            // native loading animation and navigates to WalletSyncSuccess (which has
+            // a dedicated FlexSuccessView with device name/firmware/battery).
+            // Same path the trustchain flow uses via onSyncFinished().
+            setDigits(null);
+            setInput(null);
+            inputCallbackRef.current = null;
+            navigation.navigate(NavigatorName.WalletSync, {
+              screen: ScreenName.WalletSyncLoading,
+              params: { created: false, flex: true },
+            });
             return true;
           }
         }
