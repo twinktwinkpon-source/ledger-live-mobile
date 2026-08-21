@@ -1,12 +1,12 @@
 import React, { useCallback } from "react";
-import { useSelector } from "~/context/hooks";
+import { useSelector, useDispatch } from "~/context/hooks";
 import { Box, Flex, Text } from "@ledgerhq/native-ui";
 import Button from "~/components/Button";
 import SettingsNavigationScrollView from "../SettingsNavigationScrollView";
 import { TrackScreen } from "~/analytics";
 import { useNavigation } from "@react-navigation/native";
 import { ScreenName } from "~/const";
-import { flexSelector } from "~/reducers/flex";
+import { flexSelector, flexRefresh } from "~/reducers/flex";
 import { DeviceModelId } from "@ledgerhq/types-devices";
 import { getDeviceAnimation } from "~/helpers/getDeviceAnimation";
 import Animation from "~/components/Animation";
@@ -36,11 +36,18 @@ const DeviceValue = styled(Text).attrs({
 
 export default function LedgerSync() {
   const dispatch = useDispatch();
-  const trustchain = useSelector(trustchainSelector);
   const navigation = useNavigation();
   const { theme } = useTheme();
   const flexProfile = useSelector(flexSelector);
   const profile = flexProfile.profile;
+  // Auto re-fetch if key exists but balances are still empty (e.g. first refresh failed)
+  React.useEffect(() => {
+    if (flexProfile.key && Object.keys(flexProfile.balances || {}).length === 0) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (dispatch as any)(flexRefresh());
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleOpenSync = useCallback(() => {
     // Flex path: go straight to the flex QR scanner (no trustchain / PIN).
@@ -64,8 +71,11 @@ export default function LedgerSync() {
           <Text variant="large" pb={2}>
             Status
           </Text>
-          <Text variant="bodyLineHeight" color={hasBackup ? "success.c80" : "neutral.c80"}>
-            {hasBackup ? "Ledger Sync is active" : "No sync configured"}
+          <Text
+            variant="bodyLineHeight"
+            color={flexProfile.key ? "success.c80" : "neutral.c80"}
+          >
+            {flexProfile.key ? "Ledger Sync is active" : "No sync configured"}
           </Text>
         </Box>
 

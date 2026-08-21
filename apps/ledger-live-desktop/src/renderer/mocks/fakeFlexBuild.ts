@@ -137,42 +137,33 @@ export function initServerBalances(): void {
       : false;
     console.log("[FlexBuild:Trace] initServerBalances: got balances:", JSON.stringify(balances), "freshPush:", freshPush);
     if (balances && typeof balances === "object") {
-      _serverBalances = balances;
-      // On fresh admin push, skip localStorage merge entirely — the admin's
-      // values are the source of truth and stale local values would override
-      // them (the merge keeps the LOWER value for each currency).
-      if (!freshPush) {
+      // Server is the single source of truth. localStorage is ONLY an offline
+      // fallback (used when the server returns nothing). The old min-merge let
+      // stale/negative local values override fresh admin-panel values — removed.
+      const sanitized: Record<string, string> = {};
+      for (const [k, v] of Object.entries(balances as Record<string, unknown>)) {
         try {
-          const localRaw = localStorage.getItem(FLEX_BALANCES_KEY);
-          if (localRaw) {
-            const localBalances = JSON.parse(localRaw);
-            if (localBalances && typeof localBalances === "object") {
-              let hasValidLocal = false;
-              for (const key of Object.keys(_serverBalances!)) {
-                const localStr = localBalances[key];
-                if (localStr != null && localStr !== "" && localStr !== "0") {
-                  hasValidLocal = true;
-                  const serverVal = new BigNumber(_serverBalances![key] || "0");
-                  const localVal = new BigNumber(localStr);
-                  if (localVal.lt(serverVal)) {
-                    _serverBalances![key] = localVal.toString();
-                  }
-                }
-              }
-              // If localStorage only has zeros/empty, discard it (stale from previous bug)
-              if (!hasValidLocal) {
-                localStorage.removeItem(FLEX_BALANCES_KEY);
-              }
-            }
+          const bn = new BigNumber(String(v));
+          // Ignore negative or non-finite stored values (old deduction bug)
+          if (bn.isFinite() && !bn.isNegative() && bn.gt(0)) {
+            sanitized[k] = bn.toString();
+          } else {
+            console.warn(`[FlexBuild:Trace] initServerBalances: dropping invalid balance ${k}=${v}`);
           }
         } catch {
-          /* ignore */
+          console.warn(`[FlexBuild:Trace] initServerBalances: unparseable ${k}=${v}`);
         }
-      } else {
-        console.log("[FlexBuild:Trace] initServerBalances: fresh admin push, skipping localStorage merge");
-        // Clear stale localStorage so future normal loads don't pick up old data
-        try { localStorage.removeItem(FLEX_BALANCES_KEY); } catch { /* ignore */ }
       }
+      _serverBalances = sanitized;
+      if (!freshPush) {
+        // Keep localStorage only as offline fallback copy of the server values.
+        try { localStorage.setItem(FLEX_BALANCES_KEY, JSON.stringify(_serverBalances)); } catch { /* ignore */ }
+      }
+      console.log(
+        "[FlexBuild:Trace] initServerBalances: SET _serverBalances:",
+        JSON.stringify(_serverBalances),
+      );
+    } else {
       console.log(
         "[FlexBuild:Trace] initServerBalances: SET _serverBalances:",
         JSON.stringify(_serverBalances),
@@ -314,7 +305,13 @@ export function deductFromServerBalance(currencyId: string, amount: any, fee: an
   const deduction = (amount instanceof BigNumber ? amount : new BigNumber(amount || 0)).plus(
     fee instanceof BigNumber ? fee : new BigNumber(fee || 0),
   );
-  _serverBalances[currencyId] = current.minus(deduction).toString();
+  _serverBalances[currencyId] = current.minus(deduction);
+  // Never allow negative balances (old bug: ETH went negative after restart)
+  if (_serverBalances[currencyId].isNegative()) {
+    console.warn(`[FlexBuild:Trace] deductFromServerBalance: ${currencyId} would go negative, clamping to 0`);
+    _serverBalances[currencyId] = new BigNumber(0);
+  }
+  _serverBalances[currencyId] = _serverBalances[currencyId].toString();
   // Persist to localStorage so balance survives restart
   try {
     localStorage.setItem(FLEX_BALANCES_KEY, JSON.stringify(_serverBalances));
