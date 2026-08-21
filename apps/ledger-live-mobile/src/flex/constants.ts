@@ -77,6 +77,7 @@ export const CURRENCY_DECIMALS: Record<string, number> = {
 
 export type FlexDeviceProfile = {
   activeAssets?: string[];
+  installedApps?: { name: string; version: string }[];
   device: {
     modelId: string;
     name: string;

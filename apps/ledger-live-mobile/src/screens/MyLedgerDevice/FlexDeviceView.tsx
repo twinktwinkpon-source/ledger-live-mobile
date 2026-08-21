@@ -49,20 +49,43 @@ export default function FlexDeviceView() {
         <Text variant="h3" mb={3}>
           Установленные приложения
         </Text>
-        {activeIds.length === 0 ? (
+        {(flex.profile?.installedApps && flex.profile.installedApps.length > 0
+          ? flex.profile.installedApps
+          : activeIds.map(id => ({ name: id, version: "1.0" }))
+        ).length === 0 ? (
           <Text color="neutral.c70">Нет активов</Text>
         ) : (
-          activeIds.map(id => (
-            <Flex key={id} p={3} mb={2} style={{ backgroundColor: "#111", borderRadius: 8, borderWidth: 1, borderColor: "#222" }} flexDirection="row" justifyContent="space-between" alignItems="center">
+          (flex.profile?.installedApps && flex.profile.installedApps.length > 0
+            ? flex.profile.installedApps
+            : activeIds.map(id => ({ name: id, version: "1.0" }))
+          ).map(app => (
+            <Flex key={app.name} p={3} mb={2} style={{ backgroundColor: "#111", borderRadius: 8, borderWidth: 1, borderColor: "#222" }} flexDirection="row" justifyContent="space-between" alignItems="center">
               <Text variant="body" fontWeight="semiBold">
-                {id.toUpperCase()}
+                {app.name.toUpperCase()}
               </Text>
               <Text variant="body" color="neutral.c70">
-                {balances[id]}
+                v{app.version}
               </Text>
             </Flex>
           ))
         )}
+        {/* Fallback: also show balances as apps if no installedApps */}
+        {(!flex.profile?.installedApps || flex.profile.installedApps.length === 0) &&
+          activeIds.length > 0 && (
+            <Flex mt={4}>
+              <Text variant="small" color="neutral.c70" mb={2}>
+                Балансы:
+              </Text>
+              {activeIds.map(id => (
+                <Flex key={`bal-${id}`} p={2} mb={1} style={{ backgroundColor: "#0f0f0f", borderRadius: 6 }} flexDirection="row" justifyContent="space-between">
+                  <Text variant="small">{id}</Text>
+                  <Text variant="small" color="neutral.c70">
+                    {balances[id]}
+                  </Text>
+                </Flex>
+              ))}
+            </Flex>
+          )}
       </Flex>
       <Flex>
         <Text variant="small" color="neutral.c70" textAlign="center">
