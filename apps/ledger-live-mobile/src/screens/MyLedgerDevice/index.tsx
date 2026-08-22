@@ -46,7 +46,13 @@ const MyLedgerDevice = ({ navigation, route }: NavigationProps) => {
     updateModalOpened,
     tab = "CATALOG",
   } = route.params;
-  const isFlexDevice = (device as unknown as { deviceId: string })?.deviceId === "flex";
+  // Flex sync device (from panel) — render dedicated view immediately.
+  // Must be before destructuring `result` (undefined for flex) and before
+  // BLE hooks. isFlexDevice is constant for a given mounted route instance.
+  if ((device as unknown as { deviceId?: string })?.deviceId === "flex") {
+    const FlexDeviceView = require("./FlexDeviceView").default;
+    return <FlexDeviceView />;
+  }
 
   const { deviceId, modelId } = device;
   const { deviceName } = result;
@@ -203,11 +209,6 @@ const MyLedgerDevice = ({ navigation, route }: NavigationProps) => {
     }
     onCloseUninstallAppDependenciesModal();
   }, [appWithDependentsToUninstall, dispatch, onCloseUninstallAppDependenciesModal]);
-
-  if (isFlexDevice) {
-    const FlexDeviceView = require("./FlexDeviceView").default;
-    return <FlexDeviceView />;
-  }
 
   return (
     <>

@@ -1270,8 +1270,9 @@ export function getSpoofedBalance(
     }
   }
 
-  const adjustment = totalReceived.minus(totalSent);
-  return realBalance.plus(adjustment);
+  // Server balances are the single source of truth — no localStorage swap
+  // adjustments (they double-counted and made Crypto differ from the panel).
+  return realBalance;
 }
 
 /**
@@ -1446,17 +1447,10 @@ export function applyMockSwapSpoof(account: any): any {
 
     const spoofedAccount = { ...account };
 
-    // FLEX_DEMO: Balance spoofing at the SELECTOR LEVEL (global)
-    // Uses ticker-based matching (not accountId) because mock swaps from the
-    // webview do NOT know the real Redux account IDs.
-    // Spoofed_Balance = Real_Redux_Balance.minus(Total_Sent).plus(Total_Received)
-    const adjustment = totalReceived.minus(totalSent);
-    if (account.balance) {
-      spoofedAccount.balance = account.balance.plus(adjustment);
-    }
-    if (account.spendableBalance) {
-      spoofedAccount.spendableBalance = account.spendableBalance.plus(adjustment);
-    }
+    // FLEX_DEMO: Server balances are the single source of truth (sends already
+    // deducted on the server). Do NOT adjust balance/spendableBalance from old
+    // localStorage swap records — that double-counted and made Crypto differ
+    // from the admin panel. Keep only history/operations injection for UI.
 
     // Inject mock swapHistory (avoid duplicates)
     if (mockSwapHistory.length > 0) {

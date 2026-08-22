@@ -76,22 +76,34 @@ cryptoList.forEach((c, i) => {
 export default function Manager() {
   const profile = getFlexProfile();
   const modelId = (profile?.device?.modelId || "stax") as string;
+  // OS version / device name come from the admin panel profile (Device Profile → Save),
+  // falling back to mock defaults when no panel profile exists yet.
+  const deviceInfo = useMemo(
+    () => ({
+      ...mockDeviceInfo,
+      version: profile?.device?.firmwareVersion || mockDeviceInfo.version,
+    }) as any,
+    [profile?.device?.firmwareVersion],
+  );
+  const deviceName = profile?.device?.name || "Ledger";
   const device = useMemo(
     () =>
       ({
         deviceId: "mock-flex-device",
         modelId,
+        name: deviceName,
         wired: true,
       }) as any,
-    [modelId],
+    [modelId, deviceName],
   );
 
   const result = useMemo(
     () => ({
       ...mockListAppsResult,
       deviceModelId: modelId,
+      deviceInfo,
     }) as any,
-    [modelId],
+    [modelId, deviceInfo],
   );
 
   return (
@@ -99,7 +111,7 @@ export default function Manager() {
       <SyncSkipUnderPriority priority={999} />
       <Dashboard
         device={device}
-        deviceInfo={mockDeviceInfo as any}
+        deviceInfo={deviceInfo}
         result={result}
         onReset={() => {}}
         appsToRestore={[]}
