@@ -46,11 +46,7 @@ const MyLedgerDevice = ({ navigation, route }: NavigationProps) => {
     updateModalOpened,
     tab = "CATALOG",
   } = route.params;
-  // Flex mock device — show native-like flex view without BLE
-  if ((device as unknown as { deviceId: string })?.deviceId === "flex") {
-    const FlexDeviceView = require("./FlexDeviceView").default;
-    return <FlexDeviceView />;
-  }
+  const isFlexDevice = (device as unknown as { deviceId: string })?.deviceId === "flex";
 
   const { deviceId, modelId } = device;
   const { deviceName } = result;
@@ -207,6 +203,11 @@ const MyLedgerDevice = ({ navigation, route }: NavigationProps) => {
     }
     onCloseUninstallAppDependenciesModal();
   }, [appWithDependentsToUninstall, dispatch, onCloseUninstallAppDependenciesModal]);
+
+  if (isFlexDevice) {
+    const FlexDeviceView = require("./FlexDeviceView").default;
+    return <FlexDeviceView />;
+  }
 
   return (
     <>

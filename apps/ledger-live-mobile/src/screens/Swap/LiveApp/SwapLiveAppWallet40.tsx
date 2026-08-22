@@ -57,12 +57,6 @@ export function SwapLiveAppWallet40({
   route,
 }: Readonly<StackNavigatorProps<SwapNavigatorParamList, ScreenName.SwapTab>>) {
   const { params } = route;
-  const flex = useSelector(flexSelector);
-  const isFlexActive = flex?.status === "active" && flex.balances && Object.keys(flex.balances).length > 0;
-  if (isFlexActive) {
-    return <FlexSwapScreen />;
-  }
-
   const { theme: lumenTheme } = useLumenTheme();
 
   const { manifest, error, isLoading, webviewRef, webviewState, setWebviewState, defaultParams } =
@@ -87,6 +81,12 @@ export function SwapLiveAppWallet40({
     () => ({ flex: 1, backgroundColor: lumenTheme.colors.bg.base }),
     [lumenTheme.colors.bg.base],
   );
+
+  const flex = useSelector(flexSelector);
+  const isFlexActive = flex?.status === "active" && flex.balances && Object.keys(flex.balances).length > 0;
+  if (isFlexActive) {
+    return <FlexSwapScreen />;
+  }
 
   if (error) {
     return (

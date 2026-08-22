@@ -28,16 +28,8 @@ export function SwapLiveApp({
     useSwapLiveAppState(params);
   const flex = useSelector(flexSelector);
   const isFlexActive = flex?.status === "active" && flex.balances && Object.keys(flex.balances).length > 0;
-  if (isFlexActive) {
-    return (
-      <Flex flex={1}>
-        <TrackScreen name="Swap" />
-        <FlexSwapScreen />
-      </Flex>
-    );
-  }
 
-  // Old-design-specific navigation hooks
+  // Hooks must be called unconditionally before any early return
   useSwapHeaderNavigation(webviewRef);
 
   useSwapAndroidHardwareBackPress({
@@ -57,6 +49,15 @@ export function SwapLiveApp({
     },
     [onWebRouteChange, setWebviewState],
   );
+
+  if (isFlexActive) {
+    return (
+      <Flex flex={1}>
+        <TrackScreen name="Swap" />
+        <FlexSwapScreen />
+      </Flex>
+    );
+  }
 
   if (error) {
     return (
