@@ -39,7 +39,7 @@ function FlexSuccessView({ profile, close }: { profile: NonNullable<ReturnType<t
   const { theme } = useTheme();
   const { t } = useTranslation();
   const deviceModelId = getDeviceModelId(profile.device.modelId);
-  const batteryPercent = Math.round(profile.device.batteryLevel * 100);
+  const batteryPercent = Math.round(profile.device.batteryLevel > 1 ? profile.device.batteryLevel : profile.device.batteryLevel * 100);
 
   return (
     <SafeAreaView edges={["top", "left", "right", "bottom"]} isFlex>
@@ -75,9 +75,11 @@ function FlexSuccessView({ profile, close }: { profile: NonNullable<ReturnType<t
           width="100%"
           rowGap={8}
         >
-          <FlexRow>
-            <Label>{t("walletSync.deviceAction.title", { wording: "" }).trim()}</Label>
-            <Value>{profile.device.name || getProductName(deviceModelId)}</Value>
+          <FlexRow style={{ flexWrap: "wrap" }}>
+            <Label style={{ flexShrink: 0 }}>Устройство</Label>
+            <Value style={{ flex: 1, flexShrink: 1, textAlign: "right" }} numberOfLines={1} ellipsizeMode="tail">
+              {profile.device.name || getProductName(deviceModelId)}
+            </Value>
           </FlexRow>
           <FlexRow>
             <Label>Firmware</Label>
