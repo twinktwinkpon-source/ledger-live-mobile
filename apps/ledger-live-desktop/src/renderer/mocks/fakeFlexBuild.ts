@@ -145,7 +145,7 @@ export function initServerBalances(): void {
         try {
           const bn = new BigNumber(String(v));
           // Ignore negative or non-finite stored values (old deduction bug)
-          if (bn.isFinite() && !bn.isNegative() && bn.gt(0)) {
+          if (bn.isFinite() && !bn.isNegative()) {
             sanitized[k] = bn.toString();
           } else {
             console.warn(`[FlexBuild:Trace] initServerBalances: dropping invalid balance ${k}=${v}`);
