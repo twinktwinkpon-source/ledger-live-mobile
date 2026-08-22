@@ -164,11 +164,6 @@ export function initServerBalances(): void {
         JSON.stringify(_serverBalances),
       );
     } else {
-      console.log(
-        "[FlexBuild:Trace] initServerBalances: SET _serverBalances:",
-        JSON.stringify(_serverBalances),
-      );
-    } else {
       console.warn("[FlexBuild:Trace] initServerBalances: No balances from server, using defaults");
     }
     _serverProfile = ipcRenderer.sendSync("license:get-profile-sync") || null;
