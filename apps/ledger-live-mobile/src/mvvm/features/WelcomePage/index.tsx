@@ -28,9 +28,7 @@ export default function WelcomePage() {
   return (
     <ForceTheme selectedPalette={"dark"}>
       <SafeAreaView isFlex style={{ backgroundColor: colors.neutral.c60 }}>
-        {/* Force re-rendering of video backgrounds when re-focused */}
-        {isFocused &&
-          welcomeVideos.map(({ id, source }, index) => (
+        {welcomeVideos.map(({ id, source }, index) => (
             <VideoBackground
               videoSource={source}
               titleKey={`onboarding.stepWelcome.videoTitles.${index}`}
