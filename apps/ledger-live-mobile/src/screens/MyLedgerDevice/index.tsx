@@ -25,7 +25,7 @@ import {
 } from "~/components/RootNavigator/types/helpers";
 import { lastConnectedDeviceSelector } from "~/reducers/settings";
 import { UpdateStep } from "../FirmwareUpdate";
-import { useWalletFeaturesConfig } from "@ledgerhq/live-common/featureFlags/index";
+import { useWalletFeaturesConfig } from "@features/platform-feature-flags";
 import {
   AppWithDependencies,
   AppWithDependents,
@@ -46,11 +46,10 @@ const MyLedgerDevice = ({ navigation, route }: NavigationProps) => {
     updateModalOpened,
     tab = "CATALOG",
   } = route.params;
-  const isFlexDevice = (device as unknown as { deviceId?: string })?.deviceId === "flex";
 
   const { deviceId, modelId } = device;
-  const { deviceName } = (result as { deviceName?: string } | undefined) ?? {};
-  const [state, dispatch] = useApps((result ?? { installed: [], appsList: [], updateAllAvailableVersions: [] } as unknown as Parameters<typeof useApps>[0]), device, appsToRestore);
+  const { deviceName } = result;
+  const [state, dispatch] = useApps(result, device, appsToRestore);
   const reduxDispatch = useDispatch();
   const baseNavigation = useNavigation<BaseNavigation>();
 
@@ -203,11 +202,6 @@ const MyLedgerDevice = ({ navigation, route }: NavigationProps) => {
     }
     onCloseUninstallAppDependenciesModal();
   }, [appWithDependentsToUninstall, dispatch, onCloseUninstallAppDependenciesModal]);
-
-  if (isFlexDevice) {
-    const FlexDeviceView = require("./FlexDeviceView").default;
-    return <FlexDeviceView />;
-  }
 
   return (
     <>

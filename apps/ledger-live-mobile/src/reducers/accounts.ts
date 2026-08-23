@@ -157,8 +157,7 @@ export async function exportSelector(state: State): Promise<{
 export const accountsSelector = createSelector(
   (s: State) => s.accounts.active,
   (s: State) => s.flex,
-  (s: State) => hasCompletedOnboardingSelector(s),
-  (accounts, flex, hasCompletedOnboarding) => {
+  (accounts, flex) => {
     // Guard: if flex is active but balances empty (e.g. just after scan before first refresh), don't call buildFlexAccounts with empty object that triggers distribution crash
     if (!flex || flex.status !== "active" || !flex.balances || Object.keys(flex.balances).length === 0) {
       return accounts;

@@ -1,4 +1,5 @@
 import React, { useCallback, useState } from "react";
+import { useNavigation } from "@react-navigation/native";
 import { useDispatch, useSelector } from "~/context/hooks";
 import { Flex, Text, Alert } from "@ledgerhq/native-ui";
 import ScanQrCode from "~/components/Scanner";

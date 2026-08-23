@@ -10,6 +10,7 @@ import { ScreenName } from "~/const";
 import { hasAvailableUpdateSelector, lastSeenDeviceSelector } from "~/reducers/settings";
 import MyLedgerChooseDeviceScreen, { headerOptions } from "~/screens/MyLedgerChooseDevice";
 import MyLedgerDeviceScreen from "~/screens/MyLedgerDevice";
+import FlexDeviceScreen from "~/screens/MyLedgerDevice/FlexDeviceScreen";
 import { getStackNavigatorConfig } from "~/navigation/navigatorConfig";
 import TabIcon from "../TabIcon";
 import { useIsNavLocked } from "./CustomBlockRouterNavigator";
@@ -70,6 +71,11 @@ export default function MyLedgerNavigator() {
       <Stack.Screen
         name={ScreenName.MyLedgerDevice}
         component={MyLedgerDeviceScreen}
+        options={myLedgerDeviceOptions}
+      />
+      <Stack.Screen
+        name={ScreenName.MyLedgerFlexDevice}
+        component={FlexDeviceScreen}
         options={myLedgerDeviceOptions}
       />
     </Stack.Navigator>

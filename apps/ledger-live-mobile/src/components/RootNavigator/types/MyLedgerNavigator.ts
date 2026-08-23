@@ -24,4 +24,5 @@ export type MyLedgerNavigatorStackParamList = {
     updateModalOpened?: boolean;
     tab: ManagerTab;
   };
+  [ScreenName.MyLedgerFlexDevice]: Record<string, never> | undefined;
 };

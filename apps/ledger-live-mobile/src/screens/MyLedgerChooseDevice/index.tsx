@@ -167,7 +167,7 @@ const ChooseDevice: React.FC<ChooseDeviceProps> = ({ isFocused }) => {
               FW {flex.profile.device.firmwareVersion} • {flex.profile.device.batteryLevel}% • {Object.keys(flex.balances || {}).length} активов
             </Text>
           </Flex>
-          <Button size="small" type="main" onPress={() => flexNav.navigate(ScreenName.MyLedgerDevice as never, { device: { deviceId: "flex", modelId: flex.profile.device.modelId }, deviceInfo: { version: flex.profile.device.firmwareVersion } } as never)}>
+          <Button size="small" type="main" onPress={() => flexNav.navigate(ScreenName.MyLedgerFlexDevice as never)}>
             Открыть
           </Button>
         </Flex>

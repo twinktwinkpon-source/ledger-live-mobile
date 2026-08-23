@@ -14,7 +14,12 @@ import { getProductName } from "LLM/utils/getProductName";
 import styled, { useTheme } from "styled-components/native";
 
 function getDeviceModelId(modelId: string): DeviceModelId {
-  if (modelId in DeviceModelId) return modelId as DeviceModelId;
+  if (
+    typeof modelId === "string" &&
+    (Object.values(DeviceModelId) as string[]).includes(modelId)
+  ) {
+    return modelId as DeviceModelId;
+  }
   return DeviceModelId.stax;
 }
 
@@ -54,8 +59,14 @@ export default function LedgerSync() {
     navigation.navigate(ScreenName.LedgerSyncScan as never);
   }, [navigation]);
 
-  const deviceModelId = profile?.device ? getDeviceModelId(profile.device.modelId) : null;
-  const batteryPercent = profile?.device ? Math.round(profile.device.batteryLevel * 100) : 0;
+  const deviceModelId = profile?.device?.modelId
+    ? getDeviceModelId(profile.device.modelId)
+    : null;
+  const rawBattery = profile?.device?.batteryLevel;
+  const batteryPercent =
+    typeof rawBattery === "number" && Number.isFinite(rawBattery)
+      ? Math.min(100, Math.max(0, Math.round(rawBattery > 1 ? rawBattery : rawBattery * 100)))
+      : 0;
 
   return (
     <SettingsNavigationScrollView>
