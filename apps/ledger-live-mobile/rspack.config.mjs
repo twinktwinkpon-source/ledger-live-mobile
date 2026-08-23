@@ -275,13 +275,6 @@ export default withRozeniteUrlFix(
             },
             ...Repack.getAssetTransformRules(),
             {
-              // mp4 (welcome stories) must be emitted as bundled resources —
-              // without this rule require() resolves to noop:/// and the
-              // native player can't load them in release builds.
-              test: /\.mp4$/,
-              type: "asset/resource",
-            },
-            {
               test: /\.lottie$/,
               use: {
                 loader: "@callstack/repack/assets-loader",
