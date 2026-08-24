@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { ScrollView, Pressable } from "react-native";
-import { Flex, Text, Button, Input, Alert } from "@ledgerhq/native-ui";
+import { Flex, Text, Button, BaseInput, Alert } from "@ledgerhq/native-ui";
 import { useSelector, useDispatch } from "~/context/hooks";
 import { flexSelector, flexPushBalances, flexPushOperation } from "~/reducers/flex";
 import { getFakeSwapQuotes, FakeSwapQuote } from "~/flex/fakeSwapQuotes";
@@ -170,7 +170,12 @@ export default function FlexSwapScreen() {
         <Text variant="subtitle">Отдаёте</Text>
         <Flex flexDirection="row" style={{ gap: 8 }}>
           <Flex flex={1}>
-            <Input value={amount} onChangeText={setAmount} placeholder="0.1" />
+            <BaseInput
+              value={amount}
+              onChange={setAmount}
+              placeholder="0.1"
+              keyboardType="decimal-pad"
+            />
             <Text variant="small" color="neutral.c70" mt={2}>
               Баланс: {fromBalWhole} {fromCurrency?.ticker || fromId}
             </Text>

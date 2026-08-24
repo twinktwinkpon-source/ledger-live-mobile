@@ -4,7 +4,7 @@ import { useSelector } from "~/context/hooks";
 import { Platform } from "react-native";
 import { useTranslation } from "~/context/Locale";
 import { useFocusEffect, useIsFocused } from "@react-navigation/native";
-import { Box, Flex } from "@ledgerhq/native-ui";
+import { Box, Flex, Text } from "@ledgerhq/native-ui";
 import { useTheme } from "styled-components/native";
 import useEnv from "@ledgerhq/live-common/hooks/useEnv";
 

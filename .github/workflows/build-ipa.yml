@@ -134,6 +134,18 @@ jobs:
             cp build/generated/ios/index.bundle "$APP/main.jsbundle"
             echo "Injected index.bundle as main.jsbundle into .app"
           fi
+          # Copy emitted assets (mp4 videos, fonts, images referenced via
+          # require()) into the .app — Repack's assets-loader emits them under
+          # build/generated/ios/assets/, and without this step the Welcome
+          # videos resolve to a noop:/// URL that 404s at runtime (grey/black
+          # screen instead of the onboarding video).
+          if [ -d build/generated/ios/assets ]; then
+            mkdir -p "$APP/assets"
+            cp -R build/generated/ios/assets/. "$APP/assets/"
+            echo "Copied bundled assets into .app ($(find "$APP/assets" -type f | wc -l) files)"
+          else
+            echo "WARNING: build/generated/ios/assets not found — videos will not play"
+          fi
           rm -rf out && mkdir -p out/Payload
           cp -R "$APP" out/Payload/
           cd out && zip -r "$GITHUB_WORKSPACE/LedgerWallet.ipa" Payload
