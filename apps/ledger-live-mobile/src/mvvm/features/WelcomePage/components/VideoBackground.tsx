@@ -37,6 +37,12 @@ export function VideoBackground({
     }
   }, [isOnStage]);
 
+  // Warm up the first frame: seek(0) once on mount so the very first visible
+  // frame is decoded before the container is displayed (prevents grey flash).
+  useEffect(() => {
+    videoRef.current?.seek(0);
+  }, []);
+
   return (
     <View style={[styles.container, { display: isOnStage ? "flex" : "none" }]}>
       <Video
@@ -49,7 +55,7 @@ export function VideoBackground({
         style={[styles.backgroundVideo]}
         onLoad={onVideoLoad}
         onError={e => {
-          console.warn("[WelcomePage] video error:", String(e?.errorCode || e));
+          console.warn("[WelcomePage] video error:", String(e?.error?.errorCode || e?.error?.errorString || e));
         }}
         onEnd={() => {
           if (isOnStage) onVideoEnd?.();
@@ -71,7 +77,7 @@ const styles = StyleSheet.create({
     left: 0,
     bottom: 0,
     right: 0,
-    backgroundColor: "#1C1C1C",
+    backgroundColor: "#000000",
   },
   backgroundVideo: {
     position: "absolute",

@@ -39,6 +39,7 @@ import { importKnownDevices } from "~/reducers/knownDevices";
 import { updateProtectData, updateProtectStatus } from "~/actions/protect";
 import { INITIAL_STATE as settingsState } from "~/reducers/settings";
 import { flexImport, loadFlexState } from "~/reducers/flex";
+import { setFlexKeySeed } from "~/flex/flexAccounts";
 import { listCachedCurrencyIds, hydrateCurrency } from "~/bridge/cache";
 import { importMarket } from "~/actions/market";
 import { importTrustchainStoreState } from "@ledgerhq/ledger-key-ring-protocol/store";
@@ -144,6 +145,10 @@ const LedgerStoreProvider: React.FC<Props> = ({ onInitFinished, children, store 
         // (key=null → no polling → 0 balances after restart). Render-side gates in
         // accountsSelector handle safety instead.
         if (persistedFlex && persistedFlex.key) {
+          // Restore the address seed BEFORE any account build — otherwise
+          // pseudo-addresses are generated with an empty seed and diverge
+          // from the desktop for the same license key.
+          setFlexKeySeed(persistedFlex.key);
           store.dispatch(flexImport(persistedFlex));
         }
       } catch (e) {

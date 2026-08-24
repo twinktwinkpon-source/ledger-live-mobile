@@ -136,13 +136,16 @@ const ChooseDevice: React.FC<ChooseDeviceProps> = ({ isFocused }) => {
     [shouldDisplayWallet40MainNav],
   );
 
-  if (!isFocused) return null;
-
   const flex = useSelector(flexSelector);
+  // Rules of Hooks: hooks MUST run before any conditional return —
+  // this component early-returns null when unfocused, so these were
+  // moved above `if (!isFocused)` to avoid hook-order crashes.
   // Show the flex device as soon as a profile exists (even if balances are
   // still syncing) — key bound is enough for the device to be "added".
-  const isFlexActive = !!flex?.key;
   const flexNav = useNav();
+  const isFlexActive = !!flex?.key;
+
+  if (!isFocused) return null;
 
   const showInlineTitle = !shouldDisplayWallet40MainNav && !isHeaderOverridden;
 

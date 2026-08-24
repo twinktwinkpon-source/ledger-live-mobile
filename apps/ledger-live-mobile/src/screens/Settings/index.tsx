@@ -80,7 +80,7 @@ export default function Settings({
       <SettingsCard
         title="Ledger Sync"
         desc="Sync balances with your computer"
-        Icon={IconsLegacy.CpuMedium}
+        Icon={IconsLegacy.DevicesMedium}
         onClick={() => navigation.navigate(ScreenName.LedgerSync)}
         arrowRight
         settingsCardTestId="ledger-sync-settings-card"
