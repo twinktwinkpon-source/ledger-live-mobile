@@ -5002,10 +5002,18 @@
     }
   },
   "manager" : {
-    "title" : "Мой Ledger",
-    "selectDevice" : {
-      "title" : "Устройства",
-      "addALedger" : "Добавить Ledger",
+      "title" : "Мой Ledger",
+      "flexDevice" : {
+        "open" : "Открыть",
+        "firmware" : "Прошивка",
+        "connected" : "Подключено",
+        "battery" : "Батарея",
+        "scanDifferentKey" : "Сканировать другой ключ",
+        "setUp" : "Включить Ledger Sync"
+      },
+      "selectDevice" : {
+        "title" : "Устройства",
+        "addALedger" : "Добавить Ledger",
       "addWithBluetooth" : "Добавить посредством Bluetooth",
       "addNewCTA" : "Добавить новое",
       "showAllCTA" : "Все устройства Ledger ({{count}})",

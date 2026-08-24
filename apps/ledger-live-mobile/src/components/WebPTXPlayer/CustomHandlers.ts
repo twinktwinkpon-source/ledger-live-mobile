@@ -49,6 +49,8 @@ import { useDispatch, useSelector } from "~/context/hooks";
 import { counterValueCurrencySelector, localeSelector } from "~/reducers/settings";
 import { ExchangeSwap } from "@ledgerhq/live-common/exchange/swap/types";
 import { useWalletFeaturesConfig } from "@ledgerhq/live-common/featureFlags/index";
+import { flexSelector } from "~/reducers/flex";
+import { executeFlexSwap } from "~/flex/flexSwapHandlers";
 
 const DrawerClosedError = createCustomErrorClass("DrawerClosedError");
 const drawerClosedError = new DrawerClosedError("User closed the drawer");
@@ -81,6 +83,7 @@ export function useCustomExchangeHandlers({
   const flags = useMemo(() => ({ wallet40Ux: isEnabled }), [isEnabled]);
   const locale = useSelector(localeSelector);
   const counterValueCurrency = useSelector(counterValueCurrencySelector);
+  const flex = useSelector(flexSelector);
   const { state: liveAppRegistryState } = useRemoteLiveAppContext();
   const { state: localLiveAppState } = useLocalLiveAppContext();
 
@@ -353,6 +356,25 @@ export function useCustomExchangeHandlers({
             if (handleLoaderDrawer) {
               navigation.pop();
             }
+
+            // FLEX mode: complete the swap without a hardware device —
+            // balances are adjusted on the flex server (single source of truth)
+            // and both legs are recorded as flex operations. Mirrors the
+            // desktop flex branch in WebPTXPlayer/CustomHandlers.
+            if (flex.key && flex.status === "active") {
+              executeFlexSwap(exchangeParams, { flex, dispatch })
+                .then(({ operationHash }) => {
+                  onCompleteResult?.(exchangeParams, operationHash);
+                  onSuccess(operationHash);
+                })
+                .catch((e: unknown) => {
+                  const err = e instanceof Error ? e : new Error(String(e));
+                  onCancel(err);
+                  onCompleteError?.(err);
+                });
+              return;
+            }
+
             navigation.navigate(NavigatorName.PlatformExchange, {
               screen: ScreenName.PlatformCompleteExchange,
               params: {

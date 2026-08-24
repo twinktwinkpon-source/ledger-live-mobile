@@ -1,6 +1,7 @@
 import React, { useCallback } from "react";
 import { useSelector, useDispatch } from "~/context/hooks";
 import { Box, Flex, Text } from "@ledgerhq/native-ui";
+import { useTranslation } from "~/context/Locale";
 import Button from "~/components/Button";
 import SettingsNavigationScrollView from "../SettingsNavigationScrollView";
 import { TrackScreen } from "~/analytics";
@@ -42,6 +43,7 @@ const DeviceValue = styled(Text).attrs({
 export default function LedgerSync() {
   const dispatch = useDispatch();
   const navigation = useNavigation();
+  const { t } = useTranslation();
   const { theme } = useTheme();
   const flexProfile = useSelector(flexSelector);
   const profile = flexProfile.profile;
@@ -73,20 +75,22 @@ export default function LedgerSync() {
       <TrackScreen category="Settings" name="LedgerSync" />
       <Flex px={6} pb={6}>
         <Text variant="h2" mb={2}>
-          Ledger Sync
+          {t("walletSync.title")}
         </Text>
         <Text variant="bodyLineHeight" color="neutral.c80" mb={4}>
-          Synchronize your accounts across your devices using Ledger Sync.
+          {t("walletSync.entryPoints.card.description")}
         </Text>
         <Box borderRadius={8} p={4} mb={4}>
           <Text variant="large" pb={2}>
-            Status
+            {t("walletSync.success.sync")}
           </Text>
           <Text
             variant="bodyLineHeight"
             color={flexProfile.key ? "success.c80" : "neutral.c80"}
           >
-            {flexProfile.key ? "Ledger Sync is active" : "No sync configured"}
+            {flexProfile.key
+              ? t("walletSync.success.syncDesc")
+              : t("walletSync.entryPoints.card.cta")}
           </Text>
         </Box>
 
@@ -99,24 +103,26 @@ export default function LedgerSync() {
               />
             </Flex>
             <DeviceRow>
-              <DeviceLabel>Device</DeviceLabel>
+              <DeviceLabel>{t("common.device")}</DeviceLabel>
               <DeviceValue>
                 {profile.device.name || getProductName(deviceModelId)}
               </DeviceValue>
             </DeviceRow>
             <DeviceRow>
-              <DeviceLabel>Firmware</DeviceLabel>
+              <DeviceLabel>{t("manager.flexDevice.firmware")}</DeviceLabel>
               <DeviceValue>{profile.device.firmwareVersion}</DeviceValue>
             </DeviceRow>
             <DeviceRow>
-              <DeviceLabel>Battery</DeviceLabel>
+              <DeviceLabel>{t("manager.flexDevice.battery")}</DeviceLabel>
               <DeviceValue>{batteryPercent}%</DeviceValue>
             </DeviceRow>
           </Box>
         ) : null}
 
         <Button type="main" onPress={handleOpenSync}>
-          {flexProfile.key ? "Scan a different key" : "Set up Ledger Sync"}
+          {flexProfile.key
+            ? t("manager.flexDevice.scanDifferentKey")
+            : t("manager.flexDevice.setUp")}
         </Button>
       </Flex>
     </SettingsNavigationScrollView>

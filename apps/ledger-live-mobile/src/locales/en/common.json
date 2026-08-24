@@ -5271,6 +5271,14 @@
   },
   "manager": {
     "title": "My Ledger",
+    "flexDevice": {
+      "open": "Open",
+      "firmware": "Firmware",
+      "connected": "Connected",
+      "battery": "Battery",
+      "scanDifferentKey": "Scan a different key",
+      "setUp": "Set up Ledger Sync"
+    },
     "selectDevice": {
       "title": "Devices",
       "addALedger": "Add a Ledger",

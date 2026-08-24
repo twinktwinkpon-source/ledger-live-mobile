@@ -11,7 +11,7 @@ import useEnv from "@ledgerhq/live-common/hooks/useEnv";
 import WalletTabSafeAreaView from "~/components/WalletTab/WalletTabSafeAreaView";
 import { useDistribution, useRefreshAccountsOrdering } from "~/actions/general";
 import Carousel from "~/components/Carousel";
-import { ScreenName } from "~/const";
+import { NavigatorName, ScreenName } from "~/const";
 import FirmwareUpdateBanner from "LLM/features/FirmwareUpdate/components/UpdateBanner";
 import CheckLanguageAvailability from "~/components/CheckLanguageAvailability";
 import CheckTermOfUseUpdate from "~/components/CheckTermOfUseUpdate";
@@ -154,7 +154,11 @@ function PortfolioScreen({ navigation }: NavigationProps) {
   const discreetMode = useSelector(discreetModeSelector);
 
   const onPressAllocations = useCallback(() => {
-    navigation.navigate(ScreenName.AnalyticsAllocation);
+    // Native MVVM allocation flow (Lumen UI): Analytics hub → Detailed allocation.
+    navigation.navigate(NavigatorName.Analytics, {
+      screen: ScreenName.DetailedAllocation,
+      params: { sourceScreenName: "Portfolio" },
+    });
   }, [navigation]);
 
   const data = useMemo(

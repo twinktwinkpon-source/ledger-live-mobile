@@ -1,5 +1,6 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useRef, useState } from "react";
 import { useNavigation } from "@react-navigation/native";
+import type { NavigationProp } from "@react-navigation/native";
 import { useDispatch, useSelector } from "~/context/hooks";
 import { Flex, Text, Alert } from "@ledgerhq/native-ui";
 import ScanQrCode from "~/components/Scanner";
@@ -44,20 +45,26 @@ function extractFlexData(data: string): { key: string | null; server: string | n
 }
 
 export default function LedgerSyncScan() {
-  const navigation = useNavigation();
+  // Root-level navigation: we jump between top-level navigators (WalletSync).
+  const navigation = useNavigation<NavigationProp<ReactNavigation.RootParamList>>();
   const dispatch = useDispatch();
   const flex = useSelector(flexSelector);
   const [scanError, setScanError] = useState<string | null>(null);
   const [activating, setActivating] = useState(false);
+  // vision-camera fires onCodeScanned for every frame while the QR is in view.
+  // A state gate alone misses frames between renders (double activation);
+  // a ref is synchronous, so the first successful scan hard-locks the rest.
+  const locked = useRef(false);
 
   const onResult = useCallback(
     async (data: string) => {
-      if (activating) return;
+      if (locked.current || activating) return;
       const { key, server } = extractFlexData(data);
       if (!key) {
         setScanError("Неверный QR-код. Откройте на десктопе Настройки → Ledger Sync → Показать QR.");
         return;
       }
+      locked.current = true;
       if (server) setActiveServerUrl(server);
       setActivating(true);
       setScanError(null);
@@ -73,13 +80,15 @@ export default function LedgerSyncScan() {
         // WalletSyncLoading completes onboarding natively (completeOnboarding()),
         // shows the native loading animation and navigates to WalletSyncSuccess,
         // which renders FlexSuccessView (device Lottie + name/firmware/battery).
-        navigation.navigate(NavigatorName.WalletSync as never, {
+        navigation.navigate(NavigatorName.WalletSync, {
           screen: ScreenName.WalletSyncLoading,
           params: { created: false, flex: true },
-        } as never);
+        });
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : String(e);
         setScanError(`[flex error] ${msg}`);
+        // Allow retry only after a real failure.
+        locked.current = false;
       } finally {
         setActivating(false);
       }
@@ -102,7 +111,9 @@ export default function LedgerSyncScan() {
         </Text>
       )}
       {(scanError || flex.error) && (
-        <Alert type="error" title={scanError || flex.error || "Ошибка"} mb={4} />
+        <Flex mb={4}>
+          <Alert type="error" title={scanError || flex.error || "Ошибка"} />
+        </Flex>
       )}
       <ScanQrCode onResult={onResult} />
     </Flex>

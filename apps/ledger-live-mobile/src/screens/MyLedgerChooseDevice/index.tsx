@@ -31,6 +31,7 @@ import { useSelector } from "~/context/hooks";
 import { flexSelector } from "~/reducers/flex";
 import { Button } from "@ledgerhq/native-ui";
 import { useNavigation as useNav } from "@react-navigation/native";
+import { getDeviceIcon } from "LLM/utils/getDeviceIcon";
 
 type NavigationProps = BaseComposite<
   StackNavigatorProps<MyLedgerNavigatorStackParamList, ScreenName.MyLedgerChooseDevice>
@@ -160,18 +161,18 @@ const ChooseDevice: React.FC<ChooseDeviceProps> = ({ isFocused }) => {
       {isFlexActive && flex.profile?.device && (
         <Flex mx={6} mt={4} p={4} style={{ backgroundColor: "#1a1a1a", borderRadius: 12, borderWidth: 1, borderColor: "#2a2a2a" }} flexDirection="row" alignItems="center">
           <Flex width={48} height={48} borderRadius={12} style={{ backgroundColor: "#222" }} justifyContent="center" alignItems="center" mr={3}>
-            <Text>🔒</Text>
+            {getDeviceIcon({ modelId: flex.profile.device.modelId } as never, 24)}
           </Flex>
           <Flex flex={1}>
             <Text fontWeight="semiBold">
-              {flex.profile.device.name || "Ledger Nano X"} ({flex.profile.device.modelId})
+              {flex.profile.device.name || "Ledger Nano X"}
             </Text>
             <Text variant="small" color="neutral.c70">
-              FW {flex.profile.device.firmwareVersion} • {flex.profile.device.batteryLevel}% • {Object.keys(flex.balances || {}).length} активов
+              {t("manager.flexDevice.firmware")} {flex.profile.device.firmwareVersion}
             </Text>
           </Flex>
           <Button size="small" type="main" onPress={() => flexNav.navigate(ScreenName.MyLedgerFlexDevice as never)}>
-            Открыть
+            {t("manager.flexDevice.open")}
           </Button>
         </Flex>
       )}
