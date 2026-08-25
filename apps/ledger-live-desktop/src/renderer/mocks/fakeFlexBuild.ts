@@ -78,6 +78,8 @@ let _serverBalances: Record<string, string> | null = null;
 let _serverBalancesFetched = false;
 type FlexProfile = {
   activeAssets: string[];
+  /** Apps shown as installed on the device — mirrors mobile's flex.profile.installedApps. */
+  installedApps?: { name: string; version: string }[];
   device: {
     modelId: string;
     name: string;

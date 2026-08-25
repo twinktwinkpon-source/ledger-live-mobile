@@ -173,7 +173,7 @@ export function createWebConfig(mode: "development" | "production"): RspackOptio
       new rspack.HtmlRspackPlugin({
         template: webTemplate,
         filename: "app.html",
-        title: "Ledger Wallet",
+        title: "FLEX",
         inject: "body",
         scriptLoading: "defer",
       }),

@@ -53,8 +53,11 @@ const LangSwitcher = () => {
   }, [supportedLocales]);
 
   const currentLanguage = useMemo(
-    () => options.find(({ value }) => value === language) || options[0],
-    [language, options],
+    // Fall back to the ACTUALLY ACTIVE i18n language (system-detected at
+    // boot), not blindly to English — otherwise the switcher would display
+    // "English" while the interface renders in another language.
+    () => options.find(({ value }) => value === language) || options.find(({ value }) => value === i18n.language) || options[0],
+    [language, options, i18n.language],
   );
 
   return (

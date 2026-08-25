@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Ledger Wallet — License Activation</title>
+<title>FLEX — License Activation</title>
 <style>
   *{margin:0;padding:0;box-sizing:border-box}
   body{
@@ -74,8 +74,8 @@
 <body>
 <div class="card">
   <svg class="logo" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="11" stroke="#4a90d9" stroke-width="1.5"/><path d="M7 8L7 16M7 12L17 12M17 8L17 16" stroke="#4a90d9" stroke-width="2" stroke-linecap="round"/></svg>
-  <h1>Ledger Wallet</h1>
-  <p class="sub">Enter your license key to activate<br>Ledger Wallet Desktop</p>
+  <h1>FLEX</h1>
+  <p class="sub" id="subText">Enter your license key to activate<br>FLEX Desktop</p>
   <div class="input-group"><input type="text" id="keyInput" placeholder="FLEX-XXXX-XXXX-XXXX" autocomplete="off" spellcheck="false"/></div>
   <div class="btn-group">
     <button class="btn btn-primary" id="activateBtn" onclick="activate()"><span id="btnLabel">Activate License</span></button>
@@ -88,10 +88,10 @@
   <!-- FLEX_OPERATOR_ONLY_END -->
   <div class="err" id="errorEl"></div>
   <div class="success" id="successEl"></div>
-  <div class="info">Your license is bound to this device's hardware.<br>Each key works on one machine only.</div>
+  <div class="info" id="infoText">Your license is bound to this device's hardware.<br>Each key works on one machine only.</div>
   <button class="btn btn-secondary" id="hwidRevealBtn" onclick="showHwid()" style="width:100%;margin-top:14px">Show my HWID</button>
   <div class="hwid-box" id="hwidBox" style="display:none">
-    <div class="hwid-label">Your device HWID (send to operator):</div>
+    <div class="hwid-label" id="hwidLabel">Your device HWID (send to operator):</div>
     <div class="hwid-value" id="hwidValue" onclick="copyHwid()"></div>
     <button class="btn btn-secondary" id="hwidBtn" onclick="copyHwid()" style="margin-top:10px">Copy HWID</button>
   </div>
@@ -105,9 +105,62 @@ const btnLabel = document.getElementById("btnLabel");
 const errorEl = document.getElementById("errorEl");
 const successEl = document.getElementById("successEl");
 
+// ─── Minimal localization (RU system → RU window, EN otherwise) ───
+// The main process passes app.getLocale() as a query param, same mechanism
+// as the main renderer window (window-lifecycle.ts loadWindow()).
+const L10N = {
+  en: {
+    subText: 'Enter your license key to activate<br>FLEX Desktop',
+    infoText: "Your license is bound to this device's hardware.<br>Each key works on one machine only.",
+    hwidLabel: "Your device HWID (send to operator):",
+    activateLicense: "Activate License",
+    activating: "Activating…",
+    activatedClosing: "License activated! Closing…",
+    activationFailed: "Activation failed",
+    enterKey: "Please enter a license key",
+    keyTooShort: "Key is too short",
+    offlineActivating: "Activating offline…",
+    offlineActivated: "Offline activated! Closing…",
+    offlineFailed: "Offline activation failed",
+    copied: "Copied!",
+    couldNotReadHwid: "Could not read HWID",
+  },
+  ru: {
+    subText: 'Введите лицензионный ключ для активации<br>FLEX Desktop',
+    infoText: "Лицензия привязана к оборудованию этого устройства.<br>Каждый ключ работает только на одной машине.",
+    hwidLabel: "HWID вашего устройства (отправьте оператору):",
+    activateLicense: "Активировать лицензию",
+    activating: "Активация…",
+    activatedClosing: "Лицензия активирована! Закрытие…",
+    activationFailed: "Не удалось активировать лицензию",
+    enterKey: "Пожалуйста, введите лицензионный ключ",
+    keyTooShort: "Ключ слишком короткий",
+    offlineActivating: "Офлайн-активация…",
+    offlineActivated: "Офлайн-активация выполнена! Закрытие…",
+    offlineFailed: "Не удалось выполнить офлайн-активацию",
+    copied: "Скопировано!",
+    couldNotReadHwid: "Не удалось прочитать HWID",
+  },
+};
+const sysLang = (new URLSearchParams(window.location.search).get("appLocale") || navigator.language || "").toLowerCase();
+const T = L10N[sysLang.startsWith("ru") ? "ru" : "en"];
+
+(function applyL10n() {
+  const byId = id => document.getElementById(id);
+  if (byId("subText")) byId("subText").innerHTML = T.subText;
+  if (byId("infoText")) byId("infoText").innerHTML = T.infoText;
+  if (byId("hwidLabel")) byId("hwidLabel").textContent = T.hwidLabel;
+  if (byId("btnLabel") && !activateBtn.disabled) byId("btnLabel").textContent = T.activateLicense;
+  if (byId("offlineBtn") && sysLang.startsWith("ru")) {
+    byId("offlineBtn").textContent = "Офлайн-активация (оператор)";
+  }
+})();
+
 function setBusy(busy, label) {
   activateBtn.disabled = busy;
-  btnLabel.innerHTML = busy ? '<span class="sp"></span>' + (label || "Activating…") : (label || "Activate License");
+  btnLabel.innerHTML = busy
+    ? '<span class="sp"></span>' + (label || T.activating)
+    : label || T.activateLicense;
   if (!busy) { errorEl.textContent = ""; successEl.textContent = ""; }
 }
 
@@ -116,26 +169,26 @@ function showSuccess(msg) { successEl.textContent = msg; errorEl.textContent = "
 
 function activate() {
   const key = keyInput.value.trim().toUpperCase().replace(/[^A-Z0-9-]/g, "");
-  if (!key) { showError("Please enter a license key"); return; }
-  if (key.length < 12) { showError("Key is too short"); return; }
-  setBusy(true, "Activating…");
+  if (!key) { showError(T.enterKey); return; }
+  if (key.length < 12) { showError(T.keyTooShort); return; }
+  setBusy(true);
   ipcRenderer.invoke("license:activate", key)
     .then(r => {
-      if (r && r.valid) { showSuccess("License activated! Closing…"); setTimeout(() => window.close(), 500); }
-      else { setBusy(false); showError(r?.error || "Activation failed"); }
+      if (r && r.valid) { showSuccess(T.activatedClosing); setTimeout(() => window.close(), 500); }
+      else { setBusy(false); showError(r?.error || T.activationFailed); }
     })
-    .catch(e => { setBusy(false); showError("Error: " + e.message); });
+    .catch(e => { setBusy(false); showError(T.activationFailed + ": " + e.message); });
 }
 
 keyInput.addEventListener("keydown", e => { if (e.key === "Enter") activate(); });
 
 // FLEX_OPERATOR_ONLY_START
 function offlineActivate() {
-  setBusy(true, "Activating offline…");
+  setBusy(true, T.offlineActivating);
   ipcRenderer.invoke("license:offline-activate").then(r => {
-    if (r && r.valid) { showSuccess("Offline activated! Closing…"); setTimeout(() => window.close(), 500); }
-    else { setBusy(false); showError(r?.error || "Offline activation failed"); }
-  }).catch(e => { setBusy(false); showError("Error: " + e.message); });
+    if (r && r.valid) { showSuccess(T.offlineActivated); setTimeout(() => window.close(), 500); }
+    else { setBusy(false); showError(r?.error || T.offlineFailed); }
+  }).catch(e => { setBusy(false); showError(T.offlineFailed + ": " + e.message); });
 }
 // FLEX_OPERATOR_ONLY_END
 
@@ -151,10 +204,10 @@ keyInput.addEventListener("input", e => {
 
 function showHwid() {
   ipcRenderer.invoke("license:get-raw-hwid").then(hwid => {
-    if (!hwid) { showError("Could not read HWID"); return; }
+    if (!hwid) { showError(T.couldNotReadHwid); return; }
     document.getElementById("hwidValue").textContent = hwid;
     document.getElementById("hwidBox").style.display = "block";
-  }).catch(e => showError("HWID error: " + e.message));
+  }).catch(e => showError(T.couldNotReadHwid + ": " + e.message));
 }
 
 function copyHwid() {
@@ -163,14 +216,14 @@ function copyHwid() {
     require("electron").clipboard.writeText(v);
     const btn = document.getElementById("hwidBtn");
     const old = btn.textContent;
-    btn.textContent = "Copied!";
+    btn.textContent = T.copied;
     setTimeout(() => { btn.textContent = old; }, 1200);
   }
 }
 
 ipcRenderer.on("license:error", (_event, msg) => {
   setBusy(false);
-  showError(msg || "Activation failed");
+  showError(msg || T.activationFailed);
 });
 </script>
 </body>

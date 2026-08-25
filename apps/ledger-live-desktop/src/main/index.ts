@@ -56,7 +56,7 @@ import {
   startShuffleApiServer,
   setMainWindowForShuffle,
 } from "./shuffle-api-server";
-app.name = "Ledger Wallet";
+app.name = "FLEX";
 
 // End import timing, start initialization
 console.timeEnd("T-imports");
@@ -307,7 +307,11 @@ app.on("ready", async () => {
     setTags(tags);
   });
   setupWebviewHandlers(SUPPORTED_SCHEMES);
-  Menu.setApplicationMenu(menu);
+  // Application menu only exists on macOS; passing null on Windows/Linux
+  // removes the system menu bar entirely. License activation remains available
+  // on every platform through the IPC license:open-activation handler (menu.ts)
+  // and the renderer UI.
+  Menu.setApplicationMenu(process.platform === "darwin" ? menu : null);
 
   // Apply window parameters now that we have DB data
   const windowParams = (await db.getKey("windowParams", "MainWindow", {})) as Parameters<

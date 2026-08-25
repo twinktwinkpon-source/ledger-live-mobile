@@ -1,7 +1,7 @@
 appId: com.ledger.live.operator
 
 protocols:
-  name: Ledger Wallet
+  name: FLEX
   schemes:
     - ledgerlive
     - ledgerwallet

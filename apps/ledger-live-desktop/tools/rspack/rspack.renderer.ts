@@ -314,7 +314,7 @@ export function createRendererConfig(
       new rspack.HtmlRspackPlugin({
         template: path.resolve(rootFolder, "src", "renderer", "index.html"),
         filename: "index.html",
-        title: "Ledger Wallet",
+        title: "FLEX",
         inject: "body",
         scriptLoading: "defer",
       }),
