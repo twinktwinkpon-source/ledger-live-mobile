@@ -1,6 +1,7 @@
 import { Flex, Text, Icons } from "@ledgerhq/native-ui";
-import React, { useMemo } from "react";
-import { StyleSheet } from "react-native";
+import React, { useCallback, useMemo, useState } from "react";
+import { Pressable, StyleSheet } from "react-native";
+import Clipboard from "@react-native-clipboard/clipboard";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useTranslation } from "~/context/Locale";
@@ -106,7 +107,7 @@ const resolveFallbackCopy = (
   return getDefaultCopy(t);
 };
 
-export default function SwapCustomError({ route }: SwapCustomErrorProps) {
+export default function SwapCustomError({ route, navigation }: SwapCustomErrorProps) {
   const { t } = useTranslation();
   const error = route.params.error;
 
@@ -150,10 +151,18 @@ export default function SwapCustomError({ route }: SwapCustomErrorProps) {
         <Button
           type="main"
           size="medium"
+          onPress={() => navigation.goBack()}
+          alignSelf="stretch"
+          title={t("common.retry")}
+          mt={32}
+        />
+        <Button
+          type="default"
+          size="medium"
           onPress={onExport}
           alignSelf="stretch"
           title={t("common.saveLogs")}
-          mt={32}
+          mt={16}
         />
       </Flex>
     </SafeAreaView>
@@ -162,6 +171,14 @@ export default function SwapCustomError({ route }: SwapCustomErrorProps) {
 
 function ErrorBlock({ translationKey, value }: { translationKey: string; value: string | null }) {
   const { t } = useTranslation();
+  const [copied, setCopied] = useState(false);
+
+  const onCopy = useCallback(() => {
+    if (!value) return;
+    Clipboard.setString(value);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1200);
+  }, [value]);
 
   if (!value) {
     return null;
@@ -172,7 +189,11 @@ function ErrorBlock({ translationKey, value }: { translationKey: string; value: 
       <Text variant="body" color="neutral.c70">
         {t(translationKey)}
       </Text>
-      <Text variant="body">{value}</Text>
+      <Pressable onPress={onCopy} hitSlop={8}>
+        <Text variant="body" fontWeight={copied ? "semiBold" : undefined}>
+          {copied ? t("common.copied") : value}
+        </Text>
+      </Pressable>
     </Flex>
   );
 }
