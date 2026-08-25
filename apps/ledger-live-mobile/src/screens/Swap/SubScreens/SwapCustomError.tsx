@@ -98,6 +98,13 @@ const resolveFallbackCopy = (
   t: TFunction,
 ): SwapErrorCopy => {
   if (error && "message" in error && typeof error.message === "string") {
+    // FLEX timeout: provider never completed — translate to actionable copy.
+    if (error.message.startsWith("FLEX_SWAP_TIMED_OUT")) {
+      return {
+        title: t("swapErrors.swapRateExpiredError.title"),
+        description: t("swapErrors.swapRateExpiredError.description"),
+      };
+    }
     return {
       title: error.message,
       description: t("swapErrors.default.description"),

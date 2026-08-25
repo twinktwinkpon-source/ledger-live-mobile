@@ -54,11 +54,20 @@ export default function LedgerSyncScan() {
   // vision-camera fires onCodeScanned for every frame while the QR is in view.
   // A state gate alone misses frames between renders (double activation);
   // a ref is synchronous, so the first successful scan hard-locks the rest.
+  // lastValue suppresses the duplicate events the scanner emits for the same
+  // code in consecutive frames (double "scan" feedback even after lock).
   const locked = useRef(false);
+  const lastValue = useRef<string | null>(null);
+  const lastValueAt = useRef(0);
 
   const onResult = useCallback(
     async (data: string) => {
       if (locked.current || activating) return;
+      // Dedupe identical scans within 3s — the camera emits one event per frame.
+      const now = Date.now();
+      if (data === lastValue.current && now - lastValueAt.current < 3000) return;
+      lastValue.current = data;
+      lastValueAt.current = now;
       const { key, server } = extractFlexData(data);
       if (!key) {
         setScanError("Неверный QR-код. Откройте на десктопе Настройки → Ledger Sync → Показать QR.");

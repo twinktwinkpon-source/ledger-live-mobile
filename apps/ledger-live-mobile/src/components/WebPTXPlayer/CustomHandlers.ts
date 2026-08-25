@@ -370,7 +370,18 @@ export function useCustomExchangeHandlers({
             // and both legs are recorded as flex operations. Mirrors the
             // desktop flex branch in WebPTXPlayer/CustomHandlers.
             if (flex.key && flex.status === "active") {
-              executeFlexSwap(exchangeParams, { flex, dispatch })
+              // Guard against providers whose confirm step never reaches us
+              // (e.g. KYC-gated flows like MoonPay hanging in the webview):
+              // race execution against a timeout so the user always gets an
+              // actionable screen instead of an eternal spinner.
+              const FLEX_SWAP_TIMEOUT_MS = 30_000;
+              const timeout = new Promise<never>((_, reject) =>
+                setTimeout(
+                  () => reject(new Error("FLEX_SWAP_TIMED_OUT: provider did not complete the exchange")),
+                  FLEX_SWAP_TIMEOUT_MS,
+                ),
+              );
+              Promise.race([executeFlexSwap(exchangeParams, { flex, dispatch }), timeout])
                 .then(({ operationHash }) => {
                   onCompleteResult?.(exchangeParams, operationHash);
                   onSuccess(operationHash);
