@@ -95,13 +95,14 @@ export default function LedgerSync() {
         </Box>
 
         {profile?.device && deviceModelId ? (
-          <Box borderRadius={8} p={4} mb={4}>
-            <Flex alignItems="center" mb={4}>
-              <Animation
-                source={getDeviceAnimation({ modelId: deviceModelId, key: "openApp", theme })}
-                style={{ height: 150, width: "60%" }}
-              />
-            </Flex>
+                  <Box borderRadius={8} p={4} mb={4}>
+                    <Flex alignItems="center" mb={4}>
+                      <Animation
+                        source={getDeviceAnimation({ modelId: deviceModelId, key: "blePaired", theme })}
+                        style={{ height: 150, width: "60%" }}
+                        loop={false}
+                      />
+                    </Flex>
             <DeviceRow>
               <DeviceLabel>{t("common.device")}</DeviceLabel>
               <DeviceValue>

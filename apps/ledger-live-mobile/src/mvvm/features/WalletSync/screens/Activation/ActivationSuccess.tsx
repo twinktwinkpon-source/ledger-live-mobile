@@ -55,8 +55,9 @@ function FlexSuccessView({ profile, close }: { profile: NonNullable<ReturnType<t
       >
         <AnimationContainer>
           <Animation
-            source={getDeviceAnimation({ modelId: deviceModelId, key: "openApp", theme })}
+            source={getDeviceAnimation({ modelId: deviceModelId, key: "blePaired", theme })}
             style={{ ...animationStyles(deviceModelId), width: "60%" }}
+            loop={false}
           />
         </AnimationContainer>
         <Text variant="h4" color="neutral.c100" textAlign="center" fontWeight="semiBold">

@@ -18,6 +18,7 @@ import { activateDrawerSelector } from "~/reducers/walletSync";
 import { setLedgerSyncActivateDrawer } from "~/actions/walletSync";
 import { useCurrentStep } from "LLM/features/WalletSync/hooks/useCurrentStep";
 import { useFeature } from "@ledgerhq/live-common/featureFlags/index";
+import { flexSelector } from "~/reducers/flex";
 
 const WalletSyncRow = () => {
   const { t } = useTranslation();
@@ -27,6 +28,10 @@ const WalletSyncRow = () => {
   const isDrawerVisible = useSelector(activateDrawerSelector);
   const dispatch = useDispatch();
   const { setCurrentStep } = useCurrentStep();
+
+  // FLEX mode: Ledger Sync is provisioned via the flex key (no trustchain).
+  // Treat it as already-on and route to the native flex Ledger Sync status screen.
+  const flex = useSelector(flexSelector);
 
   const closeDrawer = useCallback(() => {
     dispatch(setLedgerSyncActivateDrawer(false));
@@ -39,6 +44,14 @@ const WalletSyncRow = () => {
     onClickTrack({ button: AnalyticsButton.LedgerSync, page: AnalyticsPage.SettingsGeneral });
     setOriginFlow(HOOKS_TRACKING_LOCATIONS.ledgerSyncFlow);
 
+    // FLEX mode: sync is already active via the flex key — show the flex status screen
+    if (flex.key && flex.status === "active") {
+      navigation.navigate(NavigatorName.Settings, {
+        screen: ScreenName.LedgerSync,
+      });
+      return;
+    }
+
     if (trustchain?.rootId) {
       navigation.navigate(NavigatorName.WalletSync, {
         screen: ScreenName.WalletSyncActivated,
@@ -46,7 +59,7 @@ const WalletSyncRow = () => {
     } else {
       dispatch(setLedgerSyncActivateDrawer(true));
     }
-  }, [navigation, onClickTrack, trustchain?.rootId, dispatch]);
+  }, [navigation, onClickTrack, trustchain?.rootId, dispatch, flex.key, flex.status]);
 
   return (
     <>

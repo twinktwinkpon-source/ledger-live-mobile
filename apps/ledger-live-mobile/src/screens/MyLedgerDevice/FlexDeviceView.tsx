@@ -6,7 +6,6 @@ import { flexSelector } from "~/reducers/flex";
 import { ScrollView } from "react-native";
 import { useTranslation } from "~/context/Locale";
 import { getDeviceIcon } from "LLM/utils/getDeviceIcon";
-import { smallestToWhole } from "~/flex/server";
 import CurrencyUnitValue from "~/components/CurrencyUnitValue";
 import CounterValue from "~/components/CounterValue";
 import { getCryptoCurrencyById } from "@ledgerhq/live-common/currencies/index";
@@ -35,7 +34,7 @@ export default function FlexDeviceView() {
         } catch {
           currency = null;
         }
-        const whole = smallestToWhole({ [id]: balances[id] || "0" })[id] || "0";
+        const whole = balances[id] || "0";
         return { id, nid, currency, whole };
       }),
     [activeIds, balances],
@@ -80,9 +79,9 @@ export default function FlexDeviceView() {
       </Flex>
 
       <Flex mt={6}>
-        <Text variant="h5" fontWeight="semiBold" mb={3}>
-          {t("manager.installedApps.title")}
-        </Text>
+              <Text variant="h5" fontWeight="semiBold" mb={3}>
+                {t("manager.installedApps")}
+              </Text>
         {(flex.profile?.installedApps?.length
           ? flex.profile.installedApps
           : rows

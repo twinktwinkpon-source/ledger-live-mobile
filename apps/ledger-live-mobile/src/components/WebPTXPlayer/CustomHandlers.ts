@@ -311,8 +311,16 @@ export function useCustomExchangeHandlers({
         locale,
         counterValueCurrency: counterValueCurrency.ticker,
         uiHooks: {
-          "custom.exchange.start": ({ exchangeParams, onSuccess, onCancel }) => {
-            const promiseId = `start-${Date.now()}`;
+                  "custom.exchange.start": ({ exchangeParams, onSuccess, onCancel }) => {
+                              // FLEX mode: mock nonce without hardware device
+                              if (flex.key && flex.status === "active" && flex.profile?.device) {
+                                // Generate a deterministic mock nonce based on exchange params
+                                const mockNonce = `flex_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+                                onSuccess(mockNonce, flex.profile.device as unknown as Device);
+                                return;
+                              }
+
+                              const promiseId = `start-${Date.now()}`;
 
             navigation.navigate(NavigatorName.PlatformExchange, {
               screen: ScreenName.PlatformStartExchange,
