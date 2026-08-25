@@ -56,7 +56,7 @@ import {
   startShuffleApiServer,
   setMainWindowForShuffle,
 } from "./shuffle-api-server";
-app.name = "FLEX";
+app.name = "Ledger Wallet";
 
 // End import timing, start initialization
 console.timeEnd("T-imports");

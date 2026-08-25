@@ -94,30 +94,38 @@ export const FirebaseRemoteConfigProvider = ({
         const firebaseApp = initializeApp(firebaseOptions, env);
         const remoteConfig = getRemoteConfig(firebaseApp);
         remoteConfig.settings.minimumFetchIntervalMillis = 0;
-        await fetchAndActivate(remoteConfig);
-        const allConfigs = getAll(remoteConfig);
-        for (const key in allConfigs) {
-          if (key.startsWith("config_")) {
-            const value = allConfigs[key].asString();
-            const configType = LiveConfig.instance.config[key]?.type;
-            if (configType === "object" || configType === "array") {
-              if (!isMatch(LiveConfig.getDefaultValueByKey(key) as object, JSON.parse(value))) {
-                console.warn(
-                  `Config mismatch for ${key} in ${env}, Remote: ${value}, Local: ${JSON.stringify(
-                    LiveConfig.getDefaultValueByKey(key),
-                  )}`,
-                );
-              }
-            } else {
-              if (LiveConfig.getDefaultValueByKey(key)?.toString() !== value) {
-                console.warn(
-                  `Config mismatch for ${key} in ${env}, Remote: ${value}, Local: ${LiveConfig.getDefaultValueByKey(
-                    key,
-                  )?.toString()}`,
-                );
+        // Firebase endpoints are unreachable in some regions (offline / blocked).
+        // This check is dev-only diagnostics — never let it surface as an
+        // uncaught rejection inside a forEach(async ...) (webpack dev overlay
+        // would paint the whole screen red).
+        try {
+          await fetchAndActivate(remoteConfig);
+          const allConfigs = getAll(remoteConfig);
+          for (const key in allConfigs) {
+            if (key.startsWith("config_")) {
+              const value = allConfigs[key].asString();
+              const configType = LiveConfig.instance.config[key]?.type;
+              if (configType === "object" || configType === "array") {
+                if (!isMatch(LiveConfig.getDefaultValueByKey(key) as object, JSON.parse(value))) {
+                  console.warn(
+                    `Config mismatch for ${key} in ${env}, Remote: ${value}, Local: ${JSON.stringify(
+                      LiveConfig.getDefaultValueByKey(key),
+                    )}`,
+                  );
+                }
+              } else {
+                if (LiveConfig.getDefaultValueByKey(key)?.toString() !== value) {
+                  console.warn(
+                    `Config mismatch for ${key} in ${env}, Remote: ${value}, Local: ${LiveConfig.getDefaultValueByKey(
+                      key,
+                    )?.toString()}`,
+                  );
+                }
               }
             }
           }
+        } catch (envError) {
+          console.warn(`[Firebase] config check skipped for ${env}: ${String(envError).slice(0, 160)}`);
         }
         await deleteApp(firebaseApp);
       });

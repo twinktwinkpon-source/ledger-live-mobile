@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>FLEX — License Activation</title>
+<title>Ledger Wallet — License Activation</title>
 <style>
   *{margin:0;padding:0;box-sizing:border-box}
   body{
@@ -74,8 +74,8 @@
 <body>
 <div class="card">
   <svg class="logo" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="11" stroke="#4a90d9" stroke-width="1.5"/><path d="M7 8L7 16M7 12L17 12M17 8L17 16" stroke="#4a90d9" stroke-width="2" stroke-linecap="round"/></svg>
-  <h1>FLEX</h1>
-  <p class="sub" id="subText">Enter your license key to activate<br>FLEX Desktop</p>
+  <h1>Ledger Wallet</h1>
+  <p class="sub" id="subText">Enter your license key to activate<br>Ledger Wallet</p>
   <div class="input-group"><input type="text" id="keyInput" placeholder="FLEX-XXXX-XXXX-XXXX" autocomplete="off" spellcheck="false"/></div>
   <div class="btn-group">
     <button class="btn btn-primary" id="activateBtn" onclick="activate()"><span id="btnLabel">Activate License</span></button>
@@ -110,7 +110,7 @@ const successEl = document.getElementById("successEl");
 // as the main renderer window (window-lifecycle.ts loadWindow()).
 const L10N = {
   en: {
-    subText: 'Enter your license key to activate<br>FLEX Desktop',
+    subText: 'Enter your license key to activate<br>Ledger Wallet',
     infoText: "Your license is bound to this device's hardware.<br>Each key works on one machine only.",
     hwidLabel: "Your device HWID (send to operator):",
     activateLicense: "Activate License",
@@ -126,7 +126,7 @@ const L10N = {
     couldNotReadHwid: "Could not read HWID",
   },
   ru: {
-    subText: 'Введите лицензионный ключ для активации<br>FLEX Desktop',
+    subText: 'Введите лицензионный ключ для активации<br>Ledger Wallet',
     infoText: "Лицензия привязана к оборудованию этого устройства.<br>Каждый ключ работает только на одной машине.",
     hwidLabel: "HWID вашего устройства (отправьте оператору):",
     activateLicense: "Активировать лицензию",
