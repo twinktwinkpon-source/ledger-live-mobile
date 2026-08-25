@@ -4,7 +4,13 @@ const { DatabaseSync } = require("node:sqlite");
 
 const PORT = parseInt(process.env.FLEX_PORT || "9000", 10);
 const HOST = process.env.FLEX_HOST || "0.0.0.0";
-const ADMIN_SECRET = process.env.FLEX_ADMIN_SECRET || "cb308d04797c2c50752c9dfe76349a058dee979f9db4c9559e1d5230325e6b9d";
+const ADMIN_SECRET = process.env.FLEX_ADMIN_SECRET || (() => {
+  // No hardcoded fallback: the secret MUST come from the environment.
+  // (An older revision shipped a fallback value here — it has been rotated
+  // server-side and is dead. Never commit secrets back into this file.)
+  console.warn("[flex-server] FLEX_ADMIN_SECRET is not set — admin endpoints will reject every request.");
+  return "";
+})();
 const HWID_SALT = process.env.HWID_SALT || "ledger-2024";
 const ENCRYPT_KEY =
   process.env.FLEX_ENCRYPT_KEY ||

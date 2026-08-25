@@ -31,3 +31,7 @@ libs/ui/packages/react/rsbuild.config.js.map
 .nx/key
 nx.cache-config.json
 rsdoctor/
+
+# FLEX runtime data — never commit (contains real keys)
+tools/license-server/*.sqlite
+tools/license-server/*.sqlite-*
