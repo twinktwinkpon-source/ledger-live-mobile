@@ -536,7 +536,11 @@ export const DEFAULT_FEATURES: Features = {
   },
 
   ptxSwapLiveAppMobile: {
-    enabled: false,
+    // FLEX: enabled by default — the production swap Live App is the native swap
+    // surface on mobile. Remote Config is unreachable in some regions; without a
+    // local default the app falls back to the legacy swap flow, which cannot
+    // complete flex exchanges.
+    enabled: true,
     params: {
       manifest_id: "swap-live-app-demo-3",
     },
