@@ -43,6 +43,15 @@ const resolveMessageKeyCopy = (
   t: TFunction,
 ): SwapErrorCopy | null => {
   if (!messageKey) return null;
+  // Defensive: accept a raw serialized-error object like
+  // {"messageKey":"SWAP_NOT_CREATED_ERROR"} (some providers send the wrapper
+  // itself), strip to the inner key.
+  if (messageKey.startsWith("{")) {
+    try {
+      const inner = (JSON.parse(messageKey) as { messageKey?: string }).messageKey;
+      if (typeof inner === "string" && inner.length > 0) messageKey = inner;
+    } catch { /* fall through */ }
+  }
 
   switch (messageKey) {
     case "WRONG_OR_EXPIRED_RATE_ID":

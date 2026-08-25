@@ -4,6 +4,10 @@ const { DEV_TOOLS, DEV_TOOLS_MODE } = process.env;
 
 // Compile-time mode: "client" builds have no operator tooling.
 const IS_CLIENT_BUILD = (process.env.FLEX_MODE || "operator") === "client";
+// Windows/Linux use the in-window hamburger/toolbar; only mac keeps an
+// application menu. Building a default template there would surface a stock
+// "Ledger Wallet / Electron / License / Edit / Window" bar on every window,
+// which contradicts the FLEX branding.
 
 // Open the license activation window from anywhere in the app (menu / UI button).
 ipcMain.handle("license:open-activation", async () => {

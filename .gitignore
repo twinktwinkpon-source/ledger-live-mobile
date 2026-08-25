@@ -35,3 +35,6 @@ rsdoctor/
 # FLEX runtime data — never commit (contains real keys)
 tools/license-server/*.sqlite
 tools/license-server/*.sqlite-*
+
+# root-level runtime DB (legacy location)
+/flex_data.sqlite
