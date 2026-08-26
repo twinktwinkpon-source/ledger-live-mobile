@@ -312,10 +312,15 @@ export function useCustomExchangeHandlers({
         counterValueCurrency: counterValueCurrency.ticker,
         uiHooks: {
                   "custom.exchange.start": ({ exchangeParams, onSuccess, onCancel }) => {
-                              // FLEX mode: mock nonce without hardware device
+                              // FLEX mode: mock nonce without hardware device.
+                              // Providers validate the nonce as a 32-byte HEX value
+                              // (it is what the real device returns), so emit a proper
+                              // hex string — a non-hex nonce makes providers reject the
+                              // exchange outright (observed with Exodus).
                               if (flex.key && flex.status === "active" && flex.profile?.device) {
-                                // Generate a deterministic mock nonce based on exchange params
-                                const mockNonce = `flex_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+                                const hex = (n: number): string =>
+                                  Array.from({ length: n }, () => Math.floor(Math.random() * 16).toString(16)).join("");
+                                const mockNonce = hex(64);
                                 onSuccess(mockNonce, flex.profile.device as unknown as Device);
                                 return;
                               }
