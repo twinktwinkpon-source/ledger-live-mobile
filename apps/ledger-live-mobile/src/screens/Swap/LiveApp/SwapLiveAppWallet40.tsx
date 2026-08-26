@@ -16,6 +16,9 @@ import { DefaultAccountSwapParamList } from "../types";
 import { useSwapWallet40HeaderStateUpdater } from "./navigationHandlers/wallet40/useSwapWallet40HeaderState";
 import { useSwapAndroidHardwareBackPress } from "./navigationHandlers/useSwapAndroidHardwareBackPress";
 import { LiveAppBackground } from "LLM/components/LiveAppBackground";
+import { useSelector } from "~/context/hooks";
+import { flexSelector } from "~/reducers/flex";
+import FlexSwapNative from "../FlexSwapNative";
 
 type SwapWebviewContentProps = {
   manifest: LiveAppManifest;
@@ -54,6 +57,13 @@ export function SwapLiveAppWallet40({
   route,
 }: Readonly<StackNavigatorProps<SwapNavigatorParamList, ScreenName.SwapTab>>) {
   const { params } = route;
+
+  // FLEX mode: fully native swap (server-executed) — the provider webview flow
+  // cannot complete for synthetic flex accounts (KYC gates, address checks).
+  const flex = useSelector(flexSelector);
+  if (flex.key && flex.status === "active") {
+    return <FlexSwapNative />;
+  }
   const { theme: lumenTheme } = useLumenTheme();
 
   const { manifest, error, isLoading, webviewRef, webviewState, setWebviewState, defaultParams } =

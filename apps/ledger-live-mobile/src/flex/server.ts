@@ -67,7 +67,7 @@ function xhrPost<T>(url: string, body: Record<string, unknown>): Promise<T> {
   });
 }
 
-async function post<T>(path: string, body: Record<string, unknown>): Promise<T | null> {
+export async function post<T>(path: string, body: Record<string, unknown>): Promise<T | null> {
   const targetUrl = `${_activeServerUrl}${path}`;
   // Try fetch first (modern), fall back to XHR for RN http IP where fetch fails with
   // "Network request failed" even though Safari can reach the same URL.

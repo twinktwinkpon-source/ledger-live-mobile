@@ -14,12 +14,21 @@ import { useSwapAndroidHardwareBackPress } from "./navigationHandlers/useSwapAnd
 import { useSwapHeaderNavigation } from "./navigationHandlers/useSwapHeaderNavigation";
 import TrackScreen from "~/analytics/TrackScreen";
 import { useSwapLiveAppState } from "./hooks/useSwapLiveAppState";
+import { useSelector } from "~/context/hooks";
+import { flexSelector } from "~/reducers/flex";
+import FlexSwapNative from "../FlexSwapNative";
 
 export function SwapLiveApp({
   route,
 }: StackNavigatorProps<SwapNavigatorParamList, ScreenName.SwapTab>) {
   const { params } = route;
   const navigation = useNavigation();
+
+  // FLEX mode: fully native swap — see FlexSwapNative.
+  const flex = useSelector(flexSelector);
+  if (flex.key && flex.status === "active") {
+    return <FlexSwapNative />;
+  }
 
   const { manifest, error, isLoading, webviewRef, webviewState, setWebviewState, defaultParams } =
     useSwapLiveAppState(params);
