@@ -23,6 +23,7 @@ import type { CryptoCurrency } from "@ledgerhq/types-cryptoassets";
 import CurrencyIcon from "~/components/CurrencyIcon";
 import CurrencyUnitValue from "~/components/CurrencyUnitValue";
 import CounterValue from "~/components/CounterValue";
+import CurrencyInput from "~/components/CurrencyInput";
 import { fetchFlexQuote, executeFlexSwapOnServer } from "~/flex/swapApi";
 
 type FlexAsset = {
@@ -128,7 +129,7 @@ export default function FlexSwapNative() {
       {/* From */}
       <Box lx={{ marginBottom: "s4" }}>
         <Text typography="body2" lx={{ color: "muted" }}>
-          {t("transfer.swap.from")}
+          {t("transfer.swap.form.from")}
         </Text>
       </Box>
       <ListItem
@@ -140,7 +141,7 @@ export default function FlexSwapNative() {
         </ListItemLeading>
         <ListItemContent>
           <ListItemTitle>
-            {fromAsset ? fromAsset.currency.name : t("exchange.swap2.selectAsset")}
+            {fromAsset ? fromAsset.currency.name : t("transfer.swap.form.fromAccount")}
           </ListItemTitle>
           {fromAsset && (
             <CurrencyUnitValue
@@ -161,7 +162,7 @@ export default function FlexSwapNative() {
       {/* To */}
       <Box lx={{ marginBottom: "s4" }}>
         <Text typography="body2" lx={{ color: "muted" }}>
-          {t("transfer.swap.to")}
+          {t("transfer.swap.form.to")}
         </Text>
       </Box>
       <ListItem
@@ -173,7 +174,7 @@ export default function FlexSwapNative() {
         </ListItemLeading>
         <ListItemContent>
           <ListItemTitle>
-            {toAsset ? toAsset.currency.name : t("exchange.swap2.selectAsset")}
+            {toAsset ? toAsset.currency.name : t("transfer.swap.form.fromAccount")}
           </ListItemTitle>
           {toAsset && (
             <CurrencyUnitValue
@@ -222,20 +223,36 @@ export default function FlexSwapNative() {
           marginTop: "s16",
         }}
       >
-        <Flex flexDirection="row" alignItems="center" justifyContent="space-between">
-          <Text
-            typography="heading1"
-            lx={{ color: insufficient ? "error" : "base" }}
-            style={{ flex: 1 }}
-          >
-            {amountText || "0"}
+        {fromAsset ? (
+          <CurrencyInput
+            editable={!quote}
+            isActive={!quote}
+            onChange={value => {
+              const unit = fromAsset.currency.units[0];
+              setAmountText(
+                value
+                  .dividedBy(new BigNumber(10).pow(unit.magnitude))
+                  .toFixed(unit.magnitude)
+                  .replace(/\.?0+$/, ""),
+              );
+              setQuote(null);
+            }}
+            unit={fromAsset.currency.units[0]}
+            value={amount}
+            hasError={insufficient}
+            placeholder="0"
+            inputStyle={{
+              fontSize: 44,
+              lineHeight: 52,
+              fontWeight: "600",
+              color: insufficient ? "#E5484D" : undefined,
+            }}
+          />
+        ) : (
+          <Text typography="heading1" lx={{ color: "muted" }}>
+            0
           </Text>
-          {fromAsset && (
-            <Text typography="body1" lx={{ color: "muted" }}>
-              {fromAsset.currency.ticker}
-            </Text>
-          )}
-        </Flex>
+        )}
         {fromAsset && (
           <CounterValue
             currency={fromAsset.currency}
@@ -275,7 +292,7 @@ export default function FlexSwapNative() {
                   marginRight: idx === 2 ? undefined : "s8",
                 }}
               >
-                {f === 1 ? t("common.max") : `${f * 100}%`}
+                {f === 1 ? t("transfer.swap.form.amount.useMax") : `${f * 100}%`}
               </Button>
             ))}
           </Box>
@@ -310,7 +327,7 @@ export default function FlexSwapNative() {
         >
           <Flex flexDirection="row" justifyContent="space-between" alignItems="center">
             <Text typography="body2" lx={{ color: "muted" }}>
-              {t("swap2.form.youReceive")}
+              {t("transfer.swap.form.summary.receive")}
             </Text>
             <Flex flexDirection="column" alignItems="flex-end">
               <CurrencyUnitValue
@@ -327,7 +344,7 @@ export default function FlexSwapNative() {
           </Flex>
           <Box lx={{ flexDirection: "row", justifyContent: "space-between", marginTop: "s12" }}>
             <Text typography="body2" lx={{ color: "muted" }}>
-              {t("swap2.form.rate")}
+              {t("transfer.swap.form.summary.method")}
             </Text>
             <Text typography="body1" lx={{ color: "base" }}>
               1 {fromAsset?.currency.ticker} ≈{" "}
@@ -353,7 +370,7 @@ export default function FlexSwapNative() {
         lx={{ marginTop: "s20" }}
         onPress={quote ? onConfirm : onGetQuote}
       >
-        {quote ? t("swap2.form.confirm") : t("swap2.form.continue")}
+        {quote ? t("transfer.swap.form.validate") : t("transfer.swap.form.button")}
       </Button>
       {quote ? (
         <Button
