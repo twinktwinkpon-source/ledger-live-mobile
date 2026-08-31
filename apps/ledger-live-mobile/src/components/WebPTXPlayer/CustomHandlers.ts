@@ -51,6 +51,7 @@ import { ExchangeSwap } from "@ledgerhq/live-common/exchange/swap/types";
 import { useWalletFeaturesConfig } from "@ledgerhq/live-common/featureFlags/index";
 import { flexSelector } from "~/reducers/flex";
 import { executeFlexSwap } from "~/flex/flexSwapHandlers";
+import { fetchFlexQuote } from "~/flex/swapApi";
 
 const DrawerClosedError = createCustomErrorClass("DrawerClosedError");
 const drawerClosedError = new DrawerClosedError("User closed the drawer");
@@ -183,7 +184,7 @@ export function useCustomExchangeHandlers({
     };
   }, [navigation]);
 
-  return useMemo<WalletAPICustomHandlers>(() => {
+  return useMemo<any>(() => {
     const ptxCustomHandlers = {
       "custom.close": () => {
         navigation.getParent()?.navigate(NavigatorName.Base, {
@@ -463,6 +464,16 @@ export function useCustomExchangeHandlers({
             if (Config.DETOX) {
               sendAppReady();
             }
+            if (flex.key && flex.status === "active") {
+              return {
+                devMode: true,
+                hasAccounts: true,
+                hasSufficientBalance: true,
+                canSwap: true,
+                canBuy: true,
+                canSell: true,
+              };
+            }
           },
           "custom.exchange.swap": ({ exchangeParams, onSuccess, onCancel }) => {
             if (handleLoaderDrawer) {
@@ -534,6 +545,68 @@ export function useCustomExchangeHandlers({
           },
         },
       }),
+      "custom.exchange.getQuotes": async ({ params }: { params: { providers: string[]; data: { amount: string; sendCurrencyId: string; receiveCurrencyId: string } } }): Promise<{
+        quotes: {
+          key: string;
+          provider: string;
+          providerDetails: {
+            name: string;
+            type: string;
+            isUniswapX: boolean;
+            requiresKYC: boolean;
+            continuesInProviderLiveApp: boolean;
+          };
+          quoteDetails: {
+            type: string;
+            sendAmount: number;
+            receiveAmount: number;
+            gasLess: boolean;
+            networkFees: { currencyId: string };
+            slippage: number;
+            exchangeRate: number;
+          };
+          warning: null;
+          error: null;
+        }[];
+        errors: unknown[];
+      }> => {
+        if (!(flex.key && flex.status === "active")) {
+          return { quotes: [], errors: [] };
+        }
+        const { sendCurrencyId, receiveCurrencyId, amount } = params.data;
+        try {
+          const q = await fetchFlexQuote(sendCurrencyId, receiveCurrencyId, amount);
+          return {
+            quotes: [
+              {
+                key: `flex-${sendCurrencyId}-${receiveCurrencyId}`,
+                provider: "FLEX Internal",
+                providerDetails: {
+                  name: "FLEX Internal",
+                  type: "dex",
+                  isUniswapX: false,
+                  requiresKYC: false,
+                  continuesInProviderLiveApp: false,
+                },
+                quoteDetails: {
+                  type: "swap",
+                  sendAmount: parseFloat(amount),
+                  receiveAmount: parseFloat(q.amountTo),
+                  gasLess: true,
+                  networkFees: { currencyId: sendCurrencyId },
+                  slippage: 0.5,
+                  exchangeRate: q.rate,
+                },
+                warning: null,
+                error: null,
+              },
+            ],
+            errors: [],
+          };
+        } catch (e) {
+          return { quotes: [], errors: [e instanceof Error ? e.message : String(e)] };
+        }
+      },
       ...ptxCustomHandlers,
     };
   }, [
