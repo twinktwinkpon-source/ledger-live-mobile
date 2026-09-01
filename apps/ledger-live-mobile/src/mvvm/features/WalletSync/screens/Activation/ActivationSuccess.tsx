@@ -9,7 +9,6 @@ import { track } from "~/analytics";
 import { useClose } from "../../hooks/useClose";
 import { useFeature, useWalletFeaturesConfig } from "@features/platform-feature-flags";
 import { useNotifications } from "LLM/features/NotificationsPrompt";
-import { useWalletFeaturesConfig } from "@ledgerhq/live-common/featureFlags/walletFeaturesConfig/useWalletFeaturesConfig";
 import { useSelector } from "~/context/hooks";
 import { flexSelector } from "~/reducers/flex";
 import styled, { useTheme } from "styled-components/native";
