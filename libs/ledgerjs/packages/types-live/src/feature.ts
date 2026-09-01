@@ -884,8 +884,6 @@ type Feature_Wallet40_Params = {
   onboardingWidget?: boolean;
   earnUpselling?: boolean;
   earnSimulator?: boolean;
-  earnUpselling?: boolean;
-  earnSimulator?: boolean;
 };
 
 export type Feature_LwmWallet40 = Feature<Feature_Wallet40_Params>;
