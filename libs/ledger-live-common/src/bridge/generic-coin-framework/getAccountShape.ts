@@ -187,7 +187,7 @@ function syntheticParentForTokenOnlyTx(
   // In the case of smart contract interaction, the contract must be the recipient of the parent operation => this
   // is why we need to extract this information from the operation details.
   const contract = getTokenContract(referenceOp);
-  const parentRecipients = contract === undefined ? referenceOp.recipients ?? [] : [contract];
+  const parentRecipients = contract === undefined ? (referenceOp.recipients ?? []) : [contract];
   const parentSenders = referenceOp.senders ?? [];
   return cleanedOperation({
     id: encodeOperationId(accountId, referenceOp.hash, parentType),
@@ -327,7 +327,7 @@ export function genericGetAccountShape(network: string, kind: string): GetAccoun
   return async (info, syncConfig) => {
     const { address, initialAccount, currency, derivationMode } = info;
     const coinModuleApi = await getCoinModuleApi(currency.id, kind);
-    const bridgeApi = getBridgeApi(currency, network);
+    const bridgeApi = await getBridgeApi(currency, network);
 
     const chainSpecificValidation = bridgeApi.getChainSpecificRules;
     if (chainSpecificValidation) {
@@ -349,7 +349,7 @@ export function genericGetAccountShape(network: string, kind: string): GetAccoun
               validatorAddress: validator.address,
               name: validator.name ?? validator.address,
               commission: Number(validator.commissionRate ?? 0),
-              tokens: Number(validator.balance ?? 0n),
+              tokens: (validator.balance ?? 0n).toString(),
               votingPower: 0,
               estimatedYearlyRewardsRate: Number(validator.apy ?? 0),
             })),
@@ -405,11 +405,13 @@ export function genericGetAccountShape(network: string, kind: string): GetAccoun
       const delegations: StakingDelegation[] = activeStakes.filter(hasStakeDelegate).map(b => {
         const delegated: bigint = delegatedAmountForStakingResources(b);
         const rewarded: bigint = b.stake.amountRewarded ?? 0n;
+        const validatorId = b.stake.details?.validatorId;
         return {
           validatorAddress: b.stake.delegate,
           amount: new BigNumber(delegated.toString()),
           pendingRewards: new BigNumber(rewarded.toString()),
-          status: "bonded" as const,
+          status: b.stake.state === "activating" ? "activating" : "bonded",
+          ...(typeof validatorId === "string" ? { validatorId } : {}),
         };
       });
       const unbondings: StakingUnbonding[] = deactivatingStakes.filter(hasStakeDelegate).map(b => {

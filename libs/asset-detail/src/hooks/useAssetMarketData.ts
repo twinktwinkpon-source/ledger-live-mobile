@@ -10,6 +10,7 @@ import { REFETCH_TIME_ONE_MINUTE, BASIC_REFETCH } from "@ledgerhq/live-common/ma
 import { assetsDataApi } from "@ledgerhq/live-common/dada-client/state-manager/api";
 import { selectCurrency } from "@ledgerhq/live-common/dada-client/utils/currencySelection";
 import { useUsdToFiatRate } from "@ledgerhq/live-common/counterValues/hooks/useUsdToFiatRate";
+import { applyDadaMarketFallback } from "../utils/applyDadaMarketFallback";
 import type { AssetMarketDataInput, AssetMarketDataResult } from "../types";
 
 export function useAssetMarketData({
@@ -49,7 +50,10 @@ export function useAssetMarketData({
       version,
       isStaging,
     },
-    { skip: !effectiveLedgerIds?.length },
+    {
+      skip: !effectiveLedgerIds?.length,
+      pollingInterval: REFETCH_TIME_ONE_MINUTE * BASIC_REFETCH,
+    },
   );
 
   const dadaMarket = effectiveLedgerIds?.[0]
@@ -61,11 +65,12 @@ export function useAssetMarketData({
   const marketCurrencyData = useMemo<MarketCurrencyData | undefined>(() => {
     if (dadaMarket) {
       const formattedDadaMarket = format(dadaMarket as MarketItemResponse);
+      const merged = applyDadaMarketFallback(formattedDadaMarket, marketFromHook);
       if (rateStatus === "ready" && rate != null) {
-        return applyUsdRateToMarket(formattedDadaMarket, rate);
+        return applyUsdRateToMarket(merged, rate);
       }
       // Return USD-formatted data while rate is loading/errored, instead of falling back to undefined
-      return formattedDadaMarket;
+      return merged;
     }
     return marketFromHook;
   }, [dadaMarket, marketFromHook, rateStatus, rate]);
@@ -75,10 +80,20 @@ export function useAssetMarketData({
     [assetData],
   );
 
+  // CoinGecko's response carries the full multi-network list. `marketCurrencyData`
+  // can lose it when the DADA branch wins (its `ledgerIds` is scoped to a single
+  // id), so prefer `marketFromHook?.ledgerIds` and fall back to whatever's left.
+  const ledgerIds = useMemo<string[]>(() => {
+    if (marketFromHook?.ledgerIds?.length) return marketFromHook.ledgerIds;
+    if (marketCurrencyData?.ledgerIds?.length) return marketCurrencyData.ledgerIds;
+    return knownLedgerIds ? [...knownLedgerIds] : [];
+  }, [marketFromHook?.ledgerIds, marketCurrencyData?.ledgerIds, knownLedgerIds]);
+
   return {
     marketCurrencyData,
     marketId: marketFromHook?.id ?? knownMarketId,
     ledgerCurrencyFromDada,
+    ledgerIds,
     isLoading: isLoadingMarket || isLoadingDada || (!!dadaMarket && rateStatus === "loading"),
     isError: isErrorMarket || isErrorDada || (!!dadaMarket && rateStatus === "error"),
   };

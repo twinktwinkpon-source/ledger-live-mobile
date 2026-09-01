@@ -5,6 +5,7 @@ import {
 } from "@ledgerhq/coin-module-framework/api/types";
 import {
   AmountRequired,
+  ClaimRewardsFeesWarning,
   ETHAddressNonEIP,
   FeeNotLoaded,
   FeeTooHigh,
@@ -548,8 +549,8 @@ describe("validateIntent", () => {
       const res = await validateIntent(
         stakingCurrency,
         stakingIntent({
+          amount: 0n,
           mode: "claimReward",
-          amount: 1n,
           valAddress: "seivaloper1y82m5y3wevjneamzg0pmx87dzanyxzht0kepvn",
         }),
         [{ value: 50n, asset: { type: "native" } }],
@@ -568,8 +569,8 @@ describe("validateIntent", () => {
       const res = await validateIntent(
         stakingCurrency,
         stakingIntent({
+          amount: 0n,
           mode: "claimReward",
-          amount: 1n,
           valAddress: "",
         }),
         [{ value: 500n, asset: { type: "native" } }],
@@ -588,8 +589,8 @@ describe("validateIntent", () => {
       const res = await validateIntent(
         stakingCurrency,
         stakingIntent({
+          amount: 0n,
           mode: "claimReward",
-          amount: 1n,
           valAddress: "seivaloper1y82m5y3wevjneamzg0pmx87dzanyxzht0kepvn",
         }),
         [{ value: 500n, asset: { type: "native" } }],
@@ -600,6 +601,121 @@ describe("validateIntent", () => {
       );
 
       expect(res.errors).toMatchObject({});
+    });
+
+    describe("useAllAmount on delegate", () => {
+      // sei_evm has delegationMaxAmountReserve = 10n**17n and calldataAmountScale = 10n**12n.
+      const seiCurrency = {
+        id: "sei_evm",
+        name: "Sei",
+        ticker: "SEI",
+        units: [{ code: "SEI", name: "SEI", magnitude: 18 }],
+      } as CryptoCurrency;
+
+      it("uses totalFees as the effective reserve when no reserve is configured for the chain", async () => {
+        // Unknown chain → configuredReserve = 0n, effectiveReserve = max(0n, totalFees) = totalFees.
+        // validateIntent recalculates fees from gasPrice * gasLimit, so we align parameters
+        // to get totalFees = 100_000n (gasLimit 100_000 × gasPrice 1).
+        const balance = 1_000_000n;
+        const totalFees = 100_000n; // gasLimit(100_000) × gasPrice(1)
+        const res = await validateIntent(
+          { id: "unknown_chain" } as CryptoCurrency,
+          stakingIntent({ mode: "delegate", useAllAmount: true }),
+          [{ value: balance, asset: { type: "native" } }],
+          { value: totalFees, parameters: { gasLimit: 100_000n, gasPrice: 1n } },
+        );
+
+        // effectiveReserve = max(0n, 100_000n) = 100_000n → amount = 1_000_000n - 100_000n
+        expect(res.amount).toBe(balance - totalFees);
+        expect(res.errors.amount).toBeUndefined();
+      });
+
+      it("uses totalFees as the effective reserve when totalFees exceed the configured reserve (sei_evm)", async () => {
+        // sei_evm configuredReserve = 10n**17n; set fees = 2 × 10n**17n so totalFees wins.
+        // Balance = 1 SEI = 10n**18n. Scale = 10n**12n.
+        const balance = 10n ** 18n;
+        const fees = 2n * 10n ** 17n; // > configuredReserve
+        const res = await validateIntent(
+          seiCurrency,
+          stakingIntent({ mode: "delegate", useAllAmount: true }),
+          [{ value: balance, asset: { type: "native" } }],
+          {
+            value: fees,
+            parameters: { gasLimit: 200_000n, gasPrice: 10n ** 12n },
+          },
+        );
+
+        // effectiveReserve = max(10n**17n, 2n*10n**17n) = 2n*10n**17n = 200_000_000_000_000_000n
+        // rawAmount = 10n**18n - 200_000_000_000_000_000n = 800_000_000_000_000_000n
+        // After scale floor: 800_000_000_000_000_000n (already a multiple of 10n**12n)
+        expect(res.amount).toBe(800_000_000_000_000_000n);
+        expect(res.errors.amount).toBeUndefined();
+      });
+
+      it("uses the configured reserve when it exceeds totalFees (sei_evm)", async () => {
+        // sei_evm configuredReserve = 10n**17n; set fees < 10n**17n so configured reserve wins.
+        // Balance = 1 SEI = 10n**18n. Scale = 10n**12n.
+        const balance = 10n ** 18n;
+        const fees = 10n ** 14n; // < configuredReserve
+        const res = await validateIntent(
+          seiCurrency,
+          stakingIntent({ mode: "delegate", useAllAmount: true }),
+          [{ value: balance, asset: { type: "native" } }],
+          {
+            value: fees,
+            parameters: { gasLimit: 21000n, gasPrice: 5n },
+          },
+        );
+
+        // effectiveReserve = max(10n**17n, 10n**14n) = 10n**17n = 100_000_000_000_000_000n
+        // rawAmount = 10n**18n - 10n**17n = 900_000_000_000_000_000n
+        // After scale floor: 900_000_000_000_000_000n (already a multiple of 10n**12n)
+        expect(res.amount).toBe(900_000_000_000_000_000n);
+        expect(res.errors.amount).toBeUndefined();
+      });
+    });
+
+    const tokenAsset = {
+      type: "token" as const,
+      assetReference: "0x0000000000000000000000000000000000000001",
+    };
+    const claimRewardIntent = (overrides: { amount: bigint; native: boolean }) =>
+      stakingIntent({
+        mode: "claimReward",
+        amount: overrides.amount,
+        valAddress: "seivaloper1y82m5y3wevjneamzg0pmx87dzanyxzht0kepvn",
+        ...(overrides.native ? {} : { asset: tokenAsset }),
+      });
+    const claimRewardBalances = (native: boolean) => [
+      { value: 10_000_000n, asset: { type: "native" as const } },
+      ...(native ? [] : [{ value: 1_000n, asset: tokenAsset }]),
+    ];
+    const claimRewardFees = { value: 150n, parameters: { gasLimit: 21000n, gasPrice: 1n } };
+
+    it.each([
+      { name: "fires when network fees exceed claim reward amount", amount: 100n, native: true },
+    ])("$name", async ({ amount, native }) => {
+      const res = await validateIntent(
+        stakingCurrency,
+        claimRewardIntent({ amount, native }),
+        claimRewardBalances(native),
+        claimRewardFees,
+      );
+      expect(res.warnings.claimRewardsFee).toBeInstanceOf(ClaimRewardsFeesWarning);
+    });
+
+    it.each([
+      { name: "does not fire when claim rewards exceed fees", amount: 1_000_000n, native: true },
+      { name: "does not fire when claim reward amount is zero", amount: 0n, native: true },
+      { name: "does not fire when claim reward asset is not native", amount: 100n, native: false },
+    ])("$name", async ({ amount, native }) => {
+      const res = await validateIntent(
+        stakingCurrency,
+        claimRewardIntent({ amount, native }),
+        claimRewardBalances(native),
+        claimRewardFees,
+      );
+      expect(res.warnings.claimRewardsFee).toBeUndefined();
     });
   });
 

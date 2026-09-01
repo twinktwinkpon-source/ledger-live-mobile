@@ -17,7 +17,7 @@ import { Steps } from "LLM/features/WalletSync/types/Activation";
 import { activateDrawerSelector } from "~/reducers/walletSync";
 import { setLedgerSyncActivateDrawer } from "~/actions/walletSync";
 import { useCurrentStep } from "LLM/features/WalletSync/hooks/useCurrentStep";
-import { useFeature } from "@ledgerhq/live-common/featureFlags/index";
+import { useFeature } from "@features/platform-feature-flags";
 import { flexSelector } from "~/reducers/flex";
 
 const WalletSyncRow = () => {

@@ -14,8 +14,17 @@ import {
 import { validateAddress, ValidationResult } from "@taquito/utils";
 import api from "../network/tzkt";
 import type { APIAccount } from "../network/types";
-import { InvalidAddressBecauseAlreadyDelegated, MustDelegateBeforeStaking } from "../types/errors";
-import { parseTezosTokenAsset, resolveTezosOperationMode } from "../utils";
+import {
+  InvalidAddressBecauseAlreadyDelegated,
+  MustDelegateBeforeStaking,
+  TezosNotEnoughStaked,
+} from "../types/errors";
+import {
+  computeMaxStakeAmount,
+  parseTezosTokenAsset,
+  partitionNativeBalance,
+  resolveTezosOperationMode,
+} from "../utils";
 import { estimateFees } from "./estimateFees";
 import type { TezosOperationMode } from "../types/model";
 
@@ -93,6 +102,9 @@ function validateStakeConstraints(
   if (!senderInfo.delegate?.address) {
     return { amount: new MustDelegateBeforeStaking() };
   }
+  if (intent.useAllAmount) {
+    return {};
+  }
   const amountError = validateStrictlyPositiveAmount(intent.amount);
   return amountError ? { amount: amountError } : {};
 }
@@ -103,14 +115,17 @@ function validateUnstakeConstraints(
 ): Record<string, Error> {
   const stakedBalance = BigInt(senderInfo.stakedBalance ?? 0);
   if (stakedBalance <= 0n) {
-    return { amount: new NotEnoughBalance() };
+    return { amount: new TezosNotEnoughStaked() };
+  }
+  if (intent.useAllAmount) {
+    return {};
   }
   const amountError = validateStrictlyPositiveAmount(intent.amount);
   if (amountError) {
     return { amount: amountError };
   }
   if (intent.amount > stakedBalance) {
-    return { amount: new NotEnoughBalance() };
+    return { amount: new TezosNotEnoughStaked() };
   }
   return {};
 }
@@ -145,19 +160,18 @@ function mapTaquitoErrors(taquitoError: string, intentType: string): Record<stri
   const errors: Record<string, Error> = {};
 
   if (taquitoError.endsWith("balance_too_low") || taquitoError.endsWith("subtraction_underflow")) {
-    if (intentType === "stake") {
-      errors.amount = new NotEnoughBalanceToDelegate();
-    } else {
-      errors.amount = new NotEnoughBalance();
-    }
-  } else if (taquitoError.endsWith("staking.too_much_unstaked")) {
     errors.amount = new NotEnoughBalance();
+  } else if (taquitoError.endsWith("staking.too_much_unstaked")) {
+    errors.amount = new TezosNotEnoughStaked();
   } else if (taquitoError.endsWith("contract.must_be_delegated_to_stake")) {
     errors.amount = new MustDelegateBeforeStaking();
-  } else if (taquitoError.endsWith("delegate.unchanged") && intentType === "stake") {
+  } else if (taquitoError.endsWith("delegate.unchanged")) {
+    // Re-delegating (or staking) to the current baker leaves the delegate unchanged; the node
+    // rejects it. Surfaces for both `delegate` and `stake` intents as "already delegated".
     errors.recipient = new InvalidAddressBecauseAlreadyDelegated();
   } else if (taquitoError.includes("empty_implicit_contract")) {
-    errors.amount = new NotEnoughBalanceToDelegate();
+    errors.amount =
+      intentType === "stake" ? new NotEnoughBalance() : new NotEnoughBalanceToDelegate();
   } else if (taquitoError.includes("script_rejected")) {
     errors.amount = new NotEnoughBalance();
   } else {
@@ -168,11 +182,11 @@ function mapTaquitoErrors(taquitoError: string, intentType: string): Record<stri
 }
 
 function calculateNativeSendMaxAmountForUser(
-  balance: bigint,
+  spendable: bigint,
   estimatedFees: bigint,
   estimatedAmount: bigint | undefined,
 ): { amount: bigint; totalSpent: bigint } {
-  const amountFallback = balance > estimatedFees ? balance - estimatedFees : 0n;
+  const amountFallback = spendable > estimatedFees ? spendable - estimatedFees : 0n;
   const hasPositiveEstimatedAmount = estimatedAmount !== undefined && estimatedAmount > 0n;
   const amount = hasPositiveEstimatedAmount ? estimatedAmount : amountFallback;
   return { amount, totalSpent: amount + estimatedFees };
@@ -190,11 +204,26 @@ function calculateAmounts(
   tokenBalanceForSendMax?: bigint,
 ): { amount: bigint; totalSpent: bigint } {
   if (intent.type === "stake") {
-    return { amount: intent.amount, totalSpent: intent.amount + estimatedFees };
+    if (!intent.useAllAmount) {
+      return { amount: intent.amount, totalSpent: intent.amount + estimatedFees };
+    }
+    if (estimatedAmount !== undefined) {
+      return { amount: estimatedAmount, totalSpent: estimatedAmount + estimatedFees };
+    }
+    // Mirrors estimateFees() stake-max formula for the !revealed short-circuit path.
+    const amount = computeMaxStakeAmount(
+      BigInt(senderInfo.balance),
+      BigInt(senderInfo.stakedBalance ?? 0),
+      BigInt(senderInfo.unstakedBalance ?? 0),
+      estimatedFees,
+    );
+    return { amount, totalSpent: amount + estimatedFees };
   }
 
   if (intent.type === "unstake") {
-    return { amount: intent.amount, totalSpent: estimatedFees };
+    const stakedBalance = BigInt(senderInfo.stakedBalance ?? 0);
+    const amount = intent.useAllAmount ? stakedBalance : intent.amount;
+    return { amount, totalSpent: estimatedFees };
   }
 
   if (intent.type === "finalize_unstake") {
@@ -205,11 +234,12 @@ function calculateAmounts(
     if (tokenBalanceForSendMax !== undefined) {
       return { amount: tokenBalanceForSendMax, totalSpent: estimatedFees };
     }
-    return calculateNativeSendMaxAmountForUser(
+    const { spendable } = partitionNativeBalance(
       BigInt(senderInfo.balance),
-      estimatedFees,
-      estimatedAmount,
+      BigInt(senderInfo.stakedBalance ?? 0),
+      BigInt(senderInfo.unstakedBalance ?? 0),
     );
+    return calculateNativeSendMaxAmountForUser(spendable, estimatedFees, estimatedAmount);
   }
 
   const amount = intent.amount;
@@ -217,15 +247,15 @@ function calculateAmounts(
 }
 
 /**
- * Validates balance coverage for the transaction
+ * Tezos `balance` includes staked + unstaked-frozen funds that can't pay fees/transfers, so the
+ * caller must pass the spendable portion (total minus both), not the raw total.
  */
 function validateBalanceCoverage(
-  senderInfo: APIUserAccount,
+  spendableBalance: bigint,
   totalSpent: bigint,
 ): Record<string, Error> {
   const errors: Record<string, Error> = {};
-  const accountBalance = BigInt(senderInfo.balance);
-  if (totalSpent > accountBalance) {
+  if (totalSpent > spendableBalance) {
     errors.amount = new NotEnoughBalance();
   }
   return errors;
@@ -250,6 +280,8 @@ async function estimateFeesForIntent(
       address: intent.sender,
       revealed: senderInfo.revealed,
       balance: BigInt(senderInfo.balance),
+      stakedBalance: BigInt(senderInfo.stakedBalance ?? 0),
+      unstakedBalance: BigInt(senderInfo.unstakedBalance ?? 0),
       xpub: intent.senderPublicKey ?? senderInfo.publicKey,
     },
     transaction: {
@@ -305,6 +337,8 @@ async function fetchTokenBalanceForSendMax(intent: TransactionIntent): Promise<b
   return row ? BigInt(row.balance) : 0n;
 }
 
+// Coverage is checked against live TzKT state (senderInfo) below, not the framework-provided
+// balances: the synced spendableBalance can lag between consecutive operations.
 export async function validateIntent(intent: TransactionIntent): Promise<TransactionValidation> {
   const errors: Record<string, Error> = {};
   const warnings: Record<string, Error> = {};
@@ -335,7 +369,8 @@ export async function validateIntent(intent: TransactionIntent): Promise<Transac
     Object.assign(errors, constraintErrors);
 
     if (Object.keys(errors).length > 0) {
-      return { errors, warnings, estimatedFees: 0n, amount: 0n, totalSpent: 0n };
+      // Echo intent.amount (not 0n): the desktop AmountField hides the error when amount is 0.
+      return { errors, warnings, estimatedFees: 0n, amount: intent.amount, totalSpent: 0n };
     }
 
     const feeResult = await estimateFeesForIntent(intent, senderInfo);
@@ -355,7 +390,16 @@ export async function validateIntent(intent: TransactionIntent): Promise<Transac
     amount = amounts.amount;
     totalSpent = amounts.totalSpent;
 
-    const balanceErrors = validateBalanceCoverage(senderInfo, totalSpent);
+    if (intent.type === "stake" && intent.useAllAmount && amount === 0n && !errors.amount) {
+      errors.amount = new NotEnoughBalance();
+    }
+
+    const { spendable } = partitionNativeBalance(
+      BigInt(senderInfo.balance),
+      BigInt(senderInfo.stakedBalance ?? 0),
+      BigInt(senderInfo.unstakedBalance ?? 0),
+    );
+    const balanceErrors = validateBalanceCoverage(spendable, totalSpent);
     Object.assign(errors, balanceErrors);
   } catch (e) {
     errors.estimation = e as Error;

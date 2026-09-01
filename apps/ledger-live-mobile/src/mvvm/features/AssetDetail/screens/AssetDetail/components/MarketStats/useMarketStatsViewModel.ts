@@ -3,6 +3,7 @@ import type { AssetDetailCurrencyProps } from "LLM/features/AssetDetail/types";
 import { useTranslation, useLocale } from "~/context/Locale";
 import { track } from "~/analytics";
 import { counterValueFormatter } from "LLM/features/Market/utils";
+import { resolveMaxSupplyDisplay } from "@ledgerhq/asset-detail";
 import { useAssetMarketData } from "../../hooks/useAssetMarketData";
 
 type StatRow = {
@@ -12,16 +13,32 @@ type StatRow = {
   tooltip?: { title: string; content: string };
 };
 
-export function useMarketStatsViewModel(currency: AssetDetailCurrencyProps) {
+type Params = {
+  currency: AssetDetailCurrencyProps;
+  marketApiId?: string;
+  knownLedgerIds?: readonly string[];
+  knownMarketId?: string;
+};
+
+export function useMarketStatsViewModel({
+  currency,
+  marketApiId,
+  knownLedgerIds,
+  knownMarketId,
+}: Params) {
   const { t } = useTranslation();
   const { locale } = useLocale();
-  const { marketCurrency, counterCurrency, isLoading, isError } = useAssetMarketData(currency);
+  const { marketCurrency, counterCurrency, isLoading, isError } = useAssetMarketData({
+    marketApiId,
+    knownLedgerIds,
+    knownMarketId,
+  });
 
   const stats: StatRow[] = useMemo(() => {
     if (!marketCurrency) return [];
 
-    const { marketcap, marketcapRank, circulatingSupply, maxSupply, totalVolume, ticker } =
-      marketCurrency;
+    const { marketcap, marketcapRank, circulatingSupply, maxSupply, totalVolume } = marketCurrency;
+    const supplyTicker = marketCurrency.ticker || currency?.ticker || "";
 
     return [
       {
@@ -37,6 +54,10 @@ export function useMarketStatsViewModel(currency: AssetDetailCurrencyProps) {
                 t,
               })
             : "-",
+        tooltip: {
+          title: t("assetDetail.marketStats.marketCap"),
+          content: t("assetDetail.marketStats.marketCapTooltip"),
+        },
       },
       {
         key: "market_rank",
@@ -52,7 +73,7 @@ export function useMarketStatsViewModel(currency: AssetDetailCurrencyProps) {
               shorten: true,
               locale,
               t,
-              ticker,
+              ticker: supplyTicker,
             })
           : "-",
         tooltip: {
@@ -63,15 +84,12 @@ export function useMarketStatsViewModel(currency: AssetDetailCurrencyProps) {
       {
         key: "max_supply",
         label: t("assetDetail.marketStats.maxSupply"),
-        value: maxSupply
-          ? counterValueFormatter({
-              value: maxSupply,
-              shorten: true,
-              locale,
-              t,
-              ticker,
-            })
-          : "-",
+        value: resolveMaxSupplyDisplay({
+          maxSupply,
+          circulatingSupply,
+          formatValue: value =>
+            counterValueFormatter({ value, shorten: true, locale, t, ticker: supplyTicker }),
+        }),
         tooltip: {
           title: t("assetDetail.marketStats.maxSupply"),
           content: t("assetDetail.marketStats.maxSupplyTooltip"),
@@ -89,16 +107,21 @@ export function useMarketStatsViewModel(currency: AssetDetailCurrencyProps) {
               t,
             })
           : "-",
+        tooltip: {
+          title: t("assetDetail.marketStats.tradingVolume"),
+          content: t("assetDetail.marketStats.tradingVolumeTooltip"),
+        },
       },
     ];
-  }, [marketCurrency, counterCurrency, locale, t]);
+  }, [marketCurrency, counterCurrency, locale, t, currency?.ticker]);
 
   const onTooltipOpen = useCallback(
     (statName: string, open: boolean) => {
       if (open) {
-        track("info_bubble_pressed", {
+        track("button_clicked", {
+          button: "market_stat_definition",
           currency: currency?.id,
-          stat_name: statName,
+          type: statName,
           page: "Asset Detail",
         });
       }

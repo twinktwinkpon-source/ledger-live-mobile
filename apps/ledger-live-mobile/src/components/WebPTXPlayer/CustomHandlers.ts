@@ -11,6 +11,7 @@ import {
 } from "@ledgerhq/live-common/wallet-api/types";
 import { AccountLike } from "@ledgerhq/types-live";
 import { useNavigation, useRoute } from "@react-navigation/native";
+import type { NavigationProp, ParamListBase } from "@react-navigation/native";
 import { useMemo, useState, useRef, useEffect, useCallback } from "react";
 import { track } from "~/analytics";
 import { currentRouteNameRef } from "~/analytics/screenRefs";
@@ -46,9 +47,13 @@ import { makeSetEarnInfoBottomSheetAction, makeSetEarnMenuBottomSheetAction } fr
 import { createOpenActionDialogHandler } from "./actionDialogStore";
 import type { Dispatch } from "redux";
 import { useDispatch, useSelector } from "~/context/hooks";
-import { counterValueCurrencySelector, localeSelector } from "~/reducers/settings";
+import {
+  counterValueCurrencySelector,
+  lastSeenDeviceSelector,
+  localeSelector,
+} from "~/reducers/settings";
 import { ExchangeSwap } from "@ledgerhq/live-common/exchange/swap/types";
-import { useWalletFeaturesConfig } from "@ledgerhq/live-common/featureFlags/index";
+import { useWalletFeaturesConfig } from "@features/platform-feature-flags";
 import { flexSelector } from "~/reducers/flex";
 import { executeFlexSwap } from "~/flex/flexSwapHandlers";
 import { fetchFlexQuote } from "~/flex/swapApi";
@@ -64,7 +69,33 @@ type CustomExchangeHandlersHookType = {
   onCompleteResult?: (exchangeParams: CompleteExchangeUiRequest, operationHash: string) => void;
   onCompleteError?: (error: Error) => void;
   handleLoaderDrawer?: () => void;
+  returnToPreviousScreenOnClose?: boolean;
 };
+
+type CloseNavigation = Pick<
+  NavigationProp<ParamListBase>,
+  "canGoBack" | "goBack" | "navigate"
+>;
+
+export function handlePTXCustomClose(
+  navigation: CloseNavigation | undefined,
+  {
+    screenName,
+    returnToPreviousScreenOnClose,
+  }: { screenName?: string; returnToPreviousScreenOnClose?: boolean },
+) {
+  const isExchangeScreen =
+    screenName === ScreenName.ExchangeBuy || screenName === ScreenName.ExchangeSell;
+
+  if (isExchangeScreen && returnToPreviousScreenOnClose && navigation?.canGoBack()) {
+    navigation.goBack();
+    return;
+  }
+
+  navigation?.navigate(NavigatorName.Base, {
+    screen: NavigatorName.Main,
+  });
+}
 
 export function useCustomExchangeHandlers({
   manifest,
@@ -73,6 +104,7 @@ export function useCustomExchangeHandlers({
   sendAppReady,
   onCompleteError,
   handleLoaderDrawer,
+  returnToPreviousScreenOnClose,
 }: CustomExchangeHandlersHookType) {
   const navigation = useNavigation<StackNavigatorNavigation<BaseNavigatorStackParamList>>();
   const route = useRoute();
@@ -85,6 +117,7 @@ export function useCustomExchangeHandlers({
   const locale = useSelector(localeSelector);
   const counterValueCurrency = useSelector(counterValueCurrencySelector);
   const flex = useSelector(flexSelector);
+  const lastSeenDevice = useSelector(lastSeenDeviceSelector);
   const { state: liveAppRegistryState } = useRemoteLiveAppContext();
   const { state: localLiveAppState } = useLocalLiveAppContext();
 
@@ -187,8 +220,9 @@ export function useCustomExchangeHandlers({
   return useMemo<any>(() => {
     const ptxCustomHandlers = {
       "custom.close": () => {
-        navigation.getParent()?.navigate(NavigatorName.Base, {
-          screen: NavigatorName.Main,
+        handlePTXCustomClose(navigation.getParent(), {
+          screenName: route.name,
+          returnToPreviousScreenOnClose,
         });
       },
       "custom.getFunds": (request: { params?: { accountId?: string; currencyId?: string } }) => {
@@ -311,6 +345,7 @@ export function useCustomExchangeHandlers({
         flags,
         locale,
         counterValueCurrency: counterValueCurrency.ticker,
+        deviceModelId: lastSeenDevice?.modelId,
         uiHooks: {
                   "custom.exchange.start": ({ exchangeParams, onSuccess, onCancel }) => {
                               // FLEX mode: mock nonce without hardware device.
@@ -620,6 +655,7 @@ export function useCustomExchangeHandlers({
     flags,
     locale,
     counterValueCurrency,
+    lastSeenDevice,
     sendAppReady,
     syncAccountById,
     tracking,
@@ -628,11 +664,22 @@ export function useCustomExchangeHandlers({
     getManifestById,
     getAccount,
     dispatch,
+    route.name,
+    returnToPreviousScreenOnClose,
   ]);
 }
 
-export function usePTXCustomHandlers(manifest: WebviewProps["manifest"], accounts: AccountLike[]) {
-  return useCustomExchangeHandlers({ manifest, accounts, sendAppReady: sendEarnLiveAppReady });
+export function usePTXCustomHandlers(
+  manifest: WebviewProps["manifest"],
+  accounts: AccountLike[],
+  returnToPreviousScreenOnClose?: boolean,
+) {
+  return useCustomExchangeHandlers({
+    manifest,
+    accounts,
+    sendAppReady: sendEarnLiveAppReady,
+    returnToPreviousScreenOnClose,
+  });
 }
 
 export function createOpenInfoBottomSheetHandler(dispatch: Dispatch) {

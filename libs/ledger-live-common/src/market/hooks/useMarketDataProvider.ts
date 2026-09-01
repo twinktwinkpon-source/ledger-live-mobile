@@ -1,10 +1,15 @@
 import { UseQueryResult, useQueries } from "@tanstack/react-query";
 import { fetchList } from "../api";
-import { useGetCurrencyDataQuery } from "../state-manager/api";
+import {
+  useGetAssetChartDataQuery,
+  useGetCurrencyDataQuery,
+  useGetGlobalMarketDataQuery,
+} from "../state-manager/api";
 import { currencyFormatter } from "../utils/currencyFormatter";
 import { QUERY_KEY } from "../utils/queryKeys";
 import { REFETCH_TIME_ONE_MINUTE, BASIC_REFETCH } from "../utils/timers";
 import {
+  MarketAssetChartDataRequestParams,
   MarketCurrencyRequestParams,
   MarketListRequestParams,
   MarketCurrencyData,
@@ -13,10 +18,31 @@ import {
   MarketListRequestResult,
   Order,
 } from "../utils/types";
+import { GlobalMarketDataRequestParams } from "../state-manager/types";
 
 export const useCurrencyData = ({ id, counterCurrency }: MarketCurrencyRequestParams) =>
   useGetCurrencyDataQuery(
     { id, counterCurrency },
+    {
+      pollingInterval: REFETCH_TIME_ONE_MINUTE * BASIC_REFETCH,
+    },
+  );
+
+export const useAssetChartData = (
+  { id, counterCurrency, range }: MarketAssetChartDataRequestParams,
+  options?: { skip?: boolean },
+) =>
+  useGetAssetChartDataQuery(
+    { id, counterCurrency, range },
+    {
+      pollingInterval: REFETCH_TIME_ONE_MINUTE * BASIC_REFETCH,
+      skip: options?.skip,
+    },
+  );
+
+export const useGlobalMarketData = ({ counterCurrency }: GlobalMarketDataRequestParams) =>
+  useGetGlobalMarketDataQuery(
+    { counterCurrency },
     {
       pollingInterval: REFETCH_TIME_ONE_MINUTE * BASIC_REFETCH,
     },

@@ -1,21 +1,27 @@
 import { FINALITY_MS, HEDERA_TRANSACTION_NAMES } from "../constants";
 import { apiClient } from "../network/api";
+import { analyzeStakingOperation } from "../network/utils";
+import { getMockedCurrency } from "../test/fixtures/currency.fixture";
 import type { StakingAnalysis } from "../types";
 import { getBlock } from "./getBlock";
 import { getBlockInfo } from "./getBlockInfo";
-import { analyzeStakingOperation, getDateRangeFromBlockHeight } from "./utils";
+import { getDateRangeFromBlockHeight } from "./utils";
 
 jest.mock("./getBlockInfo");
 jest.mock("../network/api");
+jest.mock("../network/utils", () => ({
+  ...jest.requireActual("../network/utils"),
+  analyzeStakingOperation: jest.fn(),
+}));
 // mock all functions in utils except extractFeesPayer
 jest.mock("./utils", () => ({
   ...jest.requireActual("./utils"),
-  analyzeStakingOperation: jest.fn(),
   getDateRangeFromBlockHeight: jest.fn(),
   getMemoFromBase64: jest.fn(),
 }));
 
 describe("getBlock", () => {
+  const mockCurrency = getMockedCurrency();
   const mockBlockInfo = {
     height: 100,
     hash: "mock_hash",
@@ -37,7 +43,7 @@ describe("getBlock", () => {
   it("should return empty block when no transactions exist", async () => {
     (apiClient.getTransactionsByTimestampRange as jest.Mock).mockResolvedValue([]);
 
-    const result = await getBlock(100);
+    const result = await getBlock({ configOrCurrencyId: mockCurrency.id, height: 100 });
 
     expect(result).toEqual({
       info: mockBlockInfo,
@@ -48,12 +54,13 @@ describe("getBlock", () => {
   it("should call dependencies with correct parameters", async () => {
     (apiClient.getTransactionsByTimestampRange as jest.Mock).mockResolvedValue([]);
 
-    await getBlock(42);
+    await getBlock({ configOrCurrencyId: mockCurrency.id, height: 42 });
 
     expect(getDateRangeFromBlockHeight).toHaveBeenCalledWith(42);
     expect(getBlockInfo).toHaveBeenCalledWith(42);
     expect(apiClient.getTransactionsByTimestampRange).toHaveBeenCalledTimes(1);
     expect(apiClient.getTransactionsByTimestampRange).toHaveBeenCalledWith({
+      configOrCurrencyId: "hedera",
       startTimestamp: `gte:1704067200.123`,
       endTimestamp: `lt:1704067260.456`,
     });
@@ -73,7 +80,7 @@ describe("getBlock", () => {
 
     (apiClient.getTransactionsByTimestampRange as jest.Mock).mockResolvedValue([mockTx]);
 
-    const result = await getBlock(100);
+    const result = await getBlock({ configOrCurrencyId: mockCurrency.id, height: 100 });
 
     expect(result.transactions[0].feesPayer).toBe("0.0.999");
   });
@@ -95,7 +102,7 @@ describe("getBlock", () => {
 
     (apiClient.getTransactionsByTimestampRange as jest.Mock).mockResolvedValue([mockTx]);
 
-    const result = await getBlock(100);
+    const result = await getBlock({ configOrCurrencyId: mockCurrency.id, height: 100 });
     const payerOperation = result.transactions[0].operations.find(op => op.address === "0.0.23");
 
     expect(result.transactions[0].feesPayer).toBe("0.0.23");
@@ -128,7 +135,7 @@ describe("getBlock", () => {
 
     (apiClient.getTransactionsByTimestampRange as jest.Mock).mockResolvedValue([mockTx]);
 
-    const result = await getBlock(100);
+    const result = await getBlock({ configOrCurrencyId: mockCurrency.id, height: 100 });
     const senderOperation = result.transactions[0].operations.find(op => op.address === "0.0.999");
 
     expect(senderOperation).toMatchObject({
@@ -162,7 +169,7 @@ describe("getBlock", () => {
 
     (apiClient.getTransactionsByTimestampRange as jest.Mock).mockResolvedValue([mockTx]);
 
-    const result = await getBlock(100);
+    const result = await getBlock({ configOrCurrencyId: mockCurrency.id, height: 100 });
 
     expect(result.transactions[0].operations).toEqual([
       {
@@ -200,7 +207,7 @@ describe("getBlock", () => {
 
     (apiClient.getTransactionsByTimestampRange as jest.Mock).mockResolvedValue([mockTx]);
 
-    const result = await getBlock(100);
+    const result = await getBlock({ configOrCurrencyId: mockCurrency.id, height: 100 });
 
     expect(result.transactions[0].failed).toBe(true);
   });
@@ -227,10 +234,14 @@ describe("getBlock", () => {
     (apiClient.getTransactionsByTimestampRange as jest.Mock).mockResolvedValue([mockTx]);
     (analyzeStakingOperation as jest.Mock).mockResolvedValue(mockStakingAnalysis);
 
-    const result = await getBlock(100);
+    const result = await getBlock({ configOrCurrencyId: mockCurrency.id, height: 100 });
 
     expect(analyzeStakingOperation).toHaveBeenCalledTimes(1);
-    expect(analyzeStakingOperation).toHaveBeenCalledWith("0.0.999", mockTx);
+    expect(analyzeStakingOperation).toHaveBeenCalledWith({
+      configOrCurrencyId: mockCurrency.id,
+      address: "0.0.999",
+      mirrorTx: mockTx,
+    });
     expect(result.transactions[0].operations).toHaveLength(1);
     expect(result.transactions[0].operations[0]).toEqual({
       type: "other",
@@ -263,7 +274,7 @@ describe("getBlock", () => {
     (apiClient.getTransactionsByTimestampRange as jest.Mock).mockResolvedValue([mockTx]);
     (analyzeStakingOperation as jest.Mock).mockResolvedValue(mockStakingAnalysis);
 
-    const result = await getBlock(100);
+    const result = await getBlock({ configOrCurrencyId: mockCurrency.id, height: 100 });
 
     expect(result.transactions[0].operations[0]).toEqual({
       type: "other",
@@ -296,7 +307,7 @@ describe("getBlock", () => {
     (apiClient.getTransactionsByTimestampRange as jest.Mock).mockResolvedValue([mockTx]);
     (analyzeStakingOperation as jest.Mock).mockResolvedValue(mockStakingAnalysis);
 
-    const result = await getBlock(100);
+    const result = await getBlock({ configOrCurrencyId: mockCurrency.id, height: 100 });
 
     expect(result.transactions[0].operations).toEqual([
       {
@@ -341,7 +352,7 @@ describe("getBlock", () => {
 
     (apiClient.getTransactionsByTimestampRange as jest.Mock).mockResolvedValue([mockTx]);
 
-    const result = await getBlock(100);
+    const result = await getBlock({ configOrCurrencyId: mockCurrency.id, height: 100 });
 
     expect(result.transactions[0].operations).toEqual([
       {
@@ -396,7 +407,7 @@ describe("getBlock", () => {
     (apiClient.getTransactionsByTimestampRange as jest.Mock).mockResolvedValue([mockTx]);
     (analyzeStakingOperation as jest.Mock).mockResolvedValue(null);
 
-    const result = await getBlock(100);
+    const result = await getBlock({ configOrCurrencyId: mockCurrency.id, height: 100 });
 
     expect(result.transactions[0].operations).toEqual([
       {
@@ -423,7 +434,9 @@ describe("getBlock", () => {
 
     (getDateRangeFromBlockHeight as jest.Mock).mockReturnValue(futureRange);
 
-    await expect(getBlock(999)).rejects.toThrow("Block 999 is not available yet");
+    await expect(getBlock({ configOrCurrencyId: mockCurrency.id, height: 999 })).rejects.toThrow(
+      "Block 999 is not available yet",
+    );
     expect(getBlockInfo).not.toHaveBeenCalled();
     expect(apiClient.getTransactionsByTimestampRange).not.toHaveBeenCalled();
   });
@@ -437,7 +450,9 @@ describe("getBlock", () => {
 
     (getDateRangeFromBlockHeight as jest.Mock).mockReturnValue(overlappingRange);
 
-    await expect(getBlock(998)).rejects.toThrow("Block 998 is not available yet");
+    await expect(getBlock({ configOrCurrencyId: mockCurrency.id, height: 998 })).rejects.toThrow(
+      "Block 998 is not available yet",
+    );
     expect(getBlockInfo).not.toHaveBeenCalled();
     expect(apiClient.getTransactionsByTimestampRange).not.toHaveBeenCalled();
   });
@@ -452,7 +467,7 @@ describe("getBlock", () => {
     (getDateRangeFromBlockHeight as jest.Mock).mockReturnValue(finalizedRange);
     (apiClient.getTransactionsByTimestampRange as jest.Mock).mockResolvedValue([]);
 
-    const result = await getBlock(100);
+    const result = await getBlock({ configOrCurrencyId: mockCurrency.id, height: 100 });
 
     expect(result).toEqual({
       info: mockBlockInfo,

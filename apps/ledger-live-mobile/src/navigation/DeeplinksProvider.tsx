@@ -10,7 +10,7 @@ import {
 } from "@react-navigation/native";
 import Config from "react-native-config";
 import { useRemoteLiveAppContext } from "@ledgerhq/live-common/platform/providers/RemoteLiveAppProvider/index";
-import { useFeature, useWalletFeaturesConfig } from "@ledgerhq/live-common/featureFlags/index";
+import { useFeature, useWalletFeaturesConfig } from "@features/platform-feature-flags";
 import { BUY_SELL_UI_APP_ID } from "@ledgerhq/live-common/wallet-api/constants";
 import Braze from "@braze/react-native-sdk";
 import { LiveAppManifest } from "@ledgerhq/live-common/platform/types";
@@ -26,7 +26,7 @@ import {
   makeSetEarnMenuModalAction,
   makeSetEarnProtocolInfoModalAction,
 } from "~/actions/earn";
-import { blockPasswordLock, tickProductTourDeeplink } from "../actions/appstate";
+import { blockPasswordLock } from "../actions/appstate";
 import { handleModularDrawerDeeplink } from "LLM/features/ModularDrawer";
 import { isValidInstallApp } from "LLM/features/DeeplinkInstallApp";
 import { openDeeplinkInstallAppDrawer } from "~/actions/deeplinkInstallApp";
@@ -50,7 +50,7 @@ import { handleWallet40Deeplink } from "./deeplinks/handleWallet40Deeplink";
 import { handleMarketBannerDeeplink } from "./deeplinks/handleMarketBannerDeeplink";
 import { handleAssetDetailDeeplink } from "./deeplinks/handleAssetDetailDeeplink";
 import { handleGenericAwarenessModalDeeplink } from "./deeplinks/handleGenericAwarenessModalDeeplink";
-import { useProductTourEligibility } from "LLM/features/ProductTour";
+import { handleProductTourDeeplink } from "./deeplinks/handleProductTourDeeplink";
 import { SplashScreenHandle } from "LLM/features/LaunchScreen/SplashScreenHandle";
 import { useDeeplinkDrawerCleanup } from "./deeplinks/useDeeplinkDrawerCleanup";
 
@@ -350,6 +350,8 @@ export const DeeplinksProvider = ({
   const userAcceptedTerms = useGeneralTermsAccepted();
   const buySellUiFlag = useFeature("buySellUi");
   const llmAccountListUI = useFeature("llmAccountListUI");
+  const genericAwarenessModalFlag = useFeature("lwmGenericAwarenessModal");
+
   const {
     shouldDisplayMarketBanner,
     shouldDisplayWallet40MainNav,
@@ -357,7 +359,7 @@ export const DeeplinksProvider = ({
     shouldDisplayAggregatedAssets,
   } = useWalletFeaturesConfig("mobile");
   const web3hubFlag = useFeature("web3hub");
-  const { isProductTourEligible } = useProductTourEligibility();
+  const lwmProductTourFlag = useFeature("lwmProductTour");
 
   const buySellUiManifestId = buySellUiFlag?.params?.manifestId;
 
@@ -855,15 +857,19 @@ export const DeeplinksProvider = ({
             return getStateFromPath(pathWithParams, config);
           }
 
-          if (hostname === "product-tour" && isProductTourEligible) {
-            dispatch(tickProductTourDeeplink());
-            return getStateFromPath("portfolio", config);
+          if (hostname === "product-tour") {
+            const productTourState = handleProductTourDeeplink({
+              isLwmProductTourEnabled: lwmProductTourFlag?.enabled ?? false,
+              hasCompletedOnboarding,
+              dispatch,
+              config,
+            });
+            if (productTourState) return productTourState;
           }
 
           if (hostname === "generic-awareness-modal") {
             return handleGenericAwarenessModalDeeplink({
-              // TODO: replace with feature flag value when the flag is available.
-              isGenericAwarenessModalEnabled: true,
+              isGenericAwarenessModalEnabled: genericAwarenessModalFlag?.enabled ?? false,
               hasCompletedOnboarding,
               searchParams,
               dispatch,
@@ -931,7 +937,8 @@ export const DeeplinksProvider = ({
     liveAppProviderInitialized,
     manifests,
     web3hubFlag?.enabled,
-    isProductTourEligible,
+    genericAwarenessModalFlag?.enabled,
+    lwmProductTourFlag?.enabled,
   ]);
   const [isReady, setIsReady] = React.useState(false);
   const [isNavigationContainerReady, setIsNavigationContainerReady] = React.useState(false);

@@ -2,13 +2,14 @@ import { useCallback, useMemo } from "react";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import { CryptoOrTokenCurrency } from "@ledgerhq/types-cryptoassets";
 import { useSelector } from "~/context/hooks";
 import { QrCode, ArrowUp, Bank } from "@ledgerhq/lumen-ui-rnative/symbols";
 import { NavigatorName, ScreenName } from "~/const";
 import { BaseNavigatorStackParamList } from "~/components/RootNavigator/types/BaseNavigator";
 import { languageSelector, readOnlyModeEnabledSelector } from "~/reducers/settings";
 import { accountsCountSelector, useAreAccountsEmpty } from "~/reducers/accounts";
-import useFeature from "@ledgerhq/live-common/featureFlags/useFeature";
+import { useFeature } from "@features/platform-feature-flags";
 import { resolveRemoteCopy } from "@ledgerhq/live-common/featureFlags/remoteABTesting/resolveRemoteCopy";
 import { track } from "~/analytics";
 import { useTransferDrawerController } from "../../hooks/useTransferDrawerController";
@@ -30,7 +31,15 @@ interface TransferDrawerViewModel {
   bottomInset: number;
 }
 
-export const useTransferDrawerViewModel = (): TransferDrawerViewModel => {
+interface UseTransferDrawerViewModelParams {
+  currency?: CryptoOrTokenCurrency;
+  ledgerIds?: string[];
+}
+
+export const useTransferDrawerViewModel = ({
+  currency,
+  ledgerIds,
+}: UseTransferDrawerViewModelParams = {}): TransferDrawerViewModel => {
   const { t } = useTranslation();
   const { bottom: bottomInset } = useSafeAreaInsets();
   const navigation = useNavigation<NativeStackNavigationProp<BaseNavigatorStackParamList>>();
@@ -42,11 +51,13 @@ export const useTransferDrawerViewModel = (): TransferDrawerViewModel => {
   const hasFunds = !useAreAccountsEmpty() && hasAnyAccounts;
 
   const { handleOpenReceiveDrawer } = useOpenReceiveDrawer({
+    currency,
     sourceScreenName,
     fromMenu: true,
+    currencyIds: ledgerIds,
   });
 
-  const { showNoahMenu: showNoahOption } = useReceiveNoahEntry();
+  const { showNoahMenu: showNoahOption } = useReceiveNoahEntry({ currency });
 
   const transferCopyFlag = useFeature("llmTransferButtonCopyVariant");
   const language = useSelector(languageSelector);
@@ -80,10 +91,21 @@ export const useTransferDrawerViewModel = (): TransferDrawerViewModel => {
       page: sourceScreenName,
     });
     closeDrawer();
-    navigation.navigate(NavigatorName.SendFunds, {
-      screen: ScreenName.SendCoin,
-    });
-  }, [closeDrawer, navigation, sourceScreenName]);
+    // When opened from an asset, filter the account list to that asset.
+    // `currencyIds` covers every network of a multi-network asset (e.g. USDT on
+    // Ethereum + Tron), which a single `selectedCurrency` cannot. Without a
+    // currency (generic transfer entry) we keep the unfiltered list.
+    if (currency) {
+      navigation.navigate(NavigatorName.SendFunds, {
+        screen: ScreenName.SendCoin,
+        params: { selectedCurrency: currency, currencyIds: ledgerIds },
+      });
+    } else {
+      navigation.navigate(NavigatorName.SendFunds, {
+        screen: ScreenName.SendCoin,
+      });
+    }
+  }, [closeDrawer, navigation, sourceScreenName, currency, ledgerIds]);
 
   const handleBankTransferPress = useCallback(() => {
     track("button_clicked", {

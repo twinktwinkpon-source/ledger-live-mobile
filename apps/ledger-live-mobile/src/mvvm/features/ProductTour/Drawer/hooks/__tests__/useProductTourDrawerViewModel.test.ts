@@ -3,13 +3,19 @@ import { State } from "~/reducers/types";
 import { NavigatorName } from "~/const/navigation";
 import { track } from "~/analytics";
 import { useProductTourDrawerViewModel } from "../useProductTourDrawerViewModel";
-import { PAGE_TRACKING_PRODUCT_TOUR } from "../../const";
+import { PAGE_TRACKING_PRODUCT_TOUR, PRODUCT_TOUR_LAST_SLIDE_INDEX } from "../../const";
 import { productTourCompletedSelector } from "~/reducers/settings";
 import { setProductTourCompleted } from "~/actions/settings";
-import * as featureFlagsModule from "@ledgerhq/live-common/featureFlags/index";
+import { useWalletFeaturesConfig } from "@features/platform-feature-flags";
+import { setOverride } from "@shared/feature-flags";
 import type { WalletFeaturesConfig } from "@ledgerhq/live-common/featureFlags/walletFeaturesConfig/types";
 
 const mockNavigate = jest.fn();
+
+jest.mock("@features/platform-feature-flags", () => ({
+  ...jest.requireActual("@features/platform-feature-flags"),
+  useWalletFeaturesConfig: jest.fn(),
+}));
 
 jest.mock("@react-navigation/native", () => ({
   ...jest.requireActual("@react-navigation/native"),
@@ -29,7 +35,9 @@ const withProductTourCompleted = (state: State): State => ({
   settings: { ...state.settings, productTourCompleted: true },
 });
 
-const mockUseWalletFeaturesConfig = jest.spyOn(featureFlagsModule, "useWalletFeaturesConfig");
+const mockUseWalletFeaturesConfig = useWalletFeaturesConfig as jest.MockedFunction<
+  typeof useWalletFeaturesConfig
+>;
 
 describe("useProductTourDrawerViewModel", () => {
   beforeEach(() => {
@@ -40,12 +48,12 @@ describe("useProductTourDrawerViewModel", () => {
   });
 
   describe("initial drawer state", () => {
-    it("should open drawer when feature is enabled and tour is not completed", () => {
+    it("should keep drawer closed on mount even when feature is enabled and tour is not completed", () => {
       const { result } = renderHook(() => useProductTourDrawerViewModel(), {
         overrideInitialState: withFeatureEnabled,
       });
 
-      expect(result.current.isDrawerOpen).toBe(true);
+      expect(result.current.isDrawerOpen).toBe(false);
     });
 
     it("should keep drawer closed when feature flag is disabled", () => {
@@ -101,6 +109,7 @@ describe("useProductTourDrawerViewModel", () => {
         overrideInitialState: withFeatureEnabled,
       });
 
+      act(() => result.current.openProductTour());
       act(() => result.current.closeProductTour());
 
       expect(result.current.isDrawerOpen).toBe(false);
@@ -115,6 +124,7 @@ describe("useProductTourDrawerViewModel", () => {
         overrideInitialState: withFeatureEnabled,
       });
 
+      act(() => result.current.openProductTour());
       act(() => result.current.onCloseButtonPress());
       act(() => result.current.closeProductTour());
 
@@ -129,6 +139,7 @@ describe("useProductTourDrawerViewModel", () => {
         overrideInitialState: withFeatureEnabled,
       });
 
+      act(() => result.current.openProductTour());
       act(() => result.current.onCloseButtonPress());
       act(() => result.current.closeProductTour());
       act(() => result.current.closeProductTour());
@@ -144,6 +155,7 @@ describe("useProductTourDrawerViewModel", () => {
         overrideInitialState: withFeatureEnabled,
       });
 
+      act(() => result.current.openProductTour());
       act(() => result.current.onPrimaryAction("stake"));
       act(() => result.current.closeProductTour());
 
@@ -158,6 +170,7 @@ describe("useProductTourDrawerViewModel", () => {
         overrideInitialState: withFeatureEnabled,
       });
 
+      act(() => result.current.openProductTour());
       act(() => result.current.completeProductTour());
       act(() => result.current.closeProductTour());
 
@@ -167,20 +180,18 @@ describe("useProductTourDrawerViewModel", () => {
       );
     });
 
-    it("should not track modal_dismissed when invoked after the auto-close effect fires", () => {
+    it("should keep drawer open when productTourCompleted is set without an explicit dismiss", () => {
       const { result, store } = renderHook(() => useProductTourDrawerViewModel(), {
         overrideInitialState: withFeatureEnabled,
       });
 
+      act(() => result.current.openProductTour());
       act(() => {
         store.dispatch(setProductTourCompleted(true));
       });
-      act(() => result.current.closeProductTour());
 
-      expect(track).not.toHaveBeenCalledWith(
-        "modal_dismissed",
-        expect.objectContaining({ page: PAGE_TRACKING_PRODUCT_TOUR }),
-      );
+      expect(result.current.isDrawerOpen).toBe(true);
+      expect(productTourCompletedSelector(store.getState())).toBe(true);
     });
   });
 
@@ -190,6 +201,7 @@ describe("useProductTourDrawerViewModel", () => {
         overrideInitialState: withFeatureEnabled,
       });
 
+      act(() => result.current.openProductTour());
       act(() => result.current.onSlideChange(2));
       act(() => result.current.onCloseButtonPress());
 
@@ -215,25 +227,47 @@ describe("useProductTourDrawerViewModel", () => {
         card: 4,
       });
     });
+
+    it("should mark tour completed but keep drawer open when reaching the last slide", () => {
+      const { result, store } = renderHook(() => useProductTourDrawerViewModel(), {
+        overrideInitialState: withFeatureEnabled,
+      });
+
+      act(() => result.current.openProductTour());
+      expect(result.current.isDrawerOpen).toBe(true);
+      expect(productTourCompletedSelector(store.getState())).toBe(false);
+
+      act(() => result.current.onSlideChange(PRODUCT_TOUR_LAST_SLIDE_INDEX));
+
+      expect(productTourCompletedSelector(store.getState())).toBe(true);
+      expect(result.current.isDrawerOpen).toBe(true);
+    });
   });
 
   describe("onPrimaryAction", () => {
-    it.each([
-      ["stake", NavigatorName.Earn],
-      ["card", NavigatorName.Card],
-    ] as const)(
-      'should navigate to the correct navigator and close drawer for "%s" action',
-      (action, navigator) => {
-        const { result } = renderHook(() => useProductTourDrawerViewModel(), {
-          overrideInitialState: withFeatureEnabled,
-        });
+    it('should navigate to Earn via Main navigator and close drawer for "stake" action', () => {
+      const { result } = renderHook(() => useProductTourDrawerViewModel(), {
+        overrideInitialState: withFeatureEnabled,
+      });
 
-        act(() => result.current.onPrimaryAction(action));
+      act(() => result.current.onPrimaryAction("stake"));
 
-        expect(result.current.isDrawerOpen).toBe(false);
-        expect(mockNavigate).toHaveBeenCalledWith(navigator);
-      },
-    );
+      expect(result.current.isDrawerOpen).toBe(false);
+      expect(mockNavigate).toHaveBeenCalledWith(NavigatorName.Main, {
+        screen: NavigatorName.Earn,
+      });
+    });
+
+    it('should navigate to the correct navigator and close drawer for "card" action', () => {
+      const { result } = renderHook(() => useProductTourDrawerViewModel(), {
+        overrideInitialState: withFeatureEnabled,
+      });
+
+      act(() => result.current.onPrimaryAction("card"));
+
+      expect(result.current.isDrawerOpen).toBe(false);
+      expect(mockNavigate).toHaveBeenCalledWith(NavigatorName.Card);
+    });
 
     it('should navigate to Swap via Main navigator when Wallet40 main nav is enabled for "swap" action', () => {
       mockUseWalletFeaturesConfig.mockReturnValue({
@@ -281,12 +315,31 @@ describe("useProductTourDrawerViewModel", () => {
 
   });
 
+  describe("feature flag changes while drawer is open", () => {
+    it("should close the drawer when the product tour feature is disabled", () => {
+      const { result, store, rerender } = renderHook(() => useProductTourDrawerViewModel(), {
+        overrideInitialState: withFeatureEnabled,
+      });
+
+      act(() => result.current.openProductTour());
+      expect(result.current.isDrawerOpen).toBe(true);
+
+      act(() => {
+        store.dispatch(setOverride({ key: "lwmProductTour", value: { enabled: false } }));
+      });
+      rerender({});
+
+      expect(result.current.isDrawerOpen).toBe(false);
+    });
+  });
+
   describe("completeProductTour", () => {
     it("should dispatch setProductTourCompleted(true) and close drawer", () => {
       const { result, store } = renderHook(() => useProductTourDrawerViewModel(), {
         overrideInitialState: withFeatureEnabled,
       });
 
+      act(() => result.current.openProductTour());
       act(() => result.current.completeProductTour());
 
       expect(result.current.isDrawerOpen).toBe(false);
@@ -295,19 +348,20 @@ describe("useProductTourDrawerViewModel", () => {
     });
   });
 
-  describe("useEffect auto-close", () => {
-    it("should close the drawer when productTourCompleted becomes true externally", () => {
+  describe("productTourCompleted while drawer is open", () => {
+    it("should keep the drawer open when productTourCompleted becomes true externally", () => {
       const { result, store } = renderHook(() => useProductTourDrawerViewModel(), {
         overrideInitialState: withFeatureEnabled,
       });
 
+      act(() => result.current.openProductTour());
       expect(result.current.isDrawerOpen).toBe(true);
 
       act(() => {
         store.dispatch(setProductTourCompleted(true));
       });
 
-      expect(result.current.isDrawerOpen).toBe(false);
+      expect(result.current.isDrawerOpen).toBe(true);
     });
   });
 

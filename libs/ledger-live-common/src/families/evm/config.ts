@@ -440,7 +440,7 @@ const evmConfig: CurrencyLiveConfigDefinition = {
       },
       node: {
         type: "external",
-        uri: "https://flare.coin.ledger.com",
+        uri: "https://flare.coin.ledger.com/ext/bc/C/rpc",
       },
       explorer: {
         type: "blockscout",
@@ -1237,6 +1237,51 @@ const evmConfig: CurrencyLiveConfigDefinition = {
       node: { type: "external", uri: "https://unichain-sepolia-rpc.publicnode.com" },
       explorer: { type: "blockscout", uri: "https://unichain-sepolia.blockscout.com/api" },
       showNfts: false,
+    },
+  },
+  config_currency_arc: {
+    type: "object",
+    default: {
+      status: {
+        type: "active",
+        features: [{ id: "blockchain_txs", status: "active" }],
+      },
+      node: {
+        type: "external",
+        uri: "https://arc.coin.ledger.com",
+      },
+      explorer: {
+        type: "none",
+        // When available:
+        // type: "blockscout",
+        // uri: "https://proxyblockscout.api.live.ledger.com/5042/api"
+      },
+      showNfts: false,
+      nativeContracts: ["0x0000000000000000000000000000000000000000"],
+      // Arc has 0.5s blocks; widen the eth_feeHistory window so a meaningful
+      // number of transactions are sampled for priority-fee estimation.
+      feeHistoryBlockCount: 1024,
+      feeHistoryRewardPercentile: 60,
+    },
+  },
+  config_currency_arc_testnet: {
+    type: "object",
+    default: {
+      status: {
+        type: "active",
+        features: [{ id: "blockchain_txs", status: "active" }],
+      },
+      node: { type: "external", uri: "https://rpc.testnet.arc.network" },
+      explorer: {
+        type: "blockscout",
+        uri: "https://proxyblockscout.api.live.ledger.com/5042002/api",
+      },
+      showNfts: false,
+      nativeContracts: ["0x3600000000000000000000000000000000000000"],
+      // Arc testnet has 0.5s blocks; widen the eth_feeHistory window so a
+      // meaningful number of transactions are sampled for priority-fee estimation.
+      feeHistoryBlockCount: 1024,
+      feeHistoryRewardPercentile: 60,
     },
   },
 };

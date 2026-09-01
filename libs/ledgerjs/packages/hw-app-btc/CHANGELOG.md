@@ -1,17 +1,5 @@
 # @ledgerhq/hw-app-btc
 
-## 11.0.1
-
-### Patch Changes
-
-- [#18183](https://github.com/LedgerHQ/ledger-live/pull/18183) [`6e54780`](https://github.com/LedgerHQ/ledger-live/commit/6e547801ec07c005861eaa68d181b83ce9d42a40) Thanks [@cted-ledger](https://github.com/cted-ledger)! - Fix Zcash consensus branch ID by adding NU6.2 activation height
-
-## 11.0.1-hotfix.0
-
-### Patch Changes
-
-- [#18183](https://github.com/LedgerHQ/ledger-live/pull/18183) [`6e54780`](https://github.com/LedgerHQ/ledger-live/commit/6e547801ec07c005861eaa68d181b83ce9d42a40) Thanks [@cted-ledger](https://github.com/cted-ledger)! - Fix Zcash consensus branch ID by adding NU6.2 activation height
-
 ## 11.0.0
 
 ### Major Changes

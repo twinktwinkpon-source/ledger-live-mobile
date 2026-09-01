@@ -36,7 +36,7 @@ import trackingWrapper from "@ledgerhq/live-common/platform/tracking";
 import { INTERNAL_APP_IDS } from "@ledgerhq/live-common/wallet-api/constants";
 import { useInternalAppIds } from "@ledgerhq/live-common/hooks/useInternalAppIds";
 import { safeGetRefValue } from "@ledgerhq/live-common/wallet-api/react";
-import { useFeature } from "@ledgerhq/live-common/featureFlags/index";
+import { useFeature } from "@features/platform-feature-flags";
 import { useCurrenciesUnderFeatureFlag } from "@ledgerhq/live-common/modularDrawer/hooks/useCurrenciesUnderFeatureFlag";
 import { NavigatorName, ScreenName } from "~/const";
 import { broadcastSignedTx } from "~/logic/screenTransactionHooks";
@@ -222,8 +222,14 @@ export const PlatformAPIWebview = forwardRef<WebviewAPI, WebviewProps>(
           { manifest, accounts, tracking },
           accountId,
           transaction,
-          (account, parentAccount, { liveTx }) => {
-            const tx = prepareSignTransaction(account, parentAccount, liveTx);
+          async (account, parentAccount, { liveTx }) => {
+            let tx: Transaction;
+            try {
+              tx = await prepareSignTransaction(account, parentAccount, liveTx);
+            } catch (error) {
+              tracking.platformSignTransactionFail(manifest);
+              throw error;
+            }
 
             return new Promise((resolve, reject) => {
               let done = false;

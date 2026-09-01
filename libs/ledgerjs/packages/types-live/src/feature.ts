@@ -165,6 +165,8 @@ export type CurrencyFeatures = {
   currencyAleoTestnet: DefaultFeature;
   currencyUnichain: DefaultFeature;
   currencyUnichainSepolia: DefaultFeature;
+  currencyArc: DefaultFeature;
+  currencyArcTestnet: DefaultFeature;
 };
 
 /**
@@ -309,6 +311,7 @@ export type Features = CurrencyFeatures & {
   supportDeviceApex: DefaultFeature;
   llmSyncOnboardingIncr1: DefaultFeature;
   lldSyncOnboardingIncr1: DefaultFeature;
+  onboardingWidget: DefaultFeature;
   noah: Feature_Noah;
   newSendFlow: Feature_NewSendFlow;
   zcashShielded: DefaultFeature;
@@ -319,8 +322,10 @@ export type Features = CurrencyFeatures & {
   llmOnboardingEnableSync: Feature_OnboardingEnableSync;
   lldOnboardingEnableSync: Feature_OnboardingEnableSync;
   lwdGenericAwarenessModal: DefaultFeature;
+  lwdOnboardingCounterfeitWarning: DefaultFeature;
   lwmAnalyticsConsentOnboarding: DefaultFeature;
   lwmGenericAwarenessModal: DefaultFeature;
+  lwmOnboardingCounterfeitWarning: DefaultFeature;
   lwmNotificationsOptIn: DefaultFeature;
   lwmProductTour: DefaultFeature;
   lwmWallet40: Feature_LwmWallet40;
@@ -384,6 +389,22 @@ export type Feature_TransactionsAlerts = Feature<{
   chainwatchBaseUrl: string;
   networks: ChainwatchNetwork[];
 }>;
+
+export type NotificationsPromptAfterActionSource =
+  | "onboarding"
+  | "send"
+  | "dapp_complete"
+  | "receive"
+  | "swap"
+  | "stake"
+  | "add_favorite_coin";
+
+export type NotificationsCategoryConfig = {
+  displayed: boolean;
+  category: string;
+  drawerPromptEnabled?: boolean;
+  drawerPromptActions?: NotificationsPromptAfterActionSource[];
+};
 
 export type Feature_SwapWalletApiPartnerList = Feature<{
   list: string[];
@@ -474,10 +495,7 @@ export type Feature_BrazePushNotifications = Feature<{
     minutes: number;
     seconds: number;
   };
-  notificationsCategories: {
-    displayed: boolean;
-    category: string;
-  }[];
+  notificationsCategories: NotificationsCategoryConfig[];
 }>;
 
 export type Feature_ReceiveStakingFlowConfigDesktop = Feature<{
@@ -499,29 +517,18 @@ export type Feature_NewsfeedPage = Feature<{
   whitelistedLocales: string[];
 }>;
 
-export type CompatibleDevice = {
-  available: boolean;
-  comingSoon: boolean;
-  name: string;
-};
-
 export type Feature_ProtectServicesMobile = Feature<{
   deeplink: string;
-  ledgerliveStorageState: boolean;
   bannerSubscriptionNotification: boolean;
-  compatibleDevices: CompatibleDevice[];
   onboardingRestore: {
     restoreInfoDrawer: {
       enabled: boolean;
-      manualStepsURI: string;
       supportLinkURI: string;
     };
     postOnboardingURI: string;
   };
   managerStatesData: {
     NEW: {
-      learnMoreURI: string;
-      alreadySubscribedURI: string;
       quickAccessURI: string;
       alreadyOnboardedURI: string;
     };
@@ -535,24 +542,12 @@ export type Feature_ProtectServicesMobile = Feature<{
 export type Feature_ProtectServicesDesktop = Feature<{
   openWithDevTools: boolean;
   availableOnDesktop: boolean;
-  isNew: boolean;
   openRecoverFromSidebar: boolean;
   discoverTheBenefitsLink: string;
-  ledgerliveStorageState: boolean;
   bannerSubscriptionNotification: boolean;
-  compatibleDevices: CompatibleDevice[];
-  onboardingRestore: {
-    restoreInfoDrawer: {
-      enabled: boolean;
-      manualStepsURI: string;
-      supportLinkURI: string;
-    };
-    postOnboardingURI: string;
-  };
   onboardingCompleted: {
     upsellURI: string;
     restore24URI: string;
-    alreadySubscribedURI: string;
     alreadyDeviceSeededURI: string;
   };
   account: {
@@ -881,6 +876,7 @@ type Feature_Wallet40_Params = {
   aggregatedAssets: boolean;
   myWallet: boolean;
   pnl: boolean;
+  assetDiscoverability: boolean;
   // Specifics
   brazePlacement?: boolean;
   newReceiveDialog?: boolean;
@@ -888,13 +884,14 @@ type Feature_Wallet40_Params = {
   onboardingWidget?: boolean;
   earnUpselling?: boolean;
   earnSimulator?: boolean;
+  earnUpselling?: boolean;
+  earnSimulator?: boolean;
 };
 
-export type Feature_LwmWallet40 = Feature<Feature_Wallet40_Params & { onboardingWidget: boolean }>;
+export type Feature_LwmWallet40 = Feature<Feature_Wallet40_Params>;
 export type Feature_LwdWallet40 = Feature<
   {
     newReceiveDialog: boolean;
-    finishOnboardingWidget?: boolean;
   } & Feature_Wallet40_Params
 >;
 export type Feature_LwmNewWordingOptInNotificationsDrawer = Feature<{

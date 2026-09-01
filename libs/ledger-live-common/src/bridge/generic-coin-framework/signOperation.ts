@@ -10,7 +10,7 @@ import {
   transactionToIntent,
 } from "./utils";
 import { FeeNotLoaded } from "@ledgerhq/errors";
-import { Result } from "@ledgerhq/ledger-wallet-framework/derivation";
+import { type GetAddressResult } from "@ledgerhq/ledger-wallet-framework/derivation";
 import { log } from "@ledgerhq/logs";
 import BigNumber from "bignumber.js";
 import { GenericTransaction } from "./types";
@@ -33,7 +33,7 @@ export const genericSignOperation =
     new Observable(o => {
       async function main() {
         const coinModuleApi = await getCoinModuleApi(account.currency.id, kind);
-        const bridgeApi = getBridgeApi(account.currency, network);
+        const bridgeApi = await getBridgeApi(account.currency, network);
         if (!transaction.fees) throw new FeeNotLoaded();
         const customFees = bigNumberToBigIntDeep({
           value: transaction.fees ?? new BigNumber(0),
@@ -61,6 +61,10 @@ export const genericSignOperation =
             feesStrategy: transaction.feesStrategy,
             data: transaction.data,
             type: transaction.type,
+            sponsored: transaction.sponsored,
+            valAddress: transaction?.valAddress || "",
+            valId: transaction?.valId,
+            dstValAddress: transaction?.dstValAddress || "",
           };
           // TODO Remove the call to `validateIntent` https://ledgerhq.atlassian.net/browse/LIVE-22227
           const { amount } = await coinModuleApi.validateIntent(
@@ -79,7 +83,7 @@ export const genericSignOperation =
           const derivationPath = account.freshAddressPath;
           const { publicKey } = (await signer.getAddress(derivationPath, {
             derivationMode: account.derivationMode,
-          })) as Result;
+          })) as GetAddressResult;
 
           const transactionIntent = transactionToIntent(
             account,

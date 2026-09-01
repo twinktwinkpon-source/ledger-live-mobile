@@ -125,7 +125,6 @@
     "@types/node": "catalog:",
     "dotenv": "^16.4.5",
     "jest": "catalog:",
-    "msw": "catalog:",
     "oxfmt": "catalog:",
     "oxlint": "catalog:",
     "typescript": "catalog:"

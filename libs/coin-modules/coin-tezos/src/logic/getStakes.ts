@@ -1,82 +1,123 @@
 import type { Cursor, Page, Stake } from "@ledgerhq/coin-module-framework/api/types";
+import { log } from "@ledgerhq/logs";
 import api from "../network/tzkt";
-import type { APIAccount } from "../network/types";
+import type { APIAccount, APIUnstakeRequest } from "../network/types";
+import { partitionNativeBalance } from "../utils";
+import { STAKING_UID_PREFIX } from "./positionUid";
+
+export {
+  isDelegationPosition,
+  isFinalizablePosition,
+  isStakePosition,
+  isUnstakingPosition,
+} from "./positionUid";
 
 type APIUserAccount = Extract<APIAccount, { type: "user" }>;
 
-/**
- * Build the staking positions exposed by a Tezos account, per Paris upgrade semantics:
- * - delegation position (when a delegate is set) for the non-staked, delegated amount
- * - active staking position (when `stakedBalance > 0`)
- * - deactivating unstake position (still in the unlock-cycle delay)
- * - finalizable unstake position (delay elapsed; ready for `finalize_unstake`)
- *
- * `account.unstakedBalance` (per TzKT) is the SUPERSET of pending + finalizable unstakes.
- * `finalizable` is queried separately (see `api.getUnstakeRequestsFinalizable`); the
- * `unstaking-*` position carries the still-locked remainder. Clamping guards against the
- * non-transactional gap between the two TzKT calls (a `finalize_unstake` landing in
- * between could otherwise drive `unstakedBalance - finalizable` negative).
- *
- * Each entry inherits the account `delegate` when set, since on Tezos a staked or unstaked
- * portion is necessarily delegated to the same baker as the rest of the balance.
- */
+export function fetchUnstakeRequests(
+  address: string,
+  account: APIAccount,
+): Promise<APIUnstakeRequest[]> {
+  if (account.type !== "user") return Promise.resolve([]);
+  return (account.unstakedBalance ?? 0) > 0 ? api.getUnstakeRequests(address) : Promise.resolve([]);
+}
+
+function unstakeRequestToStake(address: string, req: APIUnstakeRequest): Stake | null {
+  // TzKT's status filter is unreliable; never build a position for a finalized request.
+  if (req.status !== "pending" && req.status !== "finalizable") {
+    log("coin:tezos", "unstakeRequestToStake: dropping non-active unstake request", {
+      requestId: req.id,
+      status: req.status,
+    });
+    return null;
+  }
+  if (req.actualAmount <= 0) {
+    log("coin:tezos", "unstakeRequestToStake: dropping non-positive unstake request", {
+      requestId: req.id,
+      actualAmount: req.actualAmount,
+    });
+    return null;
+  }
+  const createdAt = new Date(req.firstTime);
+  if (!Number.isFinite(createdAt.getTime())) {
+    log("coin:tezos", "unstakeRequestToStake: dropping unstake request with invalid firstTime", {
+      requestId: req.id,
+      firstTime: req.firstTime,
+    });
+    return null;
+  }
+  const isFinalizable = req.status === "finalizable";
+  const prefix = isFinalizable ? STAKING_UID_PREFIX.finalizable : STAKING_UID_PREFIX.unstaking;
+  return {
+    uid: `${prefix}${req.id}`,
+    address,
+    ...(req.baker?.address && { delegate: req.baker.address }),
+    state: isFinalizable ? "inactive" : "deactivating",
+    createdAt,
+    asset: { type: "native" },
+    amount: BigInt(req.actualAmount),
+    actions: [],
+  };
+}
+
 export function buildStakesForAccount(
   address: string,
   account: APIUserAccount,
-  finalizable: bigint,
+  unstakeRequests: APIUnstakeRequest[],
 ): Stake[] {
   const balance = BigInt(account.balance ?? 0);
   const stakedBalance = BigInt(account.stakedBalance ?? 0);
-  const unstakedTotal = BigInt(account.unstakedBalance ?? 0);
-  const finalizableAmount = finalizable < unstakedTotal ? finalizable : unstakedTotal;
-  const stillDeactivating = unstakedTotal - finalizableAmount;
+  // Account-level unstaked total (the source validateIntent's gate uses), not the summed per-request
+  // positions below — so spendable stays gate-consistent even if a request is dropped or its fetch fails.
+  const unstakedBalance = BigInt(account.unstakedBalance ?? 0);
   const delegateAddress = account.delegate?.address;
+
+  const unstakeStakes: Stake[] = [];
+  for (const req of unstakeRequests) {
+    const stake = unstakeRequestToStake(address, req);
+    if (stake) unstakeStakes.push(stake);
+  }
 
   const stakes: Stake[] = [];
 
   if (delegateAddress) {
+    const { spendable: delegated, locked } = partitionNativeBalance(
+      balance,
+      stakedBalance,
+      unstakedBalance,
+    );
+    if (locked < stakedBalance + unstakedBalance) {
+      log("coin:tezos", "buildStakesForAccount: balance < staked + unstaked, clamping to 0", {
+        address,
+        balance: balance.toString(),
+        stakedBalance: stakedBalance.toString(),
+        unstakedBalance: unstakedBalance.toString(),
+      });
+    }
     stakes.push({
-      uid: `delegation-${address}`,
+      uid: `${STAKING_UID_PREFIX.delegation}${address}`,
       address,
       delegate: delegateAddress,
       state: "active",
       asset: { type: "native" },
-      amount: balance - stakedBalance,
+      amount: delegated,
+      actions: [],
     });
   }
 
   if (stakedBalance > 0n) {
     stakes.push({
-      uid: `stake-${address}`,
+      uid: `${STAKING_UID_PREFIX.stake}${address}`,
       address,
       ...(delegateAddress && { delegate: delegateAddress }),
       state: "active",
       asset: { type: "native" },
       amount: stakedBalance,
+      actions: [],
     });
   }
 
-  if (stillDeactivating > 0n) {
-    stakes.push({
-      uid: `unstaking-${address}`,
-      address,
-      ...(delegateAddress && { delegate: delegateAddress }),
-      state: "deactivating",
-      asset: { type: "native" },
-      amount: stillDeactivating,
-    });
-  }
-
-  if (finalizableAmount > 0n) {
-    stakes.push({
-      uid: `finalizable-${address}`,
-      address,
-      ...(delegateAddress && { delegate: delegateAddress }),
-      state: "inactive",
-      asset: { type: "native" },
-      amount: finalizableAmount,
-    });
-  }
+  stakes.push(...unstakeStakes);
 
   return stakes;
 }
@@ -84,7 +125,6 @@ export function buildStakesForAccount(
 export async function getStakes(address: string, _cursor?: Cursor): Promise<Page<Stake>> {
   const accountInfo = await api.getAccountByAddress(address);
   if (accountInfo.type !== "user") return { items: [] };
-  const finalizable =
-    (accountInfo.unstakedBalance ?? 0) > 0 ? await api.getUnstakeRequestsFinalizable(address) : 0n;
-  return { items: buildStakesForAccount(address, accountInfo, finalizable) };
+  const unstakeRequests = await fetchUnstakeRequests(address, accountInfo);
+  return { items: buildStakesForAccount(address, accountInfo, unstakeRequests) };
 }

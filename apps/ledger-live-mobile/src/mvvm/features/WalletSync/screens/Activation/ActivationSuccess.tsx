@@ -7,7 +7,7 @@ import { ScreenName } from "~/const";
 import { AnalyticsButton, AnalyticsFlow, AnalyticsPage } from "../../hooks/useLedgerSyncAnalytics";
 import { track } from "~/analytics";
 import { useClose } from "../../hooks/useClose";
-import useFeature from "@ledgerhq/live-common/featureFlags/useFeature";
+import { useFeature, useWalletFeaturesConfig } from "@features/platform-feature-flags";
 import { useNotifications } from "LLM/features/NotificationsPrompt";
 import { useWalletFeaturesConfig } from "@ledgerhq/live-common/featureFlags/walletFeaturesConfig/useWalletFeaturesConfig";
 import { useSelector } from "~/context/hooks";

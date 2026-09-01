@@ -4,11 +4,13 @@ import type { OperationExtra, OperationExtraRaw } from "./operation";
 
 export type StakingDelegationStatus =
   | "bonded" // in the active set, generates rewards
+  | "activating" // delegated but not yet in the active set, will start generating rewards next epoch
   | "unbonding" // validator removed from active set, voting power frozen for a network-specific unbonding period
   | "unbonded";
 
 export type StakingDelegation = {
   validatorAddress: string;
+  validatorId?: string;
   amount: BigNumber;
   pendingRewards: BigNumber;
   status: StakingDelegationStatus;
@@ -16,6 +18,7 @@ export type StakingDelegation = {
 
 export type StakingDelegationRaw = {
   validatorAddress: string;
+  validatorId?: string;
   amount: string;
   pendingRewards: string;
   status: StakingDelegationStatus;
@@ -80,13 +83,14 @@ export type StakingDelegationInfoRaw = {
 // NB this must be serializable (no Date, no BigNumber)
 export type StakingValidatorItem = {
   validatorAddress: string;
+  validatorId?: string;
   name: string;
   votingPower: number;
   // value from 0.0 to 1.0 (normalized percentage)
   commission: number;
   // value from 0.0 to 1.0 (normalized percentage)
-  estimatedYearlyRewardsRate: number; // value from 0.0 to 1.0 (normalized percentage)
-  tokens: number;
+  estimatedYearlyRewardsRate: number;
+  tokens: string;
 };
 
 export type StakingLikeNetworkInfo = {

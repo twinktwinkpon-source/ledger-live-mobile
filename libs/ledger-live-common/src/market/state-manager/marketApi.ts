@@ -1,14 +1,24 @@
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 import { getEnv } from "@ledgerhq/live-env";
+import { log } from "@ledgerhq/logs";
 import {
+  MarketAssetChartDataRequestParams,
+  MarketCoinDataChart,
   MarketCurrencyData,
   MarketCurrencyRequestParams,
   MarketItemPerformer,
   MarketItemResponse,
 } from "../utils/types";
-import { getRange } from "../utils";
+import { getChartRangeSegment, getRange } from "../utils";
 import { REFETCH_TIME_ONE_MINUTE, BASIC_REFETCH } from "../utils/timers";
-import { MarketDataTags, MarketPerformersQueryParams } from "./types";
+import {
+  GlobalMarketData,
+  GlobalMarketDataRequestParams,
+  GlobalMarketDataResponseSchema,
+  MarketChartApiResponseSchema,
+  MarketDataTags,
+  MarketPerformersQueryParams,
+} from "./types";
 import { format, formatPerformer } from "../utils/currencyFormatter";
 
 export const marketApi = createApi({
@@ -16,7 +26,12 @@ export const marketApi = createApi({
   baseQuery: fetchBaseQuery({
     baseUrl: getEnv("LEDGER_COUNTERVALUES_API"),
   }),
-  tagTypes: [MarketDataTags.Performers, MarketDataTags.CurrencyData],
+  tagTypes: [
+    MarketDataTags.Performers,
+    MarketDataTags.CurrencyData,
+    MarketDataTags.ChartData,
+    MarketDataTags.GlobalData,
+  ],
   endpoints: build => ({
     getMarketPerformers: build.query<MarketItemPerformer[], MarketPerformersQueryParams>({
       query: ({ counterCurrency, range, limit = 5, top = 50, sort, supported }) => {
@@ -52,7 +67,63 @@ export const marketApi = createApi({
         response?.[0] ? format(response[0]) : undefined,
       keepUnusedDataFor: (REFETCH_TIME_ONE_MINUTE * BASIC_REFETCH) / 1000,
     }),
+    getAssetChartData: build.query<MarketCoinDataChart, MarketAssetChartDataRequestParams>({
+      query: ({ id, counterCurrency, range = "24h" }) => ({
+        url: `/v3/markets/chart/${getChartRangeSegment(range)}/${encodeURIComponent(id ?? "")}`,
+        params: { to: counterCurrency },
+      }),
+      providesTags: [MarketDataTags.ChartData],
+      transformResponse: (response: unknown, _meta, { range = "24h" }): MarketCoinDataChart => {
+        const result = MarketChartApiResponseSchema.safeParse(response);
+
+        if (!result.success) {
+          log("market", "Invalid chart data response schema:", {
+            errors: result.error.issues,
+          });
+          throw new Error(
+            `[Market API] Chart data schema validation failed: ${result.error.issues
+              .map(e => `${e.path.join(".")}: ${e.message}`)
+              .join(", ")}`,
+          );
+        }
+
+        return { [range]: result.data.values };
+      },
+      keepUnusedDataFor: REFETCH_TIME_ONE_MINUTE / 1000,
+    }),
+    getGlobalMarketData: build.query<GlobalMarketData, GlobalMarketDataRequestParams>({
+      query: ({ counterCurrency }) => ({
+        url: "/v3/markets/global",
+        params: { to: counterCurrency },
+      }),
+      providesTags: [MarketDataTags.GlobalData],
+      transformResponse: (response: unknown): GlobalMarketData => {
+        const result = GlobalMarketDataResponseSchema.safeParse(response);
+
+        if (!result.success) {
+          log("market", "Invalid global market data response schema:", {
+            errors: result.error.issues,
+          });
+          throw new Error(
+            `[Market API] Global market data schema validation failed: ${result.error.issues
+              .map(e => `${e.path.join(".")}: ${e.message}`)
+              .join(", ")}`,
+          );
+        }
+
+        return {
+          marketCap: result.data.marketCap,
+          changePercentage24h: result.data.percentageChanges["1d"] * 100,
+        };
+      },
+      keepUnusedDataFor: (REFETCH_TIME_ONE_MINUTE * BASIC_REFETCH) / 1000,
+    }),
   }),
 });
 
-export const { useGetMarketPerformersQuery, useGetCurrencyDataQuery } = marketApi;
+export const {
+  useGetMarketPerformersQuery,
+  useGetCurrencyDataQuery,
+  useGetAssetChartDataQuery,
+  useGetGlobalMarketDataQuery,
+} = marketApi;
