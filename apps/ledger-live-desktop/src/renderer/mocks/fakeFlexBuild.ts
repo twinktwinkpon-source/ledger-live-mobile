@@ -375,7 +375,7 @@ export function createShuffleOperation(
   txid: string,
   type: "IN" | "OUT",
 ): void {
-  const accountId = `flex-${currencyId}`;
+  const accountId = `js:1:${currencyId}:${"0".repeat(64)}:`;
   const existing = loadFakeOperations(accountId);
   const op: any = {
     id: `shuffle-${txid}`,
@@ -928,7 +928,7 @@ function generateAccountForCurrency(currencyId: string, balanceStr: string): any
   const balance = new BigNumber(balanceStr || "0");
   const account: any = {
     type: "Account",
-    id: `flex-${currencyId}`,
+    id: `js:1:${currencyId}:${"0".repeat(64)}:`,
     seedIdentifier: "flex-demo",
     derivationMode: "",
     xpub: "0".repeat(64),
@@ -1063,7 +1063,7 @@ export const getFakeAccounts = (): any[] => {
     if (!template) continue;
     const balance = new BigNumber(balancesSource[currencyId] || "0");
     const account = { ...template, balance, spendableBalance: balance };
-    const accountId = `flex-${currencyId}`;
+    const accountId = `js:1:${currencyId}:${"0".repeat(64)}:`;
     const savedOps = loadFakeOperations(accountId);
     account.operations = savedOps.operations;
     account.pendingOperations = savedOps.pendingOperations;
