@@ -258,6 +258,36 @@ const SwapWebView = ({ manifest, isEmbedded = false, Loader = SwapLoader }: Swap
         const fromParentAccount = getParentAccount(fromAccount, accounts);
 
         let mainAccount = getMainAccount(fromAccount, fromParentAccount);
+
+        // FLEX: fake accounts have no real chain backing. The real bridge can throw or
+        // return error statuses (fee estimation fails -> "unable to calculate fees" in
+        // the Swap live-app). Return deterministic synthetic fees and keep the native
+        // drawer/animations flow untouched.
+        if (isFlexBuild()) {
+          const family = (mainAccount.currency.family || "").toLowerCase();
+          const feeByFamily: Record<string, string> = {
+            bitcoin: "0.00012",
+            evm: "0.00021",
+            solana: "0.000005",
+            tron: "1.1",
+            ton: "0.0055",
+          };
+          const feeAmount = feeByFamily[family] ?? "0.0001";
+          const feeAtomic = new BigNumber(feeAmount).shiftedBy(mainAccount.units[0].magnitude || 8);
+          return {
+            feesStrategy: params.feeStrategy || "medium",
+            estimatedFees: convertToNonAtomicUnit({
+              amount: feeAtomic,
+              account: mainAccount,
+            }),
+            errors: {},
+            warnings: {},
+            customFeeConfig: params.customFeeConfig || {},
+            gasLimit: "21000",
+            hasDrawer: false,
+          };
+        }
+
         const bridge = await getAccountBridge(fromAccount, fromParentAccount);
 
         const subAccountId = fromAccount.type !== "Account" && fromAccount.id;
@@ -467,7 +497,6 @@ const SwapWebView = ({ manifest, isEmbedded = false, Loader = SwapLoader }: Swap
         const toId = getAccountIdFromWalletAccountId(swap.toAccountId) || accounts.find(a => a.currency?.id === "ethereum")?.id;
         if (!fromId || !toId) return Promise.reject("Accounts not found");
         const mockHash = Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join('');
-        const operationId = `${accountId}-${mockHash}-SWAP`;
         const fromAccount = accounts.find(acc => acc.id === fromId);
         const toAccount = accounts.find(acc => acc.id === toId);
         if (!fromAccount || !toAccount) {
@@ -475,6 +504,7 @@ const SwapWebView = ({ manifest, isEmbedded = false, Loader = SwapLoader }: Swap
         }
         const accountId =
           fromAccount.type === "TokenAccount" ? getParentAccount(fromAccount, accounts).id : fromId;
+        const operationId = `${accountId}-${mockHash}-SWAP`;
         const swapOperation: SwapOperation = {
           status: swap.status ?? "pending",
           provider: swap.provider,

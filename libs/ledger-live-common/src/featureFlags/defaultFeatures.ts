@@ -857,7 +857,7 @@ export const DEFAULT_FEATURES: Features = {
       balanceRefreshRework: true,
       brazePlacement: true,
       assetSection: true,
-      operationsList: false,
+      operationsList: true,
       aggregatedAssets: true,
       myWallet: false,
       pnl: false,

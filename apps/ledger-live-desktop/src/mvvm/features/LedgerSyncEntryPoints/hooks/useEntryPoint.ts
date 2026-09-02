@@ -11,6 +11,7 @@ import ManagerEntryPoint from "../components/ManagerEntryPoint";
 import AccountsEntryPoint from "../components/AccountsEntryPoint";
 import SettingsEntryPoint from "../components/SettingsEntryPoint";
 import { AnalyticsPage } from "../../WalletSync/hooks/useLedgerSyncAnalytics";
+import { isFlexBuild } from "~/renderer/mocks/fakeFlexBuild";
 import PostOnboardingEntryPoint from "../components/PostOnboardingEntryPoint";
 import { LedgerSyncBanner } from "../components/LedgerSyncBanner/LedgerSyncBanner";
 
@@ -26,7 +27,10 @@ export function useEntryPoint(entryPoint: EntryPoint, needEligibleDevice = true)
 
   const isLedgerSyncEnabled = featureWalletSync?.enabled ?? false;
   const areEntryPointsEnabled = featureLedgerSyncEntryPoints?.enabled ?? false;
-  const isLedgerSyncActivated = Boolean(trustchain && trustchain?.rootId);
+  // FLEX: demo wallets never activate Ledger Sync (no real trustchain), which would keep
+  // the "wallet isn't synced" banner on-screen forever. Hide all sync entry points in flex.
+  const isLedgerSyncActivated =
+    Boolean(trustchain && trustchain?.rootId) || isFlexBuild();
   const isDeviceEligible =
     isEligibleModelId(lastSeenDevice?.modelId) || isEligibleModelId(lastOnboardedDevice?.modelId);
   const isOptimisationEnabled = useFeature("lwdLedgerSyncOptimisation");
