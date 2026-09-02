@@ -34,6 +34,7 @@ export const SignatureScreen = () => {
     onDeviceActionResult,
     finishWithError,
     flowError,
+    onDeviceConfirmationShown,
   } = useSignatureViewModel();
 
   if (!account || !transaction) {
@@ -64,7 +65,7 @@ export const SignatureScreen = () => {
             return <LockedDevicePrompt deviceModelId={device.modelId} onRetry={onRetry} />;
           }}
           renderDeviceSignatureRequested={({ device }) => (
-            <SimplifiedTransactionConfirm device={device} />
+            <SimplifiedTransactionConfirm device={device} onShown={onDeviceConfirmationShown} />
           )}
         />
       </div>

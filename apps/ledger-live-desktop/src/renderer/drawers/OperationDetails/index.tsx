@@ -9,7 +9,7 @@ import {
   getDefaultExplorerView,
   getTransactionExplorer as getDefaultTransactionExplorer,
 } from "@ledgerhq/live-common/explorers";
-import { useFeature } from "@ledgerhq/live-common/featureFlags/index";
+import { useFeature } from "@features/platform-feature-flags";
 import {
   findOperationInAccount,
   getOperationAmountNumber,
@@ -173,7 +173,10 @@ const OperationD = (props: Props) => {
   const mainCurrency = getAccountCurrency(mainAccount);
 
   const unit = useAccountUnit(account);
-  const amount = getOperationAmountNumber(operation);
+  const cryptoCurrency = mainAccount.currency;
+  const specific = cryptoCurrency ? getLLDCoinFamily(cryptoCurrency.family) : null;
+  const amount =
+    specific?.operationDetails?.getAmount?.(operation) ?? getOperationAmountNumber(operation);
   const isNegative = amount.isNegative();
   const marketColor = getMarketColor({
     isNegative,
@@ -181,8 +184,6 @@ const OperationD = (props: Props) => {
   const confirmationsString = "";
   const isConfirmed = true;
 
-  const cryptoCurrency = mainAccount.currency;
-  const specific = cryptoCurrency ? getLLDCoinFamily(cryptoCurrency.family) : null;
   const confirmationCell = specific?.operationDetails?.confirmationCell;
   const IconElement = confirmationCell ? confirmationCell[operation.type] : null;
   const amountTooltip = specific?.operationDetails?.amountTooltip;

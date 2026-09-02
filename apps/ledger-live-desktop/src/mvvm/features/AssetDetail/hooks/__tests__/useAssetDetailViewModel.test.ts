@@ -31,6 +31,7 @@ const route = (
   useDistribution.mockReturnValue({
     bySlug: distribution.bySlug ?? {},
     list: distribution.list ?? [],
+    isLoading: false,
   });
 };
 
@@ -66,11 +67,16 @@ describe("useAssetDetailViewModel", () => {
   });
 
   describe("mode", () => {
-    it("returns loading while Market is pending and nothing else resolved", () => {
+    it("returns ready while Market is pending when the route identifies an asset", () => {
       mockMarket.hang();
       route("unknown");
 
-      expect(renderVM().result.current.mode).toBe("loading");
+      const { result } = renderVM();
+      expect(result.current.mode).toBe("ready");
+      if (result.current.mode === "ready") {
+        expect(result.current.marketData.isLoading).toBe(true);
+        expect(result.current.distributionItem).toBeUndefined();
+      }
     });
 
     it("returns not-found when Market settled empty and DADA fails", async () => {
@@ -97,6 +103,25 @@ describe("useAssetDetailViewModel", () => {
       route("bitcoin", { bySlug: { bitcoin: item } });
 
       expect((await waitForReady()).distributionItem).toBe(item);
+    });
+  });
+
+  describe("distribution options", () => {
+    it("requests empty accounts so zero-balance addresses are listed", async () => {
+      route("bitcoin", { bySlug: { bitcoin: buildDistributionItem({ currency: btc }) } });
+
+      const { result } = renderHook(() => useAssetDetailViewModel(), {
+        initialState: { settings: { counterValue: "USD", hideEmptyTokenAccounts: true } },
+      });
+      await waitFor(() => expect(result.current.mode).toBe("ready"));
+
+      expect(useDistribution).toHaveBeenCalledWith(
+        expect.objectContaining({
+          groupBy: "asset",
+          showEmptyAccounts: true,
+          hideEmptyTokenAccount: true,
+        }),
+      );
     });
   });
 
@@ -161,12 +186,16 @@ describe("useAssetDetailViewModel", () => {
       mockMarket.withData([
         { id: "bitcoin", ledgerIds: ["bitcoin"], name: "Bitcoin", ticker: "BTC", price: 100 },
       ]);
+      mockDada.empty();
       route("bitcoin");
 
-      const vm = await waitForReady();
+      const { result } = renderVM();
 
-      expect(vm.displayName).toBe("Bitcoin");
-      expect(vm.displayTicker).toBe("BTC");
+      await waitFor(() => {
+        assertReady(result.current);
+        expect(result.current.displayName).toBe("Bitcoin");
+        expect(result.current.displayTicker).toBe("BTC");
+      });
     });
 
     it("falls back to empty strings when neither source provides name/ticker", async () => {

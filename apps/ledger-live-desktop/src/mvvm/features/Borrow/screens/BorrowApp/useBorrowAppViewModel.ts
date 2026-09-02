@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router";
-import { DEFAULT_FEATURES } from "@ledgerhq/live-common/featureFlags/index";
+import { FEATURE_FLAGS_DEFAULTS } from "@shared/feature-flags";
 import {
   useRemoteLiveAppContext,
   useRemoteLiveAppManifest,
@@ -20,6 +20,7 @@ import {
 } from "~/renderer/reducers/settings";
 import { getParsedSystemDeviceLocale } from "~/helpers/systemLocale";
 import { useBorrowLiveConfig } from "LLD/features/Borrow/hooks/useBorrowLiveConfig";
+import type { BorrowSwapNavigationParams } from "@ledgerhq/live-common/wallet-api/Borrow/types";
 
 type BorrowLocationState = { returnTo?: string };
 
@@ -37,7 +38,7 @@ export type BorrowWebviewInputs = {
 
 const DEFAULT_MANIFEST_ID =
   process.env.DEFAULT_BORROW_MANIFEST_ID ||
-  DEFAULT_FEATURES.ptxBorrowLiveApp?.params?.manifest_id ||
+  FEATURE_FLAGS_DEFAULTS.ptxBorrowLiveApp?.params?.manifest_id ||
   "borrow";
 
 export function useBorrowAppViewModel() {
@@ -79,6 +80,39 @@ export function useBorrowAppViewModel() {
     navigate(returnTo, { replace: true });
   }, [navigate, returnTo]);
 
+  const onGoToSwap = useCallback(
+    (swapParams: BorrowSwapNavigationParams) => {
+      const {
+        fromCurrencyId,
+        toCurrencyId,
+        fromTokenId,
+        toTokenId,
+        fromAccountId,
+        toAccountId,
+        amountFrom,
+        affiliate,
+      } = swapParams;
+
+      const defaultCurrency =
+        fromCurrencyId || toCurrencyId ? { fromCurrencyId, toCurrencyId } : undefined;
+      const defaultToken = fromTokenId || toTokenId ? { fromTokenId, toTokenId } : undefined;
+      const defaultAccountId =
+        fromAccountId || toAccountId ? { fromAccountId, toAccountId } : undefined;
+
+      navigate("/swap", {
+        state: {
+          defaultCurrency,
+          defaultToken,
+          defaultAccountId,
+          defaultAmountFrom: amountFrom,
+          affiliate,
+          from: location.pathname,
+        },
+      });
+    },
+    [navigate, location.pathname],
+  );
+
   const onStateChange = (state: WebviewState) => {
     setWebviewState(state);
   };
@@ -107,5 +141,6 @@ export function useBorrowAppViewModel() {
     webviewState,
     onStateChange,
     onBack,
+    onGoToSwap,
   };
 }

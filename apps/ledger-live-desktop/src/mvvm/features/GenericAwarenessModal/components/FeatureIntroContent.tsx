@@ -8,17 +8,17 @@ import {
   ListItemTitle,
 } from "@ledgerhq/lumen-ui-react";
 import * as Icons from "@ledgerhq/lumen-ui-react/symbols";
+import { AwarenessModalClampedText, FEATURE_INTRO_TEXT_LINE_LIMITS } from "./clampedText";
 
 export type LumenSymbolName = keyof typeof Icons;
 
 export type FeatureIntroContentItem = {
-  id: string;
   title: string;
-  description: string;
-  iconName: LumenSymbolName;
+  subtitle: string;
+  icon: LumenSymbolName;
 };
 
-export type FeatureIntroContentProps = {
+type FeatureIntroContentProps = {
   title: string;
   subtitle: string;
   items: FeatureIntroContentItem[];
@@ -43,7 +43,7 @@ export default function FeatureIntroContent({
 
   return (
     <div className="flex min-h-0 w-full flex-1 flex-col">
-      <div className="flex min-h-0 flex-1 flex-col gap-24 overflow-y-auto">
+      <div className="scrollbar-none flex min-h-0 flex-1 flex-col gap-24 overflow-y-auto">
         {showImage ? (
           <img
             src={imageUrl}
@@ -55,18 +55,39 @@ export default function FeatureIntroContent({
         ) : (
           <div className="h-[200px] shrink-0 rounded-xl bg-muted" aria-hidden />
         )}
-        <div className="relative right-auto flex flex-col gap-[unset]">
-          <span className="heading-2-semi-bold text-base">{title}</span>
-          <span className="mb-12 body-2 text-muted">{subtitle}</span>
-          {items.map(item => {
-            const ItemIcon = Icons[item.iconName];
+        <div className="relative right-auto flex w-full min-w-0 flex-col gap-[unset]">
+          <AwarenessModalClampedText
+            text={title}
+            maxLines={FEATURE_INTRO_TEXT_LINE_LIMITS.title}
+            className="heading-2-semi-bold text-base"
+          />
+          <AwarenessModalClampedText
+            text={subtitle}
+            maxLines={FEATURE_INTRO_TEXT_LINE_LIMITS.subtitle}
+            className="mb-12 body-2 text-muted"
+          />
+          {items.map((item, index) => {
+            const ItemIcon = Icons[item.icon];
             return (
-              <ListItem key={item.id} className="pointer-events-none px-0">
+              <ListItem
+                key={`${item.title}-list-item-${index}`}
+                className="pointer-events-none px-0"
+              >
                 <ListItemLeading className="p-0">
                   <ItemIcon size={24} />
                   <ListItemContent>
-                    <ListItemTitle>{item.title}</ListItemTitle>
-                    <ListItemDescription>{item.description}</ListItemDescription>
+                    <ListItemTitle className="min-w-0 overflow-visible whitespace-normal">
+                      <AwarenessModalClampedText
+                        text={item.title}
+                        maxLines={FEATURE_INTRO_TEXT_LINE_LIMITS.itemTitle}
+                      />
+                    </ListItemTitle>
+                    <ListItemDescription className="min-w-0 overflow-visible whitespace-normal">
+                      <AwarenessModalClampedText
+                        text={item.subtitle}
+                        maxLines={FEATURE_INTRO_TEXT_LINE_LIMITS.itemSubtitle}
+                      />
+                    </ListItemDescription>
                   </ListItemContent>
                 </ListItemLeading>
               </ListItem>

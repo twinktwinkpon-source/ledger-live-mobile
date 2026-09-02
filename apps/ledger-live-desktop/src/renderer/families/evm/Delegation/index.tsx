@@ -15,7 +15,7 @@ import {
 import { isStakingAccount } from "@ledgerhq/live-common/families/evm/staking/types";
 import type { StakingAccount } from "@ledgerhq/live-common/families/evm/staking/types";
 import { getDefaultExplorerView, getAddressExplorer } from "@ledgerhq/live-common/explorers";
-import { useFeature } from "@ledgerhq/live-common/featureFlags/index";
+import { useFeature } from "@features/platform-feature-flags";
 import { openURL } from "~/renderer/linking";
 import { openModal } from "~/renderer/actions/modals";
 import Text from "~/renderer/components/Text";
@@ -43,6 +43,8 @@ const Delegation = ({ account }: { account: StakingAccount }) => {
   const dispatch = useDispatch();
   const { enabled: isEvmNativeStakingEnabled, params } = useFeature("evmNativeStaking") ?? {};
   const isCurrencySupported = params?.supportedCurrencyIds?.includes(account.currency.id) || false;
+
+  if (!isCurrencySupported || !isEvmNativeStakingEnabled) return null;
 
   const unit = useAccountUnit(account);
   const currencyId = account.currency.id;
@@ -83,8 +85,13 @@ const Delegation = ({ account }: { account: StakingAccount }) => {
     },
     [account, dispatch],
   );
-
-  if (!isCurrencySupported || !isEvmNativeStakingEnabled) return null;
+  const onClaimRewards = useCallback(() => {
+    dispatch(
+      openModal("MODAL_EVM_CLAIM_REWARDS", {
+        account,
+      }),
+    );
+  }, [account, dispatch]);
 
   const { stakingResources } = account;
 
@@ -94,8 +101,12 @@ const Delegation = ({ account }: { account: StakingAccount }) => {
 
   const mappedDelegations = mapDelegations(delegations, validators, unit);
   const mappedUnbondings = mapUnbondings(unbondings, validators, unit);
-  const onClaimRewards = useCallback(() => {}, []);
-  const onRowClaimRewards = useCallback((_validatorAddress: string) => {}, []);
+  const onRowClaimRewards = useCallback(
+    (validatorAddress: string) => {
+      dispatch(openModal("MODAL_EVM_CLAIM_REWARDS", { account, validatorAddress }));
+    },
+    [account, dispatch],
+  );
 
   const hasDelegations = delegations.length > 0;
   // Only surface the "Pending undelegation" section when the chain enforces an unbonding
@@ -166,7 +177,7 @@ const Delegation = ({ account }: { account: StakingAccount }) => {
             <Header />
             {mappedDelegations.map(delegation => (
               <Row
-                key={delegation.validatorAddress}
+                key={`${delegation.validatorAddress}-${delegation.status}`}
                 account={account}
                 delegation={delegation}
                 onManageAction={onRedirect}

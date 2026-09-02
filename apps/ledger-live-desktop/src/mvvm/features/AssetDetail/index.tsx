@@ -1,23 +1,14 @@
 import React from "react";
 import { useTranslation } from "react-i18next";
+import TrackPage from "~/renderer/analytics/TrackPage";
+import { ASSET_DETAIL_TRACKING_PAGE_NAME } from "LLD/features/AssetDetail/constants";
 import { AssetDetailView } from "./AssetDetailView";
+import { ScrubbedPriceProvider } from "./context/ScrubbedPriceContext";
 import { useAssetDetailViewModel } from "./hooks/useAssetDetailViewModel";
 
 const AssetDetail = () => {
   const { t } = useTranslation();
   const viewModel = useAssetDetailViewModel();
-
-  if (viewModel.mode === "loading") {
-    return (
-      <div className="flex w-full shrink-0 flex-col gap-32 pb-32">
-        <div className="h-40 w-1/3 animate-pulse rounded-8 bg-neutral-c20" />
-        <div className="grid grid-cols-2 gap-24">
-          <div className="h-[200px] animate-pulse rounded-16 bg-neutral-c20" />
-          <div className="h-[200px] animate-pulse rounded-16 bg-neutral-c20" />
-        </div>
-      </div>
-    );
-  }
 
   if (viewModel.mode === "not-found") {
     return (
@@ -27,7 +18,16 @@ const AssetDetail = () => {
     );
   }
 
-  return <AssetDetailView viewModel={viewModel} />;
+  const currencyId = viewModel.distributionItem?.currency.id ?? viewModel.ledgerId;
+
+  return (
+    <>
+      <TrackPage category={ASSET_DETAIL_TRACKING_PAGE_NAME} currency={currencyId} />
+      <ScrubbedPriceProvider>
+        <AssetDetailView viewModel={viewModel} />
+      </ScrubbedPriceProvider>
+    </>
+  );
 };
 
 export default AssetDetail;

@@ -47,7 +47,7 @@ import { ModularDrawerLocation } from "@ledgerhq/live-common/modularDrawer/enums
 import { useModularDrawerVisibility } from "@ledgerhq/live-common/modularDrawer/useModularDrawerVisibility";
 import { setFlowValue, setSourceValue } from "~/renderer/reducers/modularDialog";
 import { useOpenAssetAndAccount } from "LLD/features/ModularDialog/Web3AppWebview/AssetAndAccountDrawer";
-import { useFeature } from "@ledgerhq/live-common/featureFlags/index";
+import { useFeature } from "@features/platform-feature-flags";
 import { setOriginFlow } from "~/renderer/analytics/originFlow";
 import { isFlexBuild } from "~/renderer/mocks/fakeFlexBuild";
 import { useNavigate } from "react-router";
@@ -55,14 +55,15 @@ import { useNavigate } from "react-router";
 export const PlatformAPIWebview = forwardRef<WebviewAPI, WebviewProps>(
   ({ manifest, inputs = {}, onStateChange }, ref) => {
     const manifestDomainCheckEnabled = useFeature("lldWebviewManifestDomainCheck")?.enabled;
-    const { webviewState, webviewRef, webviewProps, webviewPartition } = useWebviewState(
-      {
-        manifest,
-        inputs,
-        manifestDomainCheckEnabled,
-      },
-      ref,
-    );
+    const { webviewState, webviewRef, setWebviewRef, webviewProps, webviewPartition } =
+      useWebviewState(
+        {
+          manifest,
+          inputs,
+          manifestDomainCheckEnabled,
+        },
+        ref,
+      );
 
     const tracking = useMemo(
       () =>
@@ -704,7 +705,7 @@ export const PlatformAPIWebview = forwardRef<WebviewAPI, WebviewProps>(
           </div>
         )}
         <webview
-          ref={webviewRef}
+          ref={setWebviewRef}
           /**
            * There seems to be an issue between Electron webview and styled-components
            * (and React more broadly, cf. comment below).

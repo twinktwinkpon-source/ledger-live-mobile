@@ -55,6 +55,7 @@ setSupportedCurrencies([
   "ethereum_sepolia",
   "ethereum_hoodi",
   "hedera",
+  "hedera_testnet",
   "cardano",
   "filecoin",
   "osmosis",
@@ -99,6 +100,8 @@ setSupportedCurrencies([
   "sei_evm",
   "berachain",
   "hyperevm",
+  "arc",
+  "arc_testnet",
   "canton_network",
   "canton_network_devnet",
   "canton_network_testnet",
@@ -138,5 +141,4 @@ setSupportedCurrencies([
   "aleo_testnet",
   "unichain",
   "unichain_sepolia",
-  "monero",
 ]);

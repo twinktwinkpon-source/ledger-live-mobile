@@ -17,7 +17,7 @@ import {
   Platform,
   PortfolioContentCard,
 } from "~/types/dynamicContent";
-import { processGenericAwarenessModalBrazeCards } from "@ledgerhq/live-common/genericAwarenessModal/buildContentCards";
+import { processGenericAwarenessModalBrazeCards } from "@ledgerhq/live-common/genericAwarenessModal";
 import {
   setActionCards,
   setDesktopCards,
@@ -25,7 +25,10 @@ import {
   setPortfolioCards,
   setBottomPortfolioCards,
 } from "../actions/dynamicContent";
-import { setGenericAwarenessModalContentCards } from "../reducers/genericAwarenessModalSlice";
+import {
+  filterDismissedGenericAwarenessModalContentCards,
+  setGenericAwarenessModalContentCards,
+} from "../reducers/genericAwarenessModalSlice";
 import {
   clearDismissedContentCards,
   purgeExpiredAnonymousUserNotifications,
@@ -157,7 +160,7 @@ export function useBraze() {
 
     braze.subscribeToContentCardsUpdates(cards => {
       const desktopCards = getDesktopCards(cards);
-      const dismissedCardIds = Object.keys(contentCardsDissmissed);
+      const dismissedCardIds = Object.keys(contentCardsDissmissed ?? {});
       const filteredDesktopCards = desktopCards.filter(
         card => !dismissedCardIds.includes(String(card.id)),
       );
@@ -188,15 +191,17 @@ export function useBraze() {
         .map(card => mapAsNotificationContentCard(card as ClassicCard))
         .sort(compareCards);
 
-      const genericAwarenessModalBrazeCards = filterByPage(
+      const genericAwarenessModalBrazeCardsFromBraze = filterByPage(
         filteredDesktopCards,
         LocationContentCard.GenericAwarenessModal,
       ).map(card => ({
         id: String(card.id),
         extras: card.extras,
       }));
-      const genericAwarenessModalContentCards = processGenericAwarenessModalBrazeCards(
-        genericAwarenessModalBrazeCards,
+
+      const genericAwarenessModalContentCards = filterDismissedGenericAwarenessModalContentCards(
+        processGenericAwarenessModalBrazeCards(genericAwarenessModalBrazeCardsFromBraze),
+        dismissedCardIds,
       );
 
       dispatch(setDesktopCards(filteredDesktopCards));

@@ -13,6 +13,7 @@ import CustomLockScreenToggle from "./CustomLockScreenToggle";
 import CustomLockScreenAssets from "./CustomLockScreenAssets";
 import RunLocalAppButton from "./RunLocalAppButton";
 import FeatureFlagsSettings from "./FeatureFlagsSettings";
+import CoinConfigSettings from "./CoinConfigSettings";
 import EnableLearnPageStagingUrlToggle from "./EnableLearnPageStagingUrlToggle";
 import EnableCountervaluesStagingToggle from "./EnableCountervaluesStagingToggle";
 import OnboardingAppInstallDebugButton from "./OnboardingAppInstallDebug";
@@ -21,7 +22,7 @@ import ExchangeTestPartnerMode from "./ExchangeTestPartnerMode";
 import LottieTester from "./LottieTester";
 import PostOnboardingHubTester from "./PostOnboardingHubTester";
 import AllowDebugReactQueryToggle from "./AllowDebugReactQueryToggle";
-import { FeatureToggle } from "@ledgerhq/live-common/featureFlags/index";
+import { FeatureToggle } from "@features/platform-feature-flags";
 import WalletSyncTester from "./WalletSync/WalletSyncTester";
 import MockAppUpdate from "./MockAppUpdate";
 import EnableAnalyticsConsole from "./EnableAnalyticsConsole";
@@ -39,6 +40,8 @@ import WalletFeaturesDevTool from "./WalletFeaturesDevTool";
 import FeaturesAndFlowsDevTool from "./FeaturesAndFlowsDevTool";
 import AnalyticsConsentOptInDevTool from "./AnalyticsConsentOptInDevTool";
 import { AnalyticsConsentOptInDevScreen } from "./AnalyticsConsentOptInDevTool/AnalyticsConsentOptInDevScreen";
+import GenericAwarenessModalDevTool from "./GenericAwarenessModalDevTool";
+import GenericAwarenessModalDevScreen from "./GenericAwarenessModalDevTool/screens/GenericAwarenessModalDevScreen";
 
 const Default = () => {
   const { t } = useTranslation();
@@ -100,6 +103,7 @@ const Default = () => {
       <CustomLockScreenTester />
       <CustomLockScreenToggle />
       <FeatureFlagsSettings />
+      <CoinConfigSettings />
       {__DEV__ && <EnvVariableOverride />}
       <Row
         title={t("settings.developer.enableLearnStagingUrl")}
@@ -142,6 +146,7 @@ const Default = () => {
       <WalletFeaturesDevTool />
       <FeaturesAndFlowsDevTool />
       <AnalyticsConsentOptInDevTool />
+      <GenericAwarenessModalDevTool />
       <ModularDrawerDevTool />
       <CryptoAssetsListDevTool />
       <MockAccountGeneratorSection />
@@ -155,6 +160,10 @@ const SectionDeveloper = () => (
     <Routes>
       <Route path="custom-locksscreen-assets" element={<CustomLockScreenAssets />} />
       <Route path="analytics-consent-opt-in-qa" element={<AnalyticsConsentOptInDevScreen />} />
+      <Route
+        path="generic-awareness-modal-qa"
+        element={<GenericAwarenessModalDevScreen />}
+      />
       <Route path="*" element={<Default />} />
     </Routes>
   </>

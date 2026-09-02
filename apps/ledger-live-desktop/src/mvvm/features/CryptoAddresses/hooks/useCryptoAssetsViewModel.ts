@@ -16,10 +16,11 @@ import { buildPlaceholderAssetItemsFromAssetsData } from "LLD/features/Assets/ut
 import { parseAssetsPageCategory } from "LLD/features/Assets/utils/buildAssetsPagePath";
 import { padItems } from "LLD/features/Assets/utils/assetTableHelpers";
 import { dadaIdToMarketId } from "@ledgerhq/live-common/market/utils/index";
-import { useWalletFeaturesConfig } from "@ledgerhq/live-common/featureFlags/walletFeaturesConfig/index";
+import { useWalletFeaturesConfig } from "@features/platform-feature-flags";
 import {
   ASSETS_PAGE_CATEGORY_CRYPTOS,
   ASSETS_PAGE_CATEGORY_STABLECOINS,
+  ASSETS_PRICE_REFRESH_INTERVAL_MS,
   EMPTY_STATE_CRYPTOS,
   EMPTY_STATE_STABLECOINS,
 } from "LLD/features/Assets/constants";
@@ -54,6 +55,8 @@ export default function useCryptoAssetsViewModel(): CryptoAssetsViewModel {
     product: "lld",
     version: __APP_VERSION__,
     skip: !needsCryptoPlaceholders && !needsStablecoinPlaceholders,
+    pollingInterval: ASSETS_PRICE_REFRESH_INTERVAL_MS,
+    skipPollingIfUnfocused: true,
   });
 
   const resolvedDefaults = useMemo(

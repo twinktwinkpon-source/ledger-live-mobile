@@ -15,7 +15,7 @@ import FirmwareUpdate from "./FirmwareUpdate";
 import { getCurrentDevice } from "~/renderer/reducers/devices";
 import { getEnv } from "@ledgerhq/live-env";
 import { context as drawerContext } from "~/renderer/drawers/Provider";
-import { useFeature } from "@ledgerhq/live-common/featureFlags/index";
+import { useFeature } from "@features/platform-feature-flags";
 import { useAppDataStorageProvider } from "~/renderer/hooks/storage-provider/useAppDataStorage";
 import { useLocation } from "react-router";
 
@@ -49,10 +49,7 @@ const Dashboard = ({
   const openFirmwareUpdate = params.get("firmwareUpdate") === "true";
 
   useEffect(() => {
-    // Skip firmware fetch in MOCK mode to prevent update banner
-    if (!getEnv("MOCK")) {
-      getLatestFirmwareForDeviceUseCase(deviceInfo).then(setFirmware, setFirmwareError);
-    }
+    getLatestFirmwareForDeviceUseCase(deviceInfo).then(setFirmware, setFirmwareError);
   }, [deviceInfo]);
 
   // on disconnect, go back to connect
@@ -122,23 +119,34 @@ const Dashboard = ({
           setPreventResetOnDeviceChange={setPreventResetOnDeviceChange}
           firmware={firmware}
           result={result}
-          exec={exec}
-          renderFirmwareUpdateBanner={firmware ? undefined : () => null}
           appsToRestore={appsToRestore}
+          exec={exec}
+          renderFirmwareUpdateBanner={({ disableFirmwareUpdate, installed }) => (
+            <FirmwareUpdate
+              device={device}
+              deviceInfo={deviceInfo}
+              firmware={firmware}
+              error={firmwareError}
+              setPreventResetOnDeviceChange={setPreventResetOnDeviceChange}
+              disableFirmwareUpdate={disableFirmwareUpdate}
+              installed={installed}
+              onReset={onReset}
+              openFirmwareUpdate={openFirmwareUpdate}
+            />
+          )}
         />
-      ) : null}
-      {openFirmwareUpdate && firmware ? (
+      ) : (
         <FirmwareUpdate
-          deviceInfo={deviceInfo}
           device={device}
-          setPreventResetOnDeviceChange={setPreventResetOnDeviceChange}
+          deviceInfo={deviceInfo}
           firmware={firmware}
           error={firmwareError}
+          setPreventResetOnDeviceChange={setPreventResetOnDeviceChange}
           onReset={onReset}
+          openFirmwareUpdate={openFirmwareUpdate}
         />
-      ) : null}
+      )}
     </Box>
   );
 };
-
 export default Dashboard;

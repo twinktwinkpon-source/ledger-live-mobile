@@ -1,4 +1,4 @@
-import { FeatureId } from "@ledgerhq/types-live";
+import { FeatureId } from "@shared/feature-flags";
 
 export const WALLET_FEATURES_FLAG: FeatureId = "lwdWallet40";
 
@@ -18,8 +18,10 @@ export const WALLET_FEATURES_PARAMS = [
   { key: "operationsList", label: "TX History" },
   { key: "aggregatedAssets", label: "Aggregated Assets" },
   { key: "myWallet", label: "My Wallet" },
-  { key: "finishOnboardingWidget", label: "Finish Onboarding Widget" },
+  { key: "assetDiscoverability", label: "Asset Discoverability" },
   { key: "pnl", label: "PnL" },
+  { key: "earnUpselling", label: "Earn Upselling" },
+  { key: "earnSimulator", label: "Earn Simulator" },
 ] as const;
 
 export type WalletFeatureParamKey = (typeof WALLET_FEATURES_PARAMS)[number]["key"];

@@ -1,15 +1,17 @@
 import React, { useCallback } from "react";
 import { useNavigate } from "react-router";
 import { MarketItemPerformer } from "@ledgerhq/live-common/market/utils/types";
-import { useWalletFeaturesConfig } from "@ledgerhq/live-common/featureFlags/walletFeaturesConfig/index";
+import { useWalletFeaturesConfig } from "@features/platform-feature-flags";
 import { ViewAllTile } from "./ViewAllTile";
 import { TrendingAssetTile } from "./TrendingAssetTile";
 import { track } from "~/renderer/analytics/segment";
+import { setTrackingSource } from "~/renderer/analytics/TrackPage";
 import FearAndGreed from "LLD/features/FearAndGreed";
 import { useHorizontalScroll } from "../hooks/useHorizontalScroll";
 import { ScrollArrowButton } from "./ScrollArrowButton";
 import { PORTFOLIO_TRACKING_PAGE_NAME } from "LLD/utils/constants";
 import { getMarketOrAssetDetailPath } from "LLD/utils/marketAssetNavigation";
+import { MARKET_BANNER_TRACKING_SOURCE } from "../utils/constants";
 
 type TrendingAssetsListProps = {
   readonly items: MarketItemPerformer[];
@@ -27,6 +29,7 @@ export const TrendingAssetsList = ({ items }: TrendingAssetsListProps) => {
         currency: id,
         page: PORTFOLIO_TRACKING_PAGE_NAME,
       });
+      setTrackingSource(MARKET_BANNER_TRACKING_SOURCE);
       navigate(getMarketOrAssetDetailPath(id, shouldDisplayAggregatedAssets));
     },
     [navigate, shouldDisplayAggregatedAssets],

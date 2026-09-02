@@ -40,7 +40,7 @@ import { ModularDrawerLocation } from "@ledgerhq/live-common/modularDrawer/enums
 import { setFlowValue, setSourceValue } from "~/renderer/reducers/modularDialog";
 import { useDrawerConfiguration } from "@ledgerhq/live-common/dada-client/hooks/useDrawerConfiguration";
 import { useOpenAssetAndAccount } from "LLD/features/ModularDialog/Web3AppWebview/AssetAndAccountDrawer";
-import { useFeature } from "@ledgerhq/live-common/featureFlags/index";
+import { useFeature } from "@features/platform-feature-flags";
 import { setOriginFlow } from "~/renderer/analytics/originFlow";
 import { useNavigate } from "react-router";
 import { isFlexBuild } from "~/renderer/mocks/fakeFlexBuild";
@@ -685,7 +685,7 @@ export const WalletAPIWebview = forwardRef<WebviewAPI, WebviewProps>(
 
     const serverRef = useRef<WalletAPIServer>(undefined);
 
-    const { webviewState, webviewRef, webviewProps, handleRefresh, webviewPartition } =
+    const { webviewState, webviewRef, setWebviewRef, webviewProps, handleRefresh, webviewPartition } =
       useWebviewState(
         {
           manifest,
@@ -716,6 +716,11 @@ export const WalletAPIWebview = forwardRef<WebviewAPI, WebviewProps>(
       manifestDomainCheckEnabled,
       setIsMockingSwap,
       isMockingSwap,
+    );
+    const isNetworkErrorVisible = !webviewState.loading && webviewState.isAppUnavailable;
+    const displayedWebviewStyle = useMemo(
+      () => (isNetworkErrorVisible ? { ...webviewStyle, display: "none" } : webviewStyle),
+      [isNetworkErrorVisible, webviewStyle],
     );
 
     const isDapp = !!manifest.dapp;
@@ -794,15 +799,16 @@ export const WalletAPIWebview = forwardRef<WebviewAPI, WebviewProps>(
         {!webviewState.loading && webviewState.isAppUnavailable && (
           <NetworkErrorScreen refresh={handleRefresh} />
         )}
+        {isNetworkErrorVisible && <NetworkErrorScreen refresh={handleRefresh} />}
         <webview
-          ref={webviewRef}
+          ref={setWebviewRef}
           /**
            * There seem to be an issue between Electron webview and styled-components
            * (and React more broadly, cf. comment below).
            * When using a styled webview componennt, the `allowpopups` prop does not
            * seem to be set
            */
-          style={webviewStyle}
+          style={displayedWebviewStyle}
           preload={`file://${window.api.appDirname}/${preloader}.bundle.js`}
           /**
            * There seems to be an issue between Electron webview and react
