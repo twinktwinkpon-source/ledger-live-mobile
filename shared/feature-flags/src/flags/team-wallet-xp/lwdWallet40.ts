@@ -16,13 +16,16 @@ export const lwdWallet40 = flagWith(
     brazePlacement: z.boolean().optional(),
     aggregatedAssets: z.boolean(),
     myWallet: z.boolean(),
-    finishOnboardingWidget: z.boolean().optional(),
     pnl: z.boolean(),
+    assetDiscoverability: z.boolean(),
     earnUpselling: z.boolean().optional(),
     earnSimulator: z.boolean().optional(),
   },
   {
-    enabled: false,
+    // FLEX: no remote-config rollout here — force Wallet 4.0 UI on with all tabs
+    // (Crypto assets, operations history, aggregated assets) exactly as Ledger ships
+    // to fully-enabled cohorts.
+    enabled: true,
     params: {
       marketBanner: true,
       graphRework: true,
@@ -32,13 +35,15 @@ export const lwdWallet40 = flagWith(
       lazyOnboarding: true,
       newReceiveDialog: true,
       balanceRefreshRework: true,
-      assetSection: false,
-      operationsList: false,
+      assetSection: true,
+      operationsList: true,
       brazePlacement: true,
-      aggregatedAssets: false,
+      aggregatedAssets: true,
       myWallet: false,
-      finishOnboardingWidget: false,
       pnl: false,
+      assetDiscoverability: false,
+      earnUpselling: true,
+      earnSimulator: true,
     },
   },
 );
