@@ -16,6 +16,7 @@ import {
 import {
   accountToWalletAPIAccount,
   getAccountIdFromWalletAccountId,
+  getWalletApiIdFromAccountId,
 } from "@ledgerhq/live-common/wallet-api/converters";
 import { Account, AccountLike, TokenAccount, SwapOperation } from "@ledgerhq/types-live";
 import BigNumber from "bignumber.js";
@@ -247,11 +248,20 @@ const SwapWebView = ({ manifest, isEmbedded = false, Loader = SwapLoader }: Swap
         hasDrawer: boolean;
       }> => {
         const realFromAccountId = getAccountIdFromWalletAccountId(params.fromAccountId);
-        if (!realFromAccountId) {
+        // FLEX: in the demo build BridgeSync is off, so the wallet-api UUID→accountId
+        // map is never populated and the live-app's params.fromAccountId (a uuidv5 id)
+        // fails the strict lookup below → "unable to calculate fees". Resolve the
+        // account deterministically by recomputing each account's wallet-api id.
+        const flexFromAccount = isFlexBuild()
+          ? accounts.find(acc => getWalletApiIdFromAccountId(acc.id) === params.fromAccountId) ||
+            accounts[0]
+          : undefined;
+        if (!realFromAccountId && !flexFromAccount) {
           return Promise.reject(new Error(`accountId ${params.fromAccountId} unknown`));
         }
 
-        const fromAccount = accounts.find(acc => acc.id === realFromAccountId);
+        const fromAccount =
+          accounts.find(acc => acc.id === realFromAccountId) || flexFromAccount;
         if (!fromAccount) {
           return Promise.reject(new Error(`accountId ${params.fromAccountId} unknown`));
         }

@@ -213,7 +213,8 @@
       "SHIELDED_TX_SAPLING_IN": "Received",
       "SHIELDED_TX_SAPLING_OUT": "Sent",
       "SHIELDED_TX_ORCHARD_IN": "Received",
-      "SHIELDED_TX_ORCHARD_OUT": "Sent"
+      "SHIELDED_TX_ORCHARD_OUT": "Sent",
+      "FINALIZE_UNSTAKE": "Withdrawn"
     },
     "edit": {
       "title": "Speed up or Cancel",
@@ -4304,7 +4305,8 @@
               ],
               "warning": {
                 "description": "Choose your validator wisely: Part of your delegated assets may be irrevocably lost if the validator does not behave appropriately."
-              }
+              },
+              "seiAssociationWarning": "Your Sei account has not yet been linked on-chain. Delegation will fail until your account has its first outbound transaction confirmed on-chain. Send a small amount of SEI to any address first, wait for confirmation, then come back to delegate."
             },
             "amount": {
               "title": "Amount"
@@ -4326,7 +4328,9 @@
               "broadcastError": "Your transaction may have failed. Please wait a moment then check the transaction history before trying again."
             }
           }
-        }
+        },
+        "undelegateActivatingTooltip": "You cannot undelegate a stake that is still activating",
+        "activatingTooltip": "Delegated amounts will start generating rewards next epoch"
       },
       "redelegation": {
         "header": "Redelegation(s)",
@@ -4723,7 +4727,8 @@
             "broadcastError": "Your transaction may have failed. Please wait a moment then check the transaction history before trying again.",
             "howItWorks": "How staking works"
           }
-        }
+        },
+        "preparingTransaction": "Preparing transaction…"
       }
     },
     "unstakeRequired": {
@@ -4743,6 +4748,31 @@
       },
       "learnMore": "Learn more about Tezos staking",
       "close": "Close"
+    },
+    "account": {
+      "delegatedAssetsTooltip": "XTZ delegated to a baker. Funds remain in your wallet and can be sent at any time.",
+      "stakedAssets": "Staked assets",
+      "stakedAssetsTooltip": "XTZ locked under your baker. Unstake to make them withdrawable after ~4 days.",
+      "pendingWithdrawable": "Pending withdrawable",
+      "pendingWithdrawableTooltip": "XTZ currently unstaking. Available for withdrawal in ~4 days.",
+      "withdrawableAssets": "Withdrawable assets",
+      "withdrawableAssetsTooltip": "XTZ that finished the unstaking period and is ready to be withdrawn."
+    },
+    "delegation": {
+      "contextMenu": {
+        "stake": "Stake your XTZ"
+      }
+    },
+    "staking": {
+      "header": "Staking",
+      "contextMenu": {
+        "stakeMore": "Stake more",
+        "unstake": "Unstake"
+      }
+    },
+    "unstaking": {
+      "header": "Unstaking",
+      "processing": "Processing"
     }
   },
   "delegation": {
@@ -5187,7 +5217,17 @@
       "enableCountervaluesStaging": "Countervalues API staging",
       "enableCountervaluesStagingDesc": "Use the staging countervalues API instead of production.",
       "openOnboardingAppInstallDebug": "Open onboarding app install debug screen",
-      "openOnboardingAppInstallDebugDesc": "Open a screen with the components from the sync onboarding app installation step"
+      "openOnboardingAppInstallDebugDesc": "Open a screen with the components from the sync onboarding app installation step",
+      "coinConfig": {
+        "title": "Coin configs used in Ledger Wallet",
+        "desc": "Override per-currency config (rpc, explorer, gas…) for local debugging. Only valid JSON will be accepted. Overrides persist across relaunches; use \"Restore all\" to clear them.",
+        "search": "Search a config key (e.g. config_currency_ethereum)",
+        "hint": "Defaults show `config_currency_*` keys. Search to see every LiveConfig key. Overrides are deep-merged on top of the default + remote value for object configs.",
+        "restore": "Restore",
+        "override": "Override",
+        "restoreAll": "Restore all coin configs",
+        "overriddenLocally": "overridden locally"
+      }
     },
     "currencies": {
       "selectPlaceholder": "Select crypto asset",
@@ -6054,6 +6094,14 @@
             }
           }
         }
+      }
+    },
+    "counterfeitWarning": {
+      "title": "Before you start",
+      "body": "We recommend buying from <ledgerCom>Ledger.com</ledgerCom> or our <resellerLink>official reseller network</resellerLink>. This helps ensure your device is genuine and ready to use.",
+      "cta": {
+        "primary": "Continue setup",
+        "secondary": "Learn more"
       }
     }
   },
@@ -7837,6 +7885,9 @@
     },
     "UtxoLimitReachedError": {
       "title": "Amount too large for UTXO constraints."
+    },
+    "TezosNotEnoughStaked": {
+      "title": "Insufficient staked balance"
     }
   },
   "cryptoOrg": {
@@ -8273,6 +8324,9 @@
         "value": "Value",
         "allocation": "Allocation"
       }
+    },
+    "pnl": {
+      "title": "Profit and loss"
     }
   },
   "walletSync": {
@@ -8611,7 +8665,8 @@
     "dialog": {
       "title": "Mood index",
       "content": "Shows overall market sentiment from 0 to 100, based on trends and activity. Use it to understand how the market is behaving: lower values indicate fear, higher values indicate greed.",
-      "cta": "Got it"
+      "cta": "Got it",
+      "disclaimer": "Data is sourced from CoinMarketCap's Fear and Greed Index and provided for informational purposes only."
     }
   },
   "quickActions": {
@@ -8649,7 +8704,8 @@
       "columns": {
         "name": "Name",
         "address": "Address",
-        "value": "Value"
+        "value": "Value",
+        "asset": "Asset"
       },
       "editName": "Edit name",
       "emptyState": "No crypto address yet",
@@ -9042,6 +9098,27 @@
       "earnBannerDefault": "Earn with this asset",
       "earnBannerSubtitle": "Hold and earn with this asset",
       "earnBannerAction": "Go to Earn"
+    },
+    "chartOptions": {
+      "menu": "Chart options",
+      "hideTransactions": "Hide activity on price chart",
+      "showTransactions": "Show activity on price chart"
+    },
+    "marketCapTooltip": "The total value of all coins in circulation. Think of it as the crypto's total worth on the market.",
+    "circulatingSupplyTooltip": "The total number of tokens currently available in the market and held by the public. It excludes locked, reserved, or unminted tokens.",
+    "maxSupplyTooltip": "The maximum number of tokens that will ever exist. For some assets, this is fixed to prevent inflation.",
+    "tradingVolume24hTooltip": "The total amount traded in the last 24 hours.",
+    "marketStatsDisclaimer": "Market stats sourced from CoinGecko",
+    "week": "1 week",
+    "month": "1 month",
+    "sixMonths": "6 months",
+    "year": "1 year",
+    "fiveYears": "5 years",
+    "allTime": "All time",
+    "chart": {
+      "received": "Received",
+      "sent": "Sent",
+      "transactionsCount": "{{count}} transactions"
     }
   },
   "pnl": {
@@ -9093,7 +9170,27 @@
           "title": "Realised return",
           "description": "Profit or loss confirmed from previous sales or outgoing transfers."
         }
-      }
+      },
+      "cards": {
+        "totalReturn": "Total return",
+        "unrealisedReturn": "Unrealised return",
+        "realisedReturn": "Realised return"
+      },
+      "detail": "Details"
+    },
+    "disclaimer": "This data is provided for informational purposes only and is not financial advice. Not to be used for tax purposes."
+  },
+  "lineChart": {
+    "error": "Unable to load chart",
+    "rangeSelectorLabel": "Select time range",
+    "range": {
+      "1d": "1D",
+      "1w": "1W",
+      "1m": "1M",
+      "6m": "6M",
+      "1y": "1Y",
+      "5y": "5Y",
+      "all": "ALL"
     }
   }
 }
