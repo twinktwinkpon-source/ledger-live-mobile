@@ -56,7 +56,10 @@ import { fetchTrustchain } from "./actions/trustchain";
 import { setupRecentAddressesStore } from "./recentAddresses";
 import { startAnalytics } from "./analytics/segment";
 import { initIdentities } from "~/renderer/helpers/identities";
-import { setAllOverrides, setBannerVisible } from "@shared/feature-flags";
+import { setAllOverrides, setBannerVisible, type PartialFeatures } from "@shared/feature-flags";
+// FLEX: same forced Wallet 4.0 pin as configureStore's envFlags — applied as local
+// overrides too so a stale persisted dev override map cannot disable the new UI.
+import { FLEX_FORCED_FEATURE_FLAGS, isFlexDemoBuild } from "~/renderer/mocks/flexFeatureFlags";
 import {
   setAllCoinConfigOverrides,
   sanitizePersistedOverrides,
@@ -238,7 +241,19 @@ async function init() {
 
   const persistedFeatureFlags = await getKey("app", "featureFlags");
   if (persistedFeatureFlags) {
-    store.dispatch(setAllOverrides(persistedFeatureFlags.overrides));
+    // FLEX: local overrides outrank envFlags in resolveFeature, so a stale persisted
+    // dev override (e.g. lwdWallet40 disabled) would beat the forced env pin. Merge
+    // the forced Wallet 4.0 flags on top of whatever was persisted.
+    store.dispatch(
+      setAllOverrides(
+        (isFlexDemoBuild()
+          ? {
+              ...(persistedFeatureFlags.overrides as PartialFeatures),
+              ...FLEX_FORCED_FEATURE_FLAGS,
+            }
+          : persistedFeatureFlags.overrides) as PartialFeatures,
+      ),
+    );
     store.dispatch(setBannerVisible(persistedFeatureFlags.bannerVisible));
   } else if (initialSettings) {
     // One-time migration from legacy settings fields.
@@ -261,7 +276,14 @@ async function init() {
             typeof (v as Record<string, unknown>)["enabled"] === "boolean",
         ),
       );
-      store.dispatch(setAllOverrides(filteredOverrides));
+      // FLEX: same forced pin on the legacy-migration path.
+      store.dispatch(
+        setAllOverrides(
+          (isFlexDemoBuild()
+            ? { ...filteredOverrides, ...FLEX_FORCED_FEATURE_FLAGS }
+            : filteredOverrides) as PartialFeatures,
+        ),
+      );
     }
 
     if (

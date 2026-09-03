@@ -8,6 +8,9 @@ import { createIdentitiesSyncMiddleware } from "@ledgerhq/client-ids/store";
 import { canPushDeviceIdsSelector, languageSelector } from "~/renderer/reducers/settings";
 import { createFeatureFlagsMiddleware, type PartialFeatures } from "@shared/feature-flags";
 import { fetchRemoteFlags as defaultFetchRemoteFlags } from "~/firebase/remoteConfig";
+// FLEX: pin Wallet 4.0 flags above the live Firebase remote config (envFlags layer
+// has priority over remote in resolveFeature; see mocks/flexFeatureFlags.ts).
+import { FLEX_FORCED_FEATURE_FLAGS, isFlexDemoBuild } from "~/renderer/mocks/flexFeatureFlags";
 type Props = {
   state?: State;
   dbMiddleware?: Middleware;
@@ -46,7 +49,12 @@ const customCreateStore = ({
             resolutionConfig: {
               platform: "desktop",
               appVersion: __APP_VERSION__,
-              envFlags: getEnv("FEATURE_FLAGS") as PartialFeatures,
+              envFlags: (isFlexDemoBuild()
+                ? {
+                    ...(getEnv("FEATURE_FLAGS") as PartialFeatures | undefined),
+                    ...FLEX_FORCED_FEATURE_FLAGS,
+                  }
+                : (getEnv("FEATURE_FLAGS") as PartialFeatures)) as PartialFeatures,
             },
             fetchRemoteFlags: fetchRemoteFlags ?? undefined,
             getAppLanguage: languageSelector,
