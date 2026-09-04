@@ -52,4 +52,41 @@ export const FLEX_FORCED_FEATURE_FLAGS: PartialFeatures = {
   },
   // Right-hand portfolio panel (swap/earn side window) — gated separately upstream.
   ptxSwapLiveAppOnPortfolio: { enabled: true },
+  // Upstream's redesigned Send flow (src/mvvm/features/Send — lumen UI, new
+  // Recipient/Amount/CustomFees/Signature screens). Upstream defaults it OFF
+  // (partial rollout), which is why the legacy MODAL_SEND kept opening in FLEX.
+  // The new flow is already flex-wired: useSendFlowTransaction routes every
+  // account through the fake bridge and SignatureScreen uses the fake
+  // transaction action (native Lottie signing animation). Families list mirrors
+  // the fake bridge coverage so no family falls back to the legacy modal.
+  newSendFlow: {
+    enabled: true,
+    params: {
+      families: [
+        "bitcoin",
+        "bitcoin_cash",
+        "litecoin",
+        "dogecoin",
+        "evm",
+        "solana",
+        "ton",
+        "zcash",
+        "ripple",
+        "stellar",
+        "cosmos",
+        "cardano",
+        "tron",
+        "polkadot",
+        "alchemy",
+        "internet_computer",
+        "hedera",
+        "canton",
+        "sui",
+        "aptos",
+        "near",
+        "tezos",
+      ],
+      excludedCurrencyIds: [],
+    },
+  } as unknown as PartialFeatures["newSendFlow"],
 } as unknown as PartialFeatures;

@@ -15,8 +15,13 @@ import { withV3StyleProvider } from "~/renderer/styles/StyleProviderV3";
 import { DeviceInfo } from "@ledgerhq/types-live";
 import { HOOKS_TRACKING_LOCATIONS } from "~/renderer/analytics/hooks/variables";
 import { isFlexBuild, setFlexDeviceName } from "~/renderer/mocks/fakeFlexBuild";
+import { createFakeRenameDeviceAction } from "~/renderer/mocks/fakeBridge";
 
 const action = createAction(renameDevice);
+// FLEX: hardware-less twin of `action` — drives the NATIVE DeviceAction rename
+// phase machine (loading -> "allow rename on device" illustration -> renamed)
+// so the flow looks and behaves exactly like renaming a real Nano.
+const flexRenameAction = createFakeRenameDeviceAction() as unknown as typeof action;
 
 type Props = {
   onClose?: () => void;
@@ -80,6 +85,11 @@ const EditDeviceName: React.FC<Props> = ({
   );
 
   const onSuccess = useCallback(() => {
+    // FLEX: persist locally only once the fake device interaction completed —
+    // the success screen below is the native one shared with real hardware.
+    if (isFlexBuild()) {
+      setFlexDeviceName(name.trim());
+    }
     setCompleted(true);
     setRunning(false);
     onSetName(name);
@@ -87,13 +97,12 @@ const EditDeviceName: React.FC<Props> = ({
 
   const onSubmit = useCallback(async () => {
     setRunning(true);
-    // FLEX_DEMO: there is no hardware to write the name to. DeviceAction would
-    // read getCurrentDevice() (null in a demo build) and pop the "connect your
-    // Ledger" prompt — the exact bug reported. Persist the name locally and show
-    // the native success screen instead.
+    // FLEX_DEMO: there is no hardware to write the name to. The real action
+    // would read getCurrentDevice() (null in a demo build) and pop the
+    // "connect your Ledger" prompt. Instead run the fake rename action: the
+    // untouched native DeviceAction plays loading -> allow-rename -> renamed,
+    // then OnResult calls onSuccess above.
     if (isFlexBuild()) {
-      setFlexDeviceName(name.trim());
-      onSuccess();
       return;
     }
     if (deviceName !== name) {
@@ -151,7 +160,7 @@ const EditDeviceName: React.FC<Props> = ({
           <Flex flex={1} alignItems="center" justifyContent="center">
             <DeviceAction
               request={request}
-              action={action}
+              action={isFlexBuild() ? flexRenameAction : action}
               inlineRetry={false}
               onResult={onSuccess}
               onError={(error: Error) => setActionError(error)}

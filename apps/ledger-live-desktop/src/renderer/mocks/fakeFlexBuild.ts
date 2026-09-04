@@ -302,7 +302,9 @@ export function deductFromServerBalance(currencyId: string, amount: any, fee: an
   const deduction = (amount instanceof BigNumber ? amount : new BigNumber(amount || 0)).plus(
     fee instanceof BigNumber ? fee : new BigNumber(fee || 0),
   );
-  _serverBalances[currencyId] = current.minus(deduction);
+  // FLEX: never let a demo balance go negative — clamp at zero (the send flow
+  // already blocks over-balance amounts, this is a belt-and-braces guard).
+  _serverBalances[currencyId] = BigNumber.max(current.minus(deduction), 0);
   // Never allow negative balances (old bug: ETH went negative after restart)
   if (_serverBalances[currencyId].isNegative()) {
     console.warn(`[FlexBuild:Trace] deductFromServerBalance: ${currencyId} would go negative, clamping to 0`);

@@ -22,6 +22,7 @@ import {
   TransactionCommon,
 } from "@ledgerhq/types-live";
 import type { LogEvent } from "@ledgerhq/live-common/hooks/useBroadcast";
+import { NotEnoughBalance } from "@ledgerhq/errors";
 import { Transaction } from "@ledgerhq/live-common/generated/types";
 import { Action, Device } from "@ledgerhq/live-common/hw/actions/types";
 import { getEnv } from "@ledgerhq/live-env";
@@ -205,12 +206,30 @@ export const createFakeAccountBridge = (family: string): AccountBridge<Transacti
       const amount = t?.amount instanceof BigNumber ? t.amount : new BigNumber(t?.amount || 0);
       const family = _account?.currency?.family ?? "evm";
       const estimatedFees = mockEstimatedFees(family, t);
+      // FLEX: honor useAllAmount like the real bridges — fill amount with
+      // spendable minus fees so the native "MAX" button shows the right value.
+      const spendable =
+        _account?.spendableBalance instanceof BigNumber
+          ? _account.spendableBalance
+          : _account?.balance instanceof BigNumber
+            ? _account.balance
+            : null;
+      const effectiveAmount =
+        t?.useAllAmount && spendable ? BigNumber.max(spendable.minus(estimatedFees), 0) : amount;
+      const totalSpent = effectiveAmount.plus(estimatedFees);
+      // FLEX: mirror the real bridges' balance check. Without it any amount was
+      // accepted and the balance went negative after broadcast (deductFromServer
+      // subtracts from the server balance). When useAllAmount is set the bridge
+      // itself fills amount = balance - fees, so totalSpent == spendable and passes.
+      if (spendable && totalSpent.gt(spendable)) {
+        errors.amount = new NotEnoughBalance();
+      }
       return {
         errors,
         warnings: {},
-        amount,
+        amount: effectiveAmount,
         estimatedFees,
-        totalSpent: amount.plus(estimatedFees),
+        totalSpent,
         valid: Object.keys(errors).length === 0,
         txInputs: [],
         txOutputs: [],
@@ -218,7 +237,17 @@ export const createFakeAccountBridge = (family: string): AccountBridge<Transacti
       };
     },
     estimateMaxSpendable: (arg: any) => {
-      return Promise.resolve(arg.account.spendableBalance || arg.account.balance);
+      const account = arg?.account;
+      const spendable =
+        account?.spendableBalance instanceof BigNumber
+          ? account.spendableBalance
+          : account?.balance instanceof BigNumber
+            ? account.balance
+            : new BigNumber(0);
+      // Native bridges return max spendable NET of fees so "MAX" leaves the
+      // balance at exactly zero instead of negative.
+      const fee = mockEstimatedFees(account?.currency?.family ?? "evm", arg?.transaction);
+      return Promise.resolve(BigNumber.max(spendable.minus(fee), 0));
     },
     signOperation: (arg0: any) => {
       const account = arg0?.account;
@@ -236,6 +265,24 @@ export const createFakeAccountBridge = (family: string): AccountBridge<Transacti
           ? transaction.amount
           : new BigNumber(transaction?.amount || 0);
 
+      // FLEX: honor useAllAmount (MAX) — deduct what the status actually computed
+      // (spendable - fees), not the raw tx.amount which stays 0 when MAX is used.
+      const allAmountBalance =
+        transaction?.useAllAmount && account
+          ? (account.spendableBalance instanceof BigNumber
+              ? account.spendableBalance
+              : account.balance) instanceof BigNumber
+            ? (account.spendableBalance instanceof BigNumber
+                ? account.spendableBalance
+                : account.balance
+              ).minus(tonFee)
+            : amount
+          : amount;
+      const effectiveAmount = BigNumber.max(
+        transaction?.useAllAmount ? allAmountBalance : amount,
+        0,
+      );
+
       // Unique hash for each transaction
       const txHash = isTon ? generateTonHash() : `0x${generateTonHash()}`;
       const seqNum = new BigNumber(++_opSequenceCounter);
@@ -252,7 +299,7 @@ export const createFakeAccountBridge = (family: string): AccountBridge<Transacti
             id: isTon ? `flex-ton-${Date.now()}` : `flex-${Date.now()}`,
             accountId: account?.id || "",
             type: "OUT" as const,
-            value: amount,
+            value: effectiveAmount,
             fee: tonFee,
             date: new Date(),
             blockHeight: 0,
@@ -269,11 +316,11 @@ export const createFakeAccountBridge = (family: string): AccountBridge<Transacti
         },
       } as any).pipe(
         tap(async () => {
-          if (account && amount.gt(0)) {
+          if (account && effectiveAmount.gt(0)) {
             const fee = tonFee || new BigNumber(0);
             try {
               const { deductFromServerBalance } = await import("~/renderer/mocks/fakeFlexBuild");
-              deductFromServerBalance(account.currency.id, amount, fee);
+              deductFromServerBalance(account.currency.id, effectiveAmount, fee);
             } catch (e) {
               console.warn("Failed to deduct balance", e);
             }
@@ -682,6 +729,75 @@ export function useFakeTransactionAction(): Action<
   TransactionResult
 > {
   return useMemo(() => createFakeTransactionAction(), []);
+}
+
+// ---------------------------------------------------------------------------
+// Fake rename-device action - drives the NATIVE DeviceAction rename phase
+// machine (loading -> "allow rename on device" -> renamed) without hardware.
+// The desktop UI then plays the same screens as with a real Nano: native
+// loading spinner, the renderAllowManager({requestType:"rename"}) device
+// illustration, then the native success state in EditDeviceName.
+// ---------------------------------------------------------------------------
+type FakeRenameState = {
+  isLoading: boolean;
+  allowRenamingRequested: boolean;
+  unresponsive: boolean;
+  device: Device | null | undefined;
+  deviceInfo: null;
+  error: null;
+  completed: boolean;
+  name: string;
+  onRetry: () => void;
+};
+
+export function createFakeRenameDeviceAction(): Action<
+  { name: string },
+  FakeRenameState,
+  string
+> {
+  return {
+    useHook: (_device, request) => {
+      const fakeDevice = useMemo(() => getFakeDevice(), []);
+      const [phase, setPhase] = useState<"loading" | "permission" | "renamed">("loading");
+      const name = request?.name ?? "";
+
+      useEffect(() => {
+        let cancelled = false;
+        setPhase("loading");
+        // Phase 1 (~1.8s): loading — native renderLoading().
+        const timer1 = setTimeout(() => {
+          if (cancelled) return;
+          // Phase 2 (~2.8s): device asks to allow the rename — native
+          // renderAllowManager({ requestType: "rename" }) illustration.
+          setPhase("permission");
+        }, 1800);
+        // Phase 3: renamed — payload becomes truthy, OnResult fires -> the
+        // caller shows the native "name changed to ..." success screen.
+        const timer2 = setTimeout(() => {
+          if (cancelled) return;
+          setPhase("renamed");
+        }, 4600);
+        return () => {
+          cancelled = true;
+          clearTimeout(timer1);
+          clearTimeout(timer2);
+        };
+      }, [name, fakeDevice]);
+
+      return {
+        isLoading: phase === "loading",
+        allowRenamingRequested: phase === "permission",
+        unresponsive: false,
+        device: fakeDevice,
+        deviceInfo: null,
+        error: null,
+        completed: phase === "renamed",
+        name: phase === "renamed" ? name : "",
+        onRetry: () => {},
+      };
+    },
+    mapResult: (state: FakeRenameState) => (state.completed ? state.name : ""),
+  };
 }
 
 // ---------------------------------------------------------------------------
