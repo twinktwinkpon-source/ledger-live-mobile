@@ -571,12 +571,17 @@ export function usePTXCustomHandlers(manifest: WebviewProps["manifest"], account
       "custom.dialog.confirmation": createOpenActionDialogHandler(dispatch),
       "custom.syncAccount": async request => {
         const { fromAccountId, toAccountId } = request.params || {};
-        if (!fromAccountId || !toAccountId) {
-          return Promise.reject(new Error("Missing fromAccountId or toAccountId parameter"));
+        // FLEX: the live-app calls syncAccount during boot, often with only one
+        // side selected. Rejecting here surfaces the "accounts could be out of
+        // sync / unable to calculate fees" banner in the Wallet 4.0 swap panel.
+        // Sync whatever is resolvable and always resolve.
+        if (!fromAccountId && !toAccountId) {
+          return Promise.resolve();
         }
 
         const syncIds: string[] = [];
         for (const id of [fromAccountId, toAccountId]) {
+          if (!id) continue;
           const realId = getAccountIdFromWalletAccountId(id) ?? id;
           const account = accounts.find(acc => acc.id === realId);
           if (!account) continue;
@@ -584,7 +589,9 @@ export function usePTXCustomHandlers(manifest: WebviewProps["manifest"], account
             account.type === "TokenAccount" ? getParentAccount(account, accounts).id : realId;
           syncIds.push(syncId);
         }
-        syncAccountsById(syncIds);
+        if (syncIds.length) {
+          syncAccountsById(syncIds);
+        }
 
         return Promise.resolve();
       },

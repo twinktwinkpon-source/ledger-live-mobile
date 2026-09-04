@@ -240,7 +240,7 @@ const SwapWebView = ({ manifest, isEmbedded = false, Loader = SwapLoader }: Swap
         };
       }): Promise<{
         feesStrategy: string;
-        estimatedFees: BigNumber | undefined;
+        estimatedFees: BigNumber | string | undefined;
         errors: object;
         warnings: object;
         customFeeConfig: object;
@@ -256,6 +256,25 @@ const SwapWebView = ({ manifest, isEmbedded = false, Loader = SwapLoader }: Swap
           ? accounts.find(acc => getWalletApiIdFromAccountId(acc.id) === params.fromAccountId) ||
             accounts[0]
           : undefined;
+        // FLEX: the embedded Wallet 4.0 swap panel calls custom.getFee during its own
+        // boot, which can race ahead of the async fake-account hydration (accounts is
+        // still empty). Never reject in flex mode — return a deterministic synthetic
+        // fee so the live-app renders the native fee row instead of the error box.
+        if (isFlexBuild() && !flexFromAccount) {
+          return {
+            feesStrategy: params.feeStrategy || "medium",
+            // NOTE: return a plain string — the live-app zod schema rebuilds
+            // BigNumber from string/number after the postMessage serialization
+            // boundary; a BigNumber instance arrives as a prototype-less object
+            // and fails `instanceof`, surfacing "unable to calculate fees".
+            estimatedFees: "0.00012",
+            errors: {},
+            warnings: {},
+            customFeeConfig: params.customFeeConfig || {},
+            gasLimit: "21000",
+            hasDrawer: false,
+          };
+        }
         if (!realFromAccountId && !flexFromAccount) {
           return Promise.reject(new Error(`accountId ${params.fromAccountId} unknown`));
         }
@@ -283,13 +302,24 @@ const SwapWebView = ({ manifest, isEmbedded = false, Loader = SwapLoader }: Swap
             ton: "0.0055",
           };
           const feeAmount = feeByFamily[family] ?? "0.0001";
-          const feeAtomic = new BigNumber(feeAmount).shiftedBy(mainAccount.units[0].magnitude || 8);
+          // NOTE: Account has no top-level `units` — magnitude lives on the
+          // currency (or token for sub-accounts). Reading mainAccount.units[0]
+          // threw TypeError → the live-app showed "unable to calculate fees".
+          const magnitude =
+            mainAccount.type === "TokenAccount"
+              ? mainAccount.token.units[0]?.magnitude ?? 8
+              : mainAccount.currency.units[0]?.magnitude ?? 8;
+          const feeAtomic = new BigNumber(feeAmount).shiftedBy(magnitude);
           return {
             feesStrategy: params.feeStrategy || "medium",
+            // String, not a BigNumber instance: structuredClone across the
+            // postMessage boundary strips the prototype, so the live-app's
+            // zod `instanceof BigNumber` check fails → "unable to calculate
+            // fees". The schema pre-coerces string/number back to BigNumber.
             estimatedFees: convertToNonAtomicUnit({
               amount: feeAtomic,
               account: mainAccount,
-            }),
+            })?.toString(),
             errors: {},
             warnings: {},
             customFeeConfig: params.customFeeConfig || {},

@@ -228,8 +228,35 @@ function setupMainWindowHandlers() {
     return false;
   });
 
+  // FLEX-DEBUG: dump renderer console messages to the same log file.
+  if (__DEV__) {
+    mainWindow.webContents.on("console-message", (_e, level, message, line, sourceId) => {
+      try {
+        fs.appendFileSync(
+          path.join(app.getPath("userData"), "liveapp-console.log"),
+          `[renderer L${level}] ${sourceId}:${line} ${message}\n`
+        );
+      } catch {
+        /* no-op */
+      }
+    });
+  }
+
   // Track and clean up a webview's DevTools WebContents to avoid orphaned DevTools windows.
   mainWindow.webContents.on("did-attach-webview", function (_event, webContents) {
+    // FLEX-DEBUG: dump live-app console messages to a file for diagnosis.
+    if (__DEV__) {
+      webContents.on("console-message", (_e, level, message, line, sourceId) => {
+        try {
+          fs.appendFileSync(
+            path.join(app.getPath("userData"), "liveapp-console.log"),
+            `[webview L${level}] ${sourceId}:${line} ${message}\n`
+          );
+        } catch {
+          /* no-op */
+        }
+      });
+    }
     let devtoolContents: WebContents | null = null;
     webContents.on("devtools-opened", () => {
       devtoolContents = webContents.devToolsWebContents;
