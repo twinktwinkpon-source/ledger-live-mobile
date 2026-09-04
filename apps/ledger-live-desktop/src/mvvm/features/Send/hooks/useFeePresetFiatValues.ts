@@ -9,6 +9,7 @@ import { formatCurrencyUnit } from "@ledgerhq/coin-module-framework/currencies/f
 import type { Currency, Unit } from "@ledgerhq/types-cryptoassets";
 import { buildEstimationKey } from "../utils/feeEstimation";
 import { isFlexBuild } from "~/renderer/mocks/fakeFlexBuild";
+import { createFakeAccountBridge } from "~/renderer/mocks/fakeBridge";
 
 function getFeesStrategyForPreset(presetId: string): Transaction["feesStrategy"] | null {
   if (presetId === "slow") return "slow";
@@ -230,7 +231,13 @@ export function useFeePresetFiatValues({
     const requestId = requestIdRef.current;
 
     queueMicrotask(async () => {
-      const bridge = await getAccountBridge(account, parentAccount ?? undefined);
+      // FLEX: resolving the real bridge here crashes bitcoin-family accounts
+      // with an uncaught AccountNeedResync (prepareTransaction ->
+      // getWalletAccount) the moment MAX / a fee preset is clicked. The fake
+      // bridge's getTransactionStatus already mirrors the preset fee shapes.
+      const bridge = isFlexBuild()
+        ? createFakeAccountBridge(mainAccount.currency.family)
+        : await getAccountBridge(account, parentAccount ?? undefined);
       await estimateFiatValuesForPresets({
         bridge,
         mainAccount,

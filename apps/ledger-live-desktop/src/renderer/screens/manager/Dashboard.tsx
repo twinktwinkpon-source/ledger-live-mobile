@@ -18,6 +18,7 @@ import { context as drawerContext } from "~/renderer/drawers/Provider";
 import { useFeature } from "@features/platform-feature-flags";
 import { useAppDataStorageProvider } from "~/renderer/hooks/storage-provider/useAppDataStorage";
 import { useLocation } from "react-router";
+import { isFlexBuild } from "~/renderer/mocks/fakeFlexBuild";
 
 type Props = {
   device: Device;
@@ -77,8 +78,14 @@ const Dashboard = ({
 
   const exec = useMemo(
     () =>
-      getEnv("MOCK")
-        ? mockExecWithInstalledContext(result?.installed || [])
+      getEnv("MOCK") || isFlexBuild()
+        ? // FLEX: no hardware to run install/uninstall APDUs against — the real
+          // exec path would open a DMK transport, fail with
+          // "Cannot read properties of undefined (reading 'transport')" and the
+          // Manager would show "Sorry, connection failed". Upstream's own mock
+          // exec replays progress 0 -> 0.5 -> 1 and mutates the installed list,
+          // so the native Manager install UI works end-to-end.
+          mockExecWithInstalledContext(result?.installed || [])
         : ({ app, appOp, targetId, skipAppDataBackup }: ExecArgs) =>
             withDevice(device.deviceId)(transport =>
               execWithTransport(
