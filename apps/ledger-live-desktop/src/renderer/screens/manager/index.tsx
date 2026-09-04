@@ -1,7 +1,7 @@
 import React, { useMemo } from "react";
 import Dashboard from "~/renderer/screens/manager/Dashboard";
 import { SyncSkipUnderPriority } from "@ledgerhq/live-common/bridge/react/index";
-import { getFlexProfile } from "~/renderer/mocks/fakeFlexBuild";
+import { getFlexProfile, getFlexDeviceName } from "~/renderer/mocks/fakeFlexBuild";
 
 const mockDeviceInfo = {
   version: "2.6.1",
@@ -121,7 +121,9 @@ export default function Manager() {
     }) as any,
     [profile?.device?.firmwareVersion],
   );
-  const deviceName = profile?.device?.name || "Ledger";
+  // FLEX_DEMO: a locally-renamed device name wins over the admin-panel profile
+  // name (rename is persisted in localStorage since there is no hardware).
+  const deviceName = getFlexDeviceName() || profile?.device?.name || "Ledger";
   const device = useMemo(
     () =>
       ({
@@ -146,8 +148,12 @@ export default function Manager() {
         deviceModelId: modelId,
         deviceInfo,
         installed,
+        // DeviceDashboard reads result.deviceName — without it the header falls
+        // back to the generic product name ("Ledger Nano X") and the renamed
+        // device name never shows.
+        deviceName,
       }) as any,
-    [modelId, deviceInfo, installed],
+    [modelId, deviceInfo, installed, deviceName],
   );
 
   return (

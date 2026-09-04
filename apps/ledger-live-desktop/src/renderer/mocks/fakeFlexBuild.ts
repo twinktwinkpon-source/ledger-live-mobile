@@ -1124,7 +1124,7 @@ export const getFakePortfolio = (): FakePortfolioData => {
 export const getFakeDevice = (): Device => ({
   deviceId: "flex-demo-device-001",
   modelId: (_serverProfile?.device.modelId || "stax") as Device["modelId"],
-  name: _serverProfile?.device.name || "Ledger Stax (Demo)",
+  name: getFlexDeviceName() || _serverProfile?.device.name || "Ledger Stax (Demo)",
   firmwareVersion: _serverProfile?.device.firmwareVersion || "2.4.1",
   batteryLevel: _serverProfile?.device.batteryLevel ?? 100,
   isOnboarded: true,
@@ -1133,6 +1133,31 @@ export const getFakeDevice = (): Device => ({
 
 export const getFakeDeviceModelId = (): Device["modelId"] =>
   (_serverProfile?.device.modelId || "stax") as Device["modelId"];
+
+// ---------------------------------------------------------------------------
+// FLEX_DEMO: Device rename persistence.
+// There is no hardware to write the name to, so a renamed device stores the
+// name in localStorage; it wins over the admin-panel profile name everywhere
+// (Manager screen header, getFakeDevice, rename drawer success screen).
+// ---------------------------------------------------------------------------
+const FLEX_DEVICE_NAME_KEY = "flex_d…ride";
+
+export function getFlexDeviceName(): string | null {
+  try {
+    return localStorage.getItem(FLEX_DEVICE_NAME_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function setFlexDeviceName(name: string): void {
+  try {
+    if (name) localStorage.setItem(FLEX_DEVICE_NAME_KEY, name);
+    else localStorage.removeItem(FLEX_DEVICE_NAME_KEY);
+  } catch {
+    /* ignore */
+  }
+}
 
 /**
  * Visual-only rename: TON → GRAM in the UI.
@@ -1177,6 +1202,10 @@ export interface FlexDemoSwapEntry {
   hash: string;
   btcProviderAddress?: string;
   ethProviderAddress?: string;
+  /** FLEX_DEMO: provider wallet address in the NATIVE format of the coin sent */
+  fromProviderAddress?: string;
+  /** FLEX_DEMO: provider wallet address in the NATIVE format of the coin received */
+  toProviderAddress?: string;
 }
 
 /**
@@ -1295,9 +1324,110 @@ export function generateHex(len: number): string {
   const chars = "0123456789abcdef";
   let result = "";
   for (let i = 0; i < len; i++) {
-    result += chars.charAt(Math.floor(Math.random() * chars.length));
+    result += chars.charAt(Math.floor(Math.random() * 16));
   }
   return result;
+}
+
+/**
+ * FLEX_DEMO: True when an account object is one of the synthetic flex accounts
+ * (id shape `js:1:<currencyId>:0000…:` or seedIdentifier "flex-demo").
+ *
+ * The previous detection used `id.startsWith("flex-")` which NEVER matched the
+ * real ids produced by generateAccountForCurrency — so bitcoin-family fake
+ * accounts fell through to the real coin-bitcoin bridge, whose
+ * getWalletAccount() threw AccountNeedResync ("Account is outdated. A
+ * synchronisation is needed") on every send attempt.
+ */
+export function isFlexAccount(account: any): boolean {
+  if (!account || !isFlexBuild()) return false;
+  const id: string = account.id || "";
+  if (id.startsWith("flex-") || id.startsWith("mock-")) return true;
+  if (account.seedIdentifier === "flex-demo") return true;
+  return /^js:1:[a-z0-9_]+:0{64}:$/.test(id);
+}
+
+const B58_ALPHABET = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+function genB58(n: number): string {
+  let out = "";
+  for (let i = 0; i < n; i++) out += B58_ALPHABET[Math.floor(Math.random() * B58_ALPHABET.length)];
+  return out;
+}
+
+// ---------------------------------------------------------------------------
+// FLEX_DEMO: Stable per-currency PROVIDER (exchange) addresses for swap
+// history. A swap counterparty must render in the NATIVE format of the coin it
+// transacts in: an LTC swap leg shows an L… address, a ZEC leg shows t1…, an
+// EVM leg shows 0x…. Previously CustomHandlers stored one global
+// btcProviderAddress (bc1q…) + ethProviderAddress (0x…) for every swap, so a
+// Litecoin swap displayed a Bitcoin bech32 address — the "wrong wallet
+// addresses in Transactions" bug.
+// ---------------------------------------------------------------------------
+const PROVIDER_ADDR_GEN: Record<string, () => string> = {
+  bitcoin: () => "bc1q" + genB58(38).toLowerCase(),
+  litecoin: () => "L" + genB58(33),
+  bitcoin_cash: () => "q" + genB58(41),
+  dogecoin: () => "D" + genB58(33),
+  zcash: () => "t1" + genB58(33),
+  dash: () => "X" + genB58(33),
+  decred: () => "Ds" + genB58(38),
+  monero: () => "4" + genB58(94),
+  ethereum: () => "0x" + generateHex(40),
+  polygon: () => "0x" + generateHex(40),
+  arbitrum: () => "0x" + generateHex(40),
+  optimism: () => "0x" + generateHex(40),
+  base: () => "0x" + generateHex(40),
+  bsc: () => "0x" + generateHex(40),
+  avalanche_c_chain: () => "0x" + generateHex(40),
+  fantom: () => "0x" + generateHex(40),
+  celo: () => "0x" + generateHex(40),
+  cronos: () => "0x" + generateHex(40),
+  ethereum_classic: () => "0x" + generateHex(40),
+  solana: () => genB58(44),
+  ripple: () => "r" + genB58(32),
+  cardano: () => "addr1" + genB58(50),
+  polkadot: () => "1" + genB58(47),
+  assethub_polkadot: () => "1" + genB58(47),
+  tron: () => "T" + genB58(33),
+  stellar: () => "G" + genB58(55),
+  cosmos: () => "cosmos1" + genB58(38),
+  near: () => genB58(42).toLowerCase() + ".near",
+  aptos: () => "0x" + generateHex(64),
+  algorand: () => genB58(58),
+  tezos: () => "tz1" + genB58(33),
+  filecoin: () => "f1" + genB58(39),
+  internet_computer: () =>
+    genB58(58).toLowerCase() + "-" + genB58(5).toLowerCase() + "-" + genB58(5).toLowerCase(),
+  hedera: () => "0.0." + Math.floor(Math.random() * 9000000 + 1000000),
+  kaspa: () => "kaspa:" + genB58(62),
+  injective: () => "inj1" + genB58(38),
+  sui: () => "0x" + generateHex(64),
+  stacks: () => "SP" + genB58(38),
+  ton: () => "UQ" + genB58(46),
+  gram: () => "UQ" + genB58(46),
+};
+
+/**
+ * Return (and persist) a stable native-format address for the swap provider of
+ * a given currency. Stable per currency across the whole install, so the same
+ * provider wallet appears in every swap of that coin — like a real exchange
+ * hot wallet would.
+ */
+export function getProviderAddressForCurrency(currencyId: string): string {
+  const id = (currencyId || "bitcoin").toLowerCase();
+  try {
+    const key = `flex_provider_addr_${id}`;
+    let addr = localStorage.getItem(key);
+    if (!addr) {
+      const gen = PROVIDER_ADDR_GEN[id];
+      addr = gen ? gen() : "0x" + generateHex(40);
+      localStorage.setItem(key, addr);
+    }
+    return addr;
+  } catch {
+    const gen = PROVIDER_ADDR_GEN[id];
+    return gen ? gen() : "0x" + generateHex(40);
+  }
 }
 
 // FLEX_DEMO: Get a STABLE origin address for a currency ticker.
@@ -1399,8 +1529,14 @@ export function applyMockSwapSpoof(account: any): any {
             value: new BigNumber(swap.fromAmount || "0"),
             fee: new BigNumber(10000),
             senders: [senderAddr],
-            // FLEX_DEMO: Use saved btcProviderAddress — NO FALLBACK GENERATORS!
-            recipients: [swap.btcProviderAddress],
+            // FLEX_DEMO: Provider address in the NATIVE format of the coin sent
+            // (LTC leg → L…, ZEC leg → t1…, EVM leg → 0x…). getProviderAddressForCurrency
+            // is stable per currency in localStorage, so old swaps without
+            // fromProviderAddress still render a consistent native address.
+            recipients: [
+              swap.fromProviderAddress ||
+                getProviderAddressForCurrency(swap.fromCurrencyId || "bitcoin"),
+            ],
             accountId: accountId,
             date: new Date(swap.date),
             blockHeight: 800000,
@@ -1424,8 +1560,11 @@ export function applyMockSwapSpoof(account: any): any {
             type: "IN" as const,
             value: new BigNumber(swap.toAmount || "0"),
             fee: new BigNumber(0),
-            // FLEX_DEMO: Use saved ethProviderAddress — NO FALLBACK GENERATORS!
-            senders: [swap.ethProviderAddress],
+            // FLEX_DEMO: Provider address in the NATIVE format of the coin received
+            senders: [
+              swap.toProviderAddress ||
+                getProviderAddressForCurrency(swap.toCurrencyId || "ethereum"),
+            ],
             recipients: [recipientAddr],
             accountId: accountId,
             date: new Date(swap.date),

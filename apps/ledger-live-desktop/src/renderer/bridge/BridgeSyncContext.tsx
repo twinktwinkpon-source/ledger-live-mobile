@@ -9,6 +9,7 @@ import { track } from "~/renderer/analytics/segment";
 import { prepareCurrency, hydrateCurrency } from "./cache";
 import { blacklistedTokenIdsSelector } from "~/renderer/reducers/settings";
 import { Account } from "@ledgerhq/types-live";
+import { isFlexBuild, isFlexAccount } from "~/renderer/mocks/fakeFlexBuild";
 
 /**
  * BridgeSync is the main sync engine that runs heavy network-like operations
@@ -22,12 +23,13 @@ export const BridgeSyncProvider = ({ children }: { children: React.ReactNode }) 
   // Always skip BridgeSync when running in mock/flex demo mode.
   // This eliminates the 5-second navigation lag caused by the bridge
   // trying to sync all accounts through the mock bridge.
-  // Check both FLEX_DEMO env flag and the "mock-" / "flex-" account ID prefixes.
-  if (isFlexDemo) return <>{children}</>;
+  // FLEX production builds (no FLEX_DEMO env) must skip too — the previous
+  // check only looked at "mock-"/"flex-" id prefixes, which never match the
+  // real synthetic ids (js:1:<currency>:0000…:), so the real bridge tried to
+  // sync fake accounts and threw AccountNeedResync.
+  if (isFlexDemo || isFlexBuild()) return <>{children}</>;
   const accounts = useSelector(accountsSelector);
-  const hasMockAccounts =
-    accounts.length > 0 &&
-    (accounts[0]?.id?.startsWith?.("mock-") || accounts[0]?.id?.startsWith?.("flex-"));
+  const hasMockAccounts = accounts.length > 0 && accounts.some(isFlexAccount);
   if (hasMockAccounts) return <>{children}</>;
 
   const blacklistedTokenIds = useSelector(blacklistedTokenIdsSelector);

@@ -18,6 +18,7 @@ import {
   useFakeAccountBridge,
   useFakeBridgeTransaction,
 } from "~/renderer/mocks/fakeBridge";
+import { isFlexAccount } from "~/renderer/mocks/fakeFlexBuild";
 import { CurrencyNotSupported } from "@ledgerhq/errors";
 import { Account, AccountLike, Operation } from "@ledgerhq/types-live";
 import { Transaction } from "@ledgerhq/live-common/generated/types";
@@ -168,22 +169,20 @@ const Body = ({
     ? (targetAccount as any).currency?.family ?? "evm"
     : "evm";
 
-  // Fake accounts (IDs starting with "flex-" or "mock-") use the fake bridge
-  // because the real getAccountBridge cannot resolve a bridge for the
-  // non-standard account id. TON also has no real bridge implementation in
-  // FLEX builds, so always use the fake bridge for TON fake accounts.
-  const targetAccountId = (targetAccount as any)?.id ?? "";
-  const isFakeAccount =
-    targetAccountId.startsWith("flex-") || targetAccountId.startsWith("mock-");
-  const useFakeBridgeForFamily = isFakeAccount && targetFamily === "ton";
+  // FLEX_DEMO: EVERY synthetic flex account must use the fake bridge, not just
+  // TON. The previous detection (`id.startsWith("flex-")`) never matched the
+  // real ids (`js:1:<currency>:0000…:`), so bitcoin-family sends fell through
+  // to the real coin-bitcoin bridge whose getWalletAccount() threw
+  // AccountNeedResync — "Account is outdated. A synchronisation is needed".
+  const isFakeAccount = isFlexAccount(targetAccount);
 
   // Use real or fake bridge based on whether a real bridge exists for this family
   let initBridge;
   let bridge;
   let useFakeTxHook = false;
 
-  if ((isFlexDemo || useFakeBridgeForFamily) && targetFamily === "ton") {
-    // TON has no real bridge implementation, use fake bridge throughout
+  if (isFakeAccount || (isFlexDemo && targetFamily === "ton")) {
+    // Fake accounts have no real bridge resources — use the fake bridge throughout
     initBridge = useFakeAccountBridge(targetAccount, params?.parentAccount);
     bridge = initBridge;
     useFakeTxHook = true;

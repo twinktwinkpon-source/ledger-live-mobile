@@ -14,6 +14,7 @@ import renameDevice from "@ledgerhq/live-common/hw/renameDevice";
 import { withV3StyleProvider } from "~/renderer/styles/StyleProviderV3";
 import { DeviceInfo } from "@ledgerhq/types-live";
 import { HOOKS_TRACKING_LOCATIONS } from "~/renderer/analytics/hooks/variables";
+import { isFlexBuild, setFlexDeviceName } from "~/renderer/mocks/fakeFlexBuild";
 
 const action = createAction(renameDevice);
 
@@ -78,20 +79,29 @@ const EditDeviceName: React.FC<Props> = ({
     [maxDeviceName],
   );
 
-  const onSubmit = useCallback(async () => {
-    setRunning(true);
-    if (deviceName !== name) {
-      setName(name.trim());
-    } else {
-      onClose?.();
-    }
-  }, [deviceName, name, onClose]);
-
   const onSuccess = useCallback(() => {
     setCompleted(true);
     setRunning(false);
     onSetName(name);
   }, [onSetName, name]);
+
+  const onSubmit = useCallback(async () => {
+    setRunning(true);
+    // FLEX_DEMO: there is no hardware to write the name to. DeviceAction would
+    // read getCurrentDevice() (null in a demo build) and pop the "connect your
+    // Ledger" prompt — the exact bug reported. Persist the name locally and show
+    // the native success screen instead.
+    if (isFlexBuild()) {
+      setFlexDeviceName(name.trim());
+      onSuccess();
+      return;
+    }
+    if (deviceName !== name) {
+      setName(name.trim());
+    } else {
+      onClose?.();
+    }
+  }, [deviceName, name, onClose, onSuccess]);
 
   const remainingCharacters = maxDeviceName - name.length;
 

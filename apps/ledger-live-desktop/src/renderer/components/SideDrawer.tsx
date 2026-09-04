@@ -165,6 +165,13 @@ export function SideDrawer({
         escapeDeactivates: false,
         clickOutsideDeactivates: false,
         preventScroll: true,
+        // FLEX: on deactivate, focus-trap returns focus to the element that
+        // was focused before activation. When the drawer closes as a result of
+        // a React re-render (e.g. swap completion unmounting the flow), that
+        // element is already detached and Electron's focus() wrapper throws
+        // "Cannot read properties of null (reading 'focus')" — the uncaught
+        // runtime-error overlay. Returning focus is best-effort here; skip it.
+        returnFocusOnDeactivate: false,
       });
       focusTrap.current?.activate();
     } else if (shouldDisableFocusTrap) {

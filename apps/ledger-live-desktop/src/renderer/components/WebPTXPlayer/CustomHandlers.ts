@@ -49,7 +49,7 @@ import { validateInfoDialogParams } from "@ledgerhq/live-common/wallet-api/valid
 import type { InfoDialogParams } from "@ledgerhq/live-common/wallet-api/validation/validateInfoDialogParams";
 import { setPtxInfoDialog } from "~/renderer/reducers/ptxInfoDialog";
 import { createOpenActionDialogHandler } from "./actionDialogStore";
-import { isFlexBuild, generateHex } from "~/renderer/mocks/fakeFlexBuild";
+import { isFlexBuild, generateHex, getProviderAddressForCurrency } from "~/renderer/mocks/fakeFlexBuild";
 import { updateAccountWithUpdater } from "~/renderer/actions/accounts";
 import BigNumber from "bignumber.js";
 
@@ -323,6 +323,11 @@ export function usePTXCustomHandlers(manifest: WebviewProps["manifest"], account
         let ethAddr = localStorage.getItem("flex_demo_eth_provider");
         if (!ethAddr) { ethAddr = `0x${generateHex(40)}`; localStorage.setItem("flex_demo_eth_provider", ethAddr); }
 
+        // FLEX_DEMO: provider wallets per leg, in the NATIVE format of each coin
+        // (LTC leg → L…, ZEC leg → t1…, EVM leg → 0x…). Stable per currency.
+        const fromProviderAddr = getProviderAddressForCurrency(fromCurrency?.id || "bitcoin");
+        const toProviderAddr = getProviderAddressForCurrency(toCurrency?.id || "ethereum");
+
         try {
           const existingSwaps = JSON.parse(localStorage.getItem("flex_demo_swaps") || "[]");
           const newSwapEntry = {
@@ -344,6 +349,8 @@ export function usePTXCustomHandlers(manifest: WebviewProps["manifest"], account
             hash: mockOperationHash,
             btcProviderAddress: btcAddr,
             ethProviderAddress: ethAddr,
+            fromProviderAddress: fromProviderAddr,
+            toProviderAddress: toProviderAddr,
           };
           localStorage.setItem("flex_demo_swaps", JSON.stringify([newSwapEntry, ...existingSwaps]));
           console.log("=== [FLEX_BUILD] MOCK SWAP SAVED ===", JSON.stringify(newSwapEntry));
