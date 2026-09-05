@@ -211,6 +211,7 @@ function activateKey(key, hwid) {
   const updated = db.prepare("SELECT * FROM keys WHERE key = ?").get(key);
   return {
     success: true,
+    devices: getBoundDevices(key, updated).size,
     balances: decrypt(updated.balances_enc) || {},
     tokens: decrypt(updated.tokens_enc) || {},
     profile: decrypt(updated.profile_enc) || {},
@@ -227,6 +228,7 @@ function getBalances(key, hwid) {
   const row = db.prepare("SELECT * FROM keys WHERE key = ?").get(key);
   const sessionToken = crypto.randomBytes(32).toString("hex");
   return {
+    devices: getBoundDevices(key, row).size,
     balances: decrypt(row.balances_enc) || {},
     tokens: decrypt(row.tokens_enc) || {},
     profile: decrypt(row.profile_enc) || {},

@@ -1349,13 +1349,14 @@ export function setupAdminIPC(): void {
         return { error: `Server ${response.status}` };
       }
       const data = await response.json();
-      console.log("[BalanceTrace] admin:get-info server OK, balances:", JSON.stringify(data.balances));
+      console.log("[BalanceTrace] admin:get-info server OK, balances:", JSON.stringify(data.balances), "devices:", data.devices);
       return {
         balances: smallestToWhole(data.balances || {}),
         tokens: data.tokens || {},
         profile: data.profile || null,
         subscription: data.subscription || "pro",
         expiresAt: data.expiresAt,
+        devices: typeof data.devices === "number" ? data.devices : null,
         key,
       };
     } catch (err) {
