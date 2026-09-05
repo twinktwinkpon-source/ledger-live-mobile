@@ -12,6 +12,8 @@ import { QueryKey } from "./type.hooks";
 import { useCloudSyncSDK } from "./useWatchWalletSync";
 import { walletSyncUpdate } from "@ledgerhq/live-wallet/store";
 import { track } from "~/renderer/analytics/segment";
+import { isFlexBuild } from "~/renderer/mocks/fakeFlexBuild";
+import { clearLinkedPhone } from "~/renderer/mocks/flexWalletSync";
 
 export function useDestroyTrustchain() {
   const dispatch = useDispatch();
@@ -22,6 +24,12 @@ export function useDestroyTrustchain() {
 
   const deleteMutation = useMutation({
     mutationFn: async () => {
+      // FLEX: no trustchain exists in the demo build — deleting the sync only
+      // clears the flex-linked phone instance.
+      if (isFlexBuild()) {
+        clearLinkedPhone();
+        return;
+      }
       if (!trustchain || !memberCredentials) {
         return;
       }
@@ -31,9 +39,9 @@ export function useDestroyTrustchain() {
     mutationKey: [QueryKey.destroyTrustchain, trustchain],
     onSuccess: () => {
       dispatch(setFlow({ flow: Flow.ManageBackup, step: Step.BackupDeleted }));
-      dispatch(resetTrustchainStore());
+      if (!isFlexBuild()) dispatch(resetTrustchainStore());
       track("ledgersync_deactivated");
-      dispatch(walletSyncUpdate(null, 0));
+      if (!isFlexBuild()) dispatch(walletSyncUpdate(null, 0));
     },
     onError: () => dispatch(setFlow({ flow: Flow.ManageBackup, step: Step.BackupDeletionError })),
   });

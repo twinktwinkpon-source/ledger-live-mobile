@@ -21,6 +21,7 @@ import {
 } from "../../hooks/useLedgerSyncAnalytics";
 import { BackRef } from "../router";
 import { useFeature } from "@features/platform-feature-flags";
+import { isFlexBuild } from "~/renderer/mocks/fakeFlexBuild";
 
 type Props = {
   sourcePage: AnalyticsPage;
@@ -59,7 +60,14 @@ const WalletSyncActivation = forwardRef<BackRef, Props>(({ sourcePage }, ref) =>
   };
 
   const goToCreateBackup = () => {
-    goToNextScene();
+    // FLEX: no device/trustchain in the demo build — route to the native
+    // Synchronize flow, whose QR step already shows the flex license QR that
+    // the phone scans (same drawer as "I already turned it on").
+    if (isFlexBuild()) {
+      dispatch(setFlow({ flow: Flow.Synchronize, step: Step.SynchronizeMode }));
+    } else {
+      goToNextScene();
+    }
     onClickTrack({
       button: "Turn on Ledger Sync",
       page: AnalyticsPage.Activation,

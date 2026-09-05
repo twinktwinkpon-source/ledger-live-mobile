@@ -12,6 +12,7 @@ import { useLifeCycle } from "../../hooks/walletSync.hooks";
 import TrackPage from "~/renderer/analytics/TrackPage";
 import { AnalyticsPage, useLedgerSyncAnalytics } from "../../hooks/useLedgerSyncAnalytics";
 import { useLedgerSyncInfo } from "../../hooks/useLedgerSyncInfo";
+import { isFlexBuild } from "~/renderer/mocks/fakeFlexBuild";
 import { AlertError } from "../../components/AlertError";
 import { AlertLedgerSyncDown } from "../../components/AlertLedgerSyncDown";
 import { useFeature } from "@features/platform-feature-flags";
@@ -29,10 +30,21 @@ const WalletSyncManage = ({ currentPage }: Props) => {
   const { t } = useTranslation();
   useLifeCycle();
 
+  const flex = isFlexBuild();
   const {
     statusQuery: { error: ledgerSyncError, isError: isLedgerSyncError },
-  } = useLedgerSyncInfo();
-  const { instances, isLoading, hasError, error: membersError } = useInstances();
+  } = flex
+    ? { statusQuery: { error: null, isError: false } }
+    : useLedgerSyncInfo();
+  // FLEX: skip the real status queries — no trustchain, they would only error.
+  const {
+    instances,
+    isLoading,
+    hasError,
+    error: membersError,
+  } = flex
+    ? { instances: [], isLoading: false, hasError: false, error: null }
+    : useInstances();
 
   const dispatch = useDispatch();
 

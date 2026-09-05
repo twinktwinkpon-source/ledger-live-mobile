@@ -7,6 +7,8 @@ import {
   walletSyncFlowSelector,
   walletSyncStepSelector,
 } from "~/renderer/reducers/walletSync";
+import { isFlexBuild } from "~/renderer/mocks/fakeFlexBuild";
+import { hasLinkedPhone } from "~/renderer/mocks/flexWalletSync";
 
 export const FlowOptions: Record<
   Flow,
@@ -94,6 +96,13 @@ export const useFlows = () => {
   };
 
   const goToWelcomeScreenWalletSync = (onboardingNewDevice?: boolean) => {
+    // FLEX: once a phone has scanned the flex sync QR, the desktop reads as
+    // synchronized — open the upstream Manage screen (same state a real
+    // activated trustchain would produce).
+    if (isFlexBuild() && hasLinkedPhone()) {
+      dispatch(setFlow({ flow: Flow.LedgerSyncActivated, step: Step.LedgerSyncActivated }));
+      return;
+    }
     if (trustchain?.rootId) {
       dispatch(setFlow({ flow: Flow.LedgerSyncActivated, step: Step.LedgerSyncActivated }));
     } else {

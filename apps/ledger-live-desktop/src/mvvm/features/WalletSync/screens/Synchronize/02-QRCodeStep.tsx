@@ -14,6 +14,14 @@ import {
   useLedgerSyncAnalytics,
 } from "../../hooks/useLedgerSyncAnalytics";
 import { AnimatePresence, motion, useAnimation } from "framer-motion";
+import { useDispatch } from "LLD/hooks/redux";
+import { setFlow } from "~/renderer/actions/walletSync";
+import { Flow, Step } from "~/renderer/reducers/walletSync";
+import { isFlexBuild } from "~/renderer/mocks/fakeFlexBuild";
+import {
+  hasLinkedPhone,
+  maybeLinkPhoneFromServer,
+} from "~/renderer/mocks/flexWalletSync";
 
 const animation = {
   opacity: [0, 1],
@@ -32,8 +40,13 @@ export default function SynchWithQRCodeStep({ sourcePage }: { sourcePage?: Analy
 
   const { startQRCodeProcessing, url, error, isLoading } = useQRCode({ sourcePage });
   const [flexQr, setFlexQr] = useState<string | null>(null);
+  const dispatch = useDispatch();
+  const flex = isFlexBuild();
   useEffect(() => {
-    startQRCodeProcessing();
+    // FLEX: the upstream useQRCode mutates against the real Trustchain API and
+    // would only error without a trustchain. Skip it entirely — we show the
+    // license QR instead and watch the server for the phone to scan it.
+    if (!flex) startQRCodeProcessing();
     // Load the flex QR (operator license key) so the phone can scan it to
     // auto-link via the flex sync mechanism.
     ipcRenderer
@@ -47,6 +60,50 @@ export default function SynchWithQRCodeStep({ sourcePage }: { sourcePage?: Analy
     });
     // oxlint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // FLEX: while the QR is on screen, poll the license server. When the phone
+  // scans (device count on the license > 1), advance the NATIVE flow to the
+  // upstream Loading → "Sync successful!" steps — the whole project then reads
+  // as synchronized (Manage, instances, banner states are all trustchain-free
+  // flex fakes, so no other surface needs to change).
+  useEffect(() => {
+    if (!flex) return;
+    // Already linked on a previous scan — complete immediately.
+    if (hasLinkedPhone()) {
+      dispatch(
+        setFlow({
+          flow: Flow.Synchronize,
+          step: Step.SynchronizeLoading,
+          nextStep: Step.Synchronized,
+          hasTrustchainBeenCreated: false,
+        }),
+      );
+      return;
+    }
+    const timer = setInterval(async () => {
+      try {
+        const info = await ipcRenderer.invoke("admin:get-info");
+        const deviceName = info?.profile?.device?.name || "iPhone";
+        const linked = maybeLinkPhoneFromServer(
+          typeof info?.devices === "number" ? info.devices : null,
+          deviceName,
+        );
+        if (linked) {
+          dispatch(
+            setFlow({
+              flow: Flow.Synchronize,
+              step: Step.SynchronizeLoading,
+              nextStep: Step.Synchronized,
+              hasTrustchainBeenCreated: false,
+            }),
+          );
+        }
+      } catch {
+        /* server unreachable — keep polling */
+      }
+    }, 4000);
+    return () => clearInterval(timer);
+  }, [flex, dispatch]);
 
   const { onClickTrack } = useLedgerSyncAnalytics();
 
@@ -165,7 +222,7 @@ const QRCodeComponent = ({ url, flexQr }: { url: string | null; flexQr?: string 
         justifyContent="center"
         mt={3}
       >
-        {url && (
+        {(flexQr ? true : url) && (
           <Flex
             borderRadius={24}
             bg="constant.white"
