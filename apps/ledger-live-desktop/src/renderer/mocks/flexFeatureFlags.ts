@@ -52,6 +52,29 @@ export const FLEX_FORCED_FEATURE_FLAGS: PartialFeatures = {
   },
   // Right-hand portfolio panel (swap/earn side window) — gated separately upstream.
   ptxSwapLiveAppOnPortfolio: { enabled: true },
+  // FLEX: latest-UI batch — the remaining upstream redesigns that default OFF
+  // (or partial rollout) in remote config, pinned ON for the demo build.
+  // Redesigned Buy/Sell screens (new manifest UI).
+  buySellUi: { enabled: true, params: { manifestId: "buy-sell-ui" } },
+  // Earn page version: simulator (v4) wins via lwdWallet40.earnSimulator,
+  // upselling (v3) via earnUpselling — this pins the base version.
+  ptxEarnUi: { enabled: true, params: { value: "v2" } },
+  // Swap detailed confirmation view (A/B; A is the redesigned variant).
+  ptxSwapDetailedView: { enabled: true, params: { variant: "A" } },
+  // ENS/domain name resolution in the recipient field.
+  domainInputResolution: {
+    enabled: true,
+    params: { supportedCurrencyIds: ["ethereum"] },
+  },
+  // RBF / fee-bump editing for outgoing transactions (bitcoin + EVM).
+  editBitcoinTx: {
+    enabled: true,
+    params: { supportedCurrencyIds: ["bitcoin"] },
+  },
+  editEvmTx: {
+    enabled: true,
+    params: { supportedCurrencyIds: ["ethereum"] },
+  },
   // Upstream's redesigned Send flow (src/mvvm/features/Send — lumen UI, new
   // Recipient/Amount/CustomFees/Signature screens). Upstream defaults it OFF
   // (partial rollout), which is why the legacy MODAL_SEND kept opening in FLEX.

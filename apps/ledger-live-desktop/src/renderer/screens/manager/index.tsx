@@ -1,7 +1,12 @@
-import React, { useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import Dashboard from "~/renderer/screens/manager/Dashboard";
 import { SyncSkipUnderPriority } from "@ledgerhq/live-common/bridge/react/index";
 import { getFlexProfile, getFlexDeviceName } from "~/renderer/mocks/fakeFlexBuild";
+import {
+  getFlexInstalledAdd,
+  getFlexInstalledRemove,
+  subscribeFlexInstalled,
+} from "~/renderer/mocks/flexInstalledApps";
 
 const mockDeviceInfo = {
   version: "2.6.1",
@@ -112,6 +117,18 @@ const deriveInstalledFromProfile = (): any[] => {
 export default function Manager() {
   const profile = getFlexProfile();
   const modelId = (profile?.device?.modelId || "stax") as string;
+  // Install/uninstall actions survive tab switches: any completed My Ledger
+  // operation is recorded in localStorage (flexInstalledApps) and bumping
+  // `installedVersion` below re-derives the list, so a freshly installed app
+  // is still there after navigating away and back (or after a reload).
+  const [installedVersion, setInstalledVersion] = useState(0);
+  useEffect(
+    () =>
+      subscribeFlexInstalled(() => {
+        setInstalledVersion(v => v + 1);
+      }),
+    [],
+  );
   // OS version / device name come from the admin panel profile (Device Profile → Save),
   // falling back to mock defaults when no panel profile exists yet.
   const deviceInfo = useMemo(
@@ -134,13 +151,40 @@ export default function Manager() {
       }) as any,
     [modelId, deviceName],
   );
-  const installed = useMemo(
-    () => deriveInstalledFromProfile(),
+  const installed = useMemo(() => {
+    // Effective installed = (profile base ∪ localStorage adds) \ localStorage
+    // removes. The store records completed My Ledger operations (see
+    // flexInstalledApps.ts) so the list survives tab switches and reloads —
+    // the base alone is rebuilt from the admin-panel profile on every mount.
+    const base = deriveInstalledFromProfile();
+    const byName = new Map<string, any>(base.map(a => [a.name, a]));
+    const add = getFlexInstalledAdd();
+    for (const name of add) {
+      if (byName.has(name)) continue;
+      const idx = cryptoList.findIndex(c => c.n === name);
+      const app =
+        idx >= 0
+          ? createMockApp(idx + 1, cryptoList[idx].n, cryptoList[idx].t, cryptoList[idx].id)
+          : // Name outside the mock crypto list (installed straight from the
+            // live catalog): synthesize a minimal entry, DeviceDashboard only
+            // reads name/updated/version here.
+            createMockApp(999, name, name, name.toLowerCase());
+      byName.set(name, {
+        ...app,
+        updated: true,
+        availableVersion: app.version ?? "1.0",
+        blocks: 1,
+        hash: "h" + idx,
+      });
+    }
+    const remove = getFlexInstalledRemove();
+    for (const name of remove) byName.delete(name);
+    return [...byName.values()];
     // profile is a fresh object on every renderer reload (the only way flex
     // data changes in-session); reading it here keeps the dependency honest.
+    // installedVersion bumps on every install/uninstall via subscribeFlexInstalled.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [profile],
-  );
+  }, [profile, installedVersion]);
   const result = useMemo(
     () =>
       ({

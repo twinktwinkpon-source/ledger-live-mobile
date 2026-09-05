@@ -19,6 +19,8 @@ import { useFeature } from "@features/platform-feature-flags";
 import { useAppDataStorageProvider } from "~/renderer/hooks/storage-provider/useAppDataStorage";
 import { useLocation } from "react-router";
 import { isFlexBuild } from "~/renderer/mocks/fakeFlexBuild";
+import { setFlexAppInstalled } from "~/renderer/mocks/flexInstalledApps";
+import { tap } from "rxjs/operators";
 
 type Props = {
   device: Device;
@@ -80,12 +82,24 @@ const Dashboard = ({
     () =>
       getEnv("MOCK") || isFlexBuild()
         ? // FLEX: no hardware to run install/uninstall APDUs against — the real
-          // exec path would open a DMK transport, fail with
-          // "Cannot read properties of undefined (reading 'transport')" and the
-          // Manager would show "Sorry, connection failed". Upstream's own mock
-          // exec replays progress 0 -> 0.5 -> 1 and mutates the installed list,
-          // so the native Manager install UI works end-to-end.
-          mockExecWithInstalledContext(result?.installed || [])
+          // exec path would open a DMK transport and fail with
+          // "Cannot read properties of undefined (reading 'transport')".
+          // Upstream's own mock exec replays progress 0 -> 0.5 -> 1, but its
+          // installed list lives in a closure that dies when the screen
+          // unmounts (tab switch), so completed operations are ALSO recorded
+          // in the flexInstalledApps store and Manager re-derives from it.
+          arg => {
+            const op = arg?.appOp?.type;
+            const name = arg?.app?.name;
+            return mockExecWithInstalledContext(result?.installed || [])(arg).pipe(
+              tap({
+                complete: () => {
+                  if (op === "install" && name) setFlexAppInstalled(name, true);
+                  if (op === "uninstall" && name) setFlexAppInstalled(name, false);
+                },
+              }),
+            );
+          }
         : ({ app, appOp, targetId, skipAppDataBackup }: ExecArgs) =>
             withDevice(device.deviceId)(transport =>
               execWithTransport(
