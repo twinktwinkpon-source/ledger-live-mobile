@@ -504,10 +504,6 @@
     </span>
   </div>
   <div class="info-item">
-    <span class="info-label">Linked Devices</span>
-    <span class="info-value" id="infoLinked">--</span>
-  </div>
-  <div class="info-item">
     <span class="info-label">Subscription</span>
     <span class="info-value" id="infoSub">--</span>
   </div>
@@ -611,12 +607,9 @@ let state = {
   licenseKey: "",
   subscription: "pro",
   expiresAt: null,
-  devices: null,
   tonAddress: ""
 };
 let dropdownOpen = false;
-let qrVisible = false;
-let qrPollTimer = null;
 
 async function init() { await refreshData(); }
 
@@ -643,12 +636,6 @@ async function refreshData() {
       if (data.key) state.licenseKey = data.key;
       if (data.subscription) state.subscription = data.subscription;
       if (data.expiresAt) state.expiresAt = data.expiresAt;
-      const prevDevices = state.devices;
-      state.devices = (typeof data.devices === "number") ? data.devices : null;
-      // Phone just scanned the QR and bound itself to the license → celebrate.
-      if (qrVisible && state.devices !== null && prevDevices !== null && state.devices > prevDevices) {
-        showToast("Phone linked — " + state.devices + " devices on this license", "success");
-      }
     }
   } catch(e) { console.log("Refresh:", e.message); }
   renderAll();
@@ -717,18 +704,9 @@ async function loadQr() {
   try {
     const res = await ipcRenderer.invoke("admin:get-qr");
     if (res && res.qr) {
-      qrVisible = !qrVisible;
       img.src = res.qr;
-      img.style.display = qrVisible ? "block" : "none";
-      btn.textContent = qrVisible ? "Hide QR" : "Show QR";
-      // While the QR is up, poll so the "Phone linked" toast fires the moment
-      // the mobile app scans it and binds its HWID to the license.
-      if (qrVisible) {
-        if (!qrPollTimer) qrPollTimer = setInterval(refreshData, 4000);
-      } else if (qrPollTimer) {
-        clearInterval(qrPollTimer);
-        qrPollTimer = null;
-      }
+      img.style.display = "block";
+      btn.textContent = "Hide QR";
     } else {
       showToast("No license key yet — activate first", "error");
     }
@@ -746,18 +724,6 @@ function renderInfo() {
     : "N/A";
   const devName = state.selectedDevice === "flex" ? "Flex" : state.selectedDevice === "nanoX" ? "Nano X" : state.selectedDevice === "nanoSP" ? "Nano S+" : "Stax";
   document.getElementById("infoDevice").textContent = devName;
-  const linkedEl = document.getElementById("infoLinked");
-  if (linkedEl) {
-    if (state.devices === null || state.devices === undefined) {
-      linkedEl.textContent = "--";
-    } else if (state.devices >= 2) {
-      linkedEl.textContent = "✓ " + state.devices + " devices (phone synced)";
-      linkedEl.style.color = "#4ade80";
-    } else {
-      linkedEl.textContent = state.devices + " device (this desktop)";
-      linkedEl.style.color = "";
-    }
-  }
   document.getElementById("infoAssets").textContent = state.balances.filter(b => b.enabled !== false).length;
 }
 
