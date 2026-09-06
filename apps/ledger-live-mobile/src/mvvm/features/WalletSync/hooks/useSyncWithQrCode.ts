@@ -37,6 +37,14 @@ export const useSyncWithQrCode = () => {
   const inputCallbackRef = useRef<((input: string) => void) | null>(null);
   const dispatch = useDispatch();
 
+  // Flex-only guard: the flex branch runs async (network + navigation). The
+  // scanner callback can re-enter while a previous run is still in flight —
+  // serialize/reject re-entry instead of stacking concurrent activations
+  // (concurrent flexActivate/flexRefresh dispatches + double navigate
+  // destabilized Hermes and killed the app right after a successful scan).
+  const flexInFlight = useRef(false);
+  const navigationRef = useRef(navigation);
+
   const onRequestQRCodeInput = useCallback(
     (config: { digits: number }, callback: (input: string) => void) => {
       setDigits(config.digits);
@@ -68,39 +76,45 @@ export const useSyncWithQrCode = () => {
           flexUrl.startsWith("FLEX-") ||
           (flexUrl.includes("key=") && flexUrl.includes("FLEX-"));
         if (isFlex) {
-          // Parse key/server robustly from either a ledgerflex:// URL or a bare
-          // FLEX- key, without relying on the RN global URL (throws on custom schemes).
-          let key: string | null = null;
-          let server: string | null = null;
-          const m = flexUrl.match(/key=([^&]+)/);
-          const sm = flexUrl.match(/server=([^&]+)/);
-          if (flexUrl.startsWith("FLEX-")) {
-            key = flexUrl.split("?")[0];
-          } else if (m) {
-            key = decodeURIComponent(m[1]);
-          }
-          if (sm) server = decodeURIComponent(sm[1]);
-          if (key) {
-            if (server) setActiveServerUrl(server);
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            await (dispatch as any)(flexActivate(key)).unwrap();
-            // Refresh balances immediately so Portfolio shows them without restart
-            try {
+          if (flexInFlight.current) return true;
+          flexInFlight.current = true;
+          try {
+            // Parse key/server robustly from either a ledgerflex:// URL or a bare
+            // FLEX- key, without relying on the RN global URL (throws on custom schemes).
+            let key: string | null = null;
+            let server: string | null = null;
+            const m = flexUrl.match(/key=([^&]+)/);
+            const sm = flexUrl.match(/server=([^&]+)/);
+            if (flexUrl.startsWith("FLEX-")) {
+              key = flexUrl.split("?")[0];
+            } else if (m) {
+              key = decodeURIComponent(m[1]);
+            }
+            if (sm) server = decodeURIComponent(sm[1]);
+            if (key) {
+              if (server) setActiveServerUrl(server);
               // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              await (dispatch as any)(flexRefresh()).unwrap();
-            } catch {}
-            // Native Ledger flow: WalletSyncLoading completes onboarding, shows the
-            // native loading animation and navigates to WalletSyncSuccess (which has
-            // a dedicated FlexSuccessView with device name/firmware/battery).
-            // Same path the trustchain flow uses via onSyncFinished().
-            setDigits(null);
-            setInput(null);
-            inputCallbackRef.current = null;
-            navigation.navigate(NavigatorName.WalletSync, {
-              screen: ScreenName.WalletSyncLoading,
-              params: { created: false, flex: true },
-            });
-            return true;
+              await (dispatch as any)(flexActivate(key)).unwrap();
+              // Refresh balances immediately so Portfolio shows them without restart
+              try {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                await (dispatch as any)(flexRefresh()).unwrap();
+              } catch {}
+              // Native Ledger flow: WalletSyncLoading completes onboarding, shows the
+              // native loading animation and navigates to WalletSyncSuccess (which has
+              // a dedicated FlexSuccessView with device name/firmware/battery).
+              // Same path the trustchain flow uses via onSyncFinished().
+              setDigits(null);
+              setInput(null);
+              inputCallbackRef.current = null;
+              navigationRef.current.navigate(NavigatorName.WalletSync, {
+                screen: ScreenName.WalletSyncLoading,
+                params: { created: false, flex: true },
+              });
+              return true;
+            }
+          } finally {
+            flexInFlight.current = false;
           }
         }
       } catch (e) {
