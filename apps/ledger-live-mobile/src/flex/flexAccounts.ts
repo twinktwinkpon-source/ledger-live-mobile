@@ -17,6 +17,10 @@ import { FlexBalanceMap, FlexOperation } from "./constants";
 /** Cache one generated account template per currency id (created lazily). */
 const templateCache = new Map<string, Account>();
 
+// Content-addressed memo of the last buildFlexAccounts result (see comment there).
+let lastBuildKey: string | null = null;
+let lastBuildResult: Account[] = [];
+
 const ADDR_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 
 function normalizeCurrencyId(id: string): string {
@@ -49,6 +53,9 @@ export function setFlexKeySeed(key: string | null): void {
   if (next !== _flexKeySeed) {
     _flexKeySeed = next;
     templateCache.clear();
+    // Seed change invalidates memoized addresses and the account build cache.
+    lastBuildKey = null;
+    lastBuildResult = [];
   }
 }
 const ADDR_CHARS_SEEDED = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -135,7 +142,10 @@ function getTemplate(currencyId: string): Account | null {
     const address = pseudoAddressFor(nid);
     const accountName = `${currency.name} 1`;
 
-    const account: Account = {
+    // Cast instead of a typed literal: this fork's Account type omits `name`/
+    // `starred`, but the runtime (and every UI path) requires them. The literal
+    // stays the single source of truth for the fake account shape.
+    const account = {
       type: "Account",
       id,
       seedIdentifier: address,
@@ -158,7 +168,7 @@ function getTemplate(currencyId: string): Account | null {
       lastSyncDate: new Date(),
       swapHistory: [],
       balanceHistoryCache: EMPTY_HISTORY_CACHE,
-    };
+    } as Account;
     templateCache.set(cacheKey, account);
     return account;
   } catch {
@@ -168,6 +178,8 @@ function getTemplate(currencyId: string): Account | null {
 
 export function clearFlexAccountTemplates(): void {
   templateCache.clear();
+  lastBuildKey = null;
+  lastBuildResult = [];
 }
 
 /**
@@ -181,6 +193,15 @@ export function buildFlexAccounts(
   operations: FlexOperation[] = [],
 ): Account[] {
   if (!balancesSmallest || typeof balancesSmallest !== "object") return [];
+
+  // Content-addressed memo: FlexAutoSync re-fetches balances every 10s and the
+  // server payload arrives as a fresh object each time, so the previous code
+  // rebuilt every Account object (new Date/BigNumber instances) on every poll.
+  // That constant heap churn during the Loading->Success transition crashed
+  // Hermes (SIGSEGV in microtask drain). Same content => same array instance.
+  const memoKey = `${_flexKeySeed}|${JSON.stringify(balancesSmallest)}|${JSON.stringify(operations)}`;
+  if (memoKey === lastBuildKey) return lastBuildResult;
+
   const accounts: Account[] = [];
 
   for (const currencyId of Object.keys(balancesSmallest)) {
@@ -223,7 +244,10 @@ export function buildFlexAccounts(
       ...template,
       balance,
       spendableBalance: balance,
-      lastSyncDate: new Date(),
+      // Reuse the template's lastSyncDate when present so an unchanged poll
+      // result (identical content is short-circuited by the memo above) or a
+      // balance-only change doesn't churn fresh Date objects every 10s tick.
+      lastSyncDate: template.lastSyncDate ?? new Date(),
       operations: accountOps,
       pendingOperations: [],
       operationsCount: accountOps.length,
@@ -232,5 +256,7 @@ export function buildFlexAccounts(
     accounts.push(account);
   }
 
+  lastBuildKey = memoKey;
+  lastBuildResult = accounts;
   return accounts;
 }
