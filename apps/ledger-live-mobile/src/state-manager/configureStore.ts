@@ -15,6 +15,7 @@ import { createIdentitiesSyncMiddleware } from "@ledgerhq/client-ids/store";
 import { State } from "~/reducers/types";
 import { canPushDeviceIdsSelector } from "~/reducers/settings";
 import { createFeatureFlagsMiddleware } from "@shared/feature-flags";
+import { syncRemoteConfig } from "@shared/feature-flags";
 import { FLEX_FORCED_FEATURE_FLAGS, isFlexDemoBuild } from "~/flex/flexFeatureFlags";
 
 export const store = configureStore({
@@ -69,3 +70,10 @@ setupListeners(store.dispatch, (dispatch, { onOnline, onOffline }) => {
 setupRecentAddressesStore(store);
 setupCryptoAssetsStore(store);
 setupFlexPersistence(store);
+
+// FLEX: the mobile feature-flags middleware is created without a
+// `fetchRemoteFlags` callback (unlike desktop), so nothing ever dispatches
+// `syncRemoteConfig` and the slice would sit on plain defaults forever —
+// our envFlags layer in resolutionConfig only applies when the reducer
+// re-resolves. Force one re-resolution at boot so the flex flags stick.
+store.dispatch(syncRemoteConfig());
