@@ -15,6 +15,7 @@ import { createIdentitiesSyncMiddleware } from "@ledgerhq/client-ids/store";
 import { State } from "~/reducers/types";
 import { canPushDeviceIdsSelector } from "~/reducers/settings";
 import { createFeatureFlagsMiddleware } from "@shared/feature-flags";
+import { FLEX_FORCED_FEATURE_FLAGS, isFlexDemoBuild } from "~/flex/flexFeatureFlags";
 
 export const store = configureStore({
   reducer: reducers,
@@ -35,7 +36,12 @@ export const store = configureStore({
           resolutionConfig: {
             platform: Platform.OS === "ios" ? "ios" : "android",
             appVersion: VersionNumber.appVersion ?? undefined,
-          },
+            // FLEX: pin the flex flags above the live Firebase remote config
+            // (envFlags layer beats remote), mirroring the desktop store.
+            envFlags: isFlexDemoBuild()
+              ? { ...FLEX_FORCED_FEATURE_FLAGS }
+              : undefined,
+          } as Parameters<typeof createFeatureFlagsMiddleware>[0]["resolutionConfig"],
         }),
       ),
 
