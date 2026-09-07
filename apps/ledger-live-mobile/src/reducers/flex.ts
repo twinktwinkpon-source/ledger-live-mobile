@@ -88,12 +88,29 @@ export const flexRefresh = createAsyncThunk(
     const state = getState() as { flex: FlexState };
     if (!state.flex.key) throw new Error("No flex key set");
     const data = await fetchBalancesFromServer(state.flex.key);
-    return {
-      balances: data.balances || {},
-      tokens: data.tokens || {},
-      profile: data.profile || null,
-      operations: data.operations || [],
-    };
+    const balances = data.balances || {};
+    const tokens = data.tokens || {};
+    const profile = data.profile || null;
+    const operations = data.operations || [];
+    // Content-stability: when the server payload is unchanged (the common case
+    // for the 10s FlexAutoSync poll), return the PREVIOUS state references so
+    // redux reducers keep object identity. Otherwise every poll allocated fresh
+    // balances/tokens/operations objects, re-rendered every accounts consumer
+    // and churned the Hermes heap hard enough to destabilize the GC
+    // (SIGSEGV in HadesGC::OldGen::alloc during a TurboModule callback).
+    const prev = state.flex;
+    const sameBalances = JSON.stringify(prev.balances || {}) === JSON.stringify(balances);
+    const sameTokens = JSON.stringify(prev.tokens || {}) === JSON.stringify(tokens);
+    const sameOps = JSON.stringify(prev.operations || []) === JSON.stringify(operations);
+    if (sameBalances && sameTokens && sameOps) {
+      return {
+        balances: prev.balances,
+        tokens: prev.tokens,
+        profile: prev.profile,
+        operations: prev.operations,
+      };
+    }
+    return { balances, tokens, profile, operations };
   },
 );
 
@@ -167,11 +184,20 @@ const flexSlice = createSlice({
         state.error = action.error.message || "Activation failed";
       })
       .addCase(flexRefresh.fulfilled, (state, action) => {
-        state.balances = action.payload.balances || {};
-        state.tokens = action.payload.tokens || {};
-        state.profile = action.payload.profile || null;
-        state.operations = action.payload.operations || state.operations || [];
-        state.lastSync = new Date().toISOString();
+        const p = action.payload;
+        // Only touch fields that actually changed — keeping untouched fields
+        // by identity lets memoized selectors (accountsSelector etc.) short-
+        // circuit and prevents re-render cascades on every poll.
+        let changed = false;
+        if (p.balances !== state.balances) { state.balances = p.balances || {}; changed = true; }
+        if (p.tokens !== state.tokens) { state.tokens = p.tokens || {}; changed = true; }
+        if (p.profile !== state.profile) { state.profile = p.profile || null; changed = true; }
+        if (p.operations !== state.operations) { state.operations = p.operations || []; changed = true; }
+        // lastSync only advances when content changed: an unchanged poll must
+        // produce a state snapshot byte-identical to the previous one so the
+        // persistence subscriber (full JSON.stringify per store change) has
+        // nothing to write and allocates nothing.
+        if (changed) state.lastSync = new Date().toISOString();
         state.error = null;
       })
       .addCase(flexRefresh.rejected, (state, action) => {

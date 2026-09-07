@@ -107,6 +107,11 @@ export const useSyncWithQrCode = () => {
               setDigits(null);
               setInput(null);
               inputCallbackRef.current = null;
+              // Close the activation drawer (and the still-mounted camera surface)
+              // BEFORE leaving: leaving it open stacks the loading/success screens
+              // and the whole main navigator on top of a half-unmounted camera —
+              // that native churn is what killed the app right after the scan.
+              closeAllDrawers();
               navigationRef.current.navigate(NavigatorName.WalletSync, {
                 screen: ScreenName.WalletSyncLoading,
                 params: { created: false, flex: true },
