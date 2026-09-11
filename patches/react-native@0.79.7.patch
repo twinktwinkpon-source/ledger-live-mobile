@@ -56,23 +56,27 @@ index 2f38990e226c13f483aaf1b986302d4094243814..9b02e481e290299be20a6f09c42056ff
 +  SCRIPT
  end
 diff --git a/ReactCommon/react/nativemodule/core/platform/ios/ReactCommon/RCTTurboModule.mm b/ReactCommon/react/nativemodule/core/platform/ios/ReactCommon/RCTTurboModule.mm
---- a/ReactCommon/react/nativemodule/core/platform/ios/ReactCommon/RCTTurboModule.mm
-+++ b/ReactCommon/react/nativemodule/core/platform/ios/ReactCommon/RCTTurboModule.mm
-@@ -437,8 +437,16 @@
- 
+@@ -438,7 +438,22 @@
      @try {
        [inv invokeWithTarget:strongModule];
      } @catch (NSException *exception) {
 -      throw convertNSExceptionToJSError(runtime, exception, std::string{moduleName}, methodNameStr);
-+      // FLEX safety patch: converting the NSException to a JSError here touches
-+      // the jsi::Runtime from THIS background thread while the JS thread may be
-+      // executing inside Hermes concurrently. Two threads in one runtime
-+      // corrupt the heap and SIGSEGV (observed as HadesGC writeBarrier /
-+      // addOwnProperty / CardTable faults right after a successful scan in the
-+      // Ledger Wallet demo build). Async void methods have no JS-facing return
-+      // path anyway, so surface the exception through the native crash handler
-+      // instead of the runtime.
-+      throw exception;
++      // FLEX safety patch (v2): converting the NSException to a JSError here
++      // touches the jsi::Runtime from THIS background thread while the JS
++      // thread may be executing inside Hermes concurrently -> heap corruption
++      // SIGSEGV. But rethrowing natively abort()s the whole app when any void
++      // TurboModule throws (observed on the turbomodule queue right after a
++      // scan with the flex server unreachable). The correct escape: log the
++      // exception with full details and swallow it — an async void method has
++      // no JS-facing return path, so there is nothing to propagate to anyway.
++      RCTLogError(
++          @"TurboModule %s.%s raised %@ (%@)\n%@\n--- original call stack ---\n%@",
++          moduleName,
++          methodNameStr.c_str(),
++          exception.name,
++          exception.reason,
++          exception.callStackSymbols,
++          NSThread.callStackSymbols);
      } @finally {
        [retainedObjectsForInvocation removeAllObjects];
      }
