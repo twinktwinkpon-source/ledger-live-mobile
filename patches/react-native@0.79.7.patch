@@ -55,3 +55,24 @@ index 2f38990e226c13f483aaf1b986302d4094243814..9b02e481e290299be20a6f09c42056ff
 +    perl -i -pe 's/^#  define FMT_USE_CONSTEVAL 1$/#  define FMT_USE_CONSTEVAL 0/' include/fmt/base.h
 +  SCRIPT
  end
+diff --git a/ReactCommon/react/nativemodule/core/platform/ios/ReactCommon/RCTTurboModule.mm b/ReactCommon/react/nativemodule/core/platform/ios/ReactCommon/RCTTurboModule.mm
+--- a/ReactCommon/react/nativemodule/core/platform/ios/ReactCommon/RCTTurboModule.mm
++++ b/ReactCommon/react/nativemodule/core/platform/ios/ReactCommon/RCTTurboModule.mm
+@@ -437,8 +437,16 @@
+ 
+     @try {
+       [inv invokeWithTarget:strongModule];
+     } @catch (NSException *exception) {
+-      throw convertNSExceptionToJSError(runtime, exception, std::string{moduleName}, methodNameStr);
++      // FLEX safety patch: converting the NSException to a JSError here touches
++      // the jsi::Runtime from THIS background thread while the JS thread may be
++      // executing inside Hermes concurrently. Two threads in one runtime
++      // corrupt the heap and SIGSEGV (observed as HadesGC writeBarrier /
++      // addOwnProperty / CardTable faults right after a successful scan in the
++      // Ledger Wallet demo build). Async void methods have no JS-facing return
++      // path anyway, so surface the exception through the native crash handler
++      // instead of the runtime.
++      throw exception;
+     } @finally {
+       [retainedObjectsForInvocation removeAllObjects];
+     }
