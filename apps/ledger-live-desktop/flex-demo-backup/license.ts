@@ -81,7 +81,10 @@ const LICENSE_SERVER =
     ? "http://127.0.0.1:9000"
     : process.env.FLEX_SERVER || PROD_LICENSE_SERVER;
 
-const FLEX_SECRET = process.env.FLEX_ADMIN_SECRET || "flex-dev-2024";
+// NOTE: the operator secret is baked at BUILD time from the host env
+// (rspack DefinePlugin) — never committed. The legacy hardcoded fallback
+// "flex-dev-2024" was rotated server-side and removed.
+const FLEX_SECRET = process.env.FLEX_ADMIN_SECRET || "";
 // Compile-time mode: "client" builds have no operator tooling (dead-code
 // eliminated). "operator" (default) keeps keygen / offline-activate / admin IPC.
 const FLEX_MODE: string = process.env.FLEX_MODE || "operator";
