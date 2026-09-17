@@ -114,11 +114,34 @@ function pseudoAddress(): string {
   return pseudoAddressFor("bitcoin");
 }
 
-const EMPTY_HISTORY_CACHE: BalanceHistoryCache = {
-  HOUR: { balances: [], latestDate: null },
-  DAY: { balances: [], latestDate: null },
-  WEEK: { balances: [], latestDate: null },
-};
+// Upstream getAccountHistoryBalances() treats a BalanceHistoryCache entry as
+// valid ONLY when latestDate === startOfGranularity(now). An entry with
+// latestDate: null is ALWAYS invalid → generateHistoryFromOperationsG runs on
+// EVERY render of EVERY AssetRow (5 rows, each calling getPortfolio). With real
+// flex balances that path finally executes and the repeated regeneration stalls
+// Hermes → black screen → the OS kills the app after the first successful sync.
+// Pre-seed a valid latestDate so the cache is consumed as-is (no operations →
+// balances stay [0], exactly what a demo portfolio should show).
+function startOfHourTs(t: number): number {
+  const d = new Date(t);
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate(), d.getHours()).getTime();
+}
+function startOfDayTs(t: number): number {
+  const d = new Date(t);
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+}
+function startOfWeekTs(t: number): number {
+  const day = startOfDayTs(t);
+  return day - new Date(day).getDay() * 24 * 60 * 60 * 1000;
+}
+function freshHistoryCache(): BalanceHistoryCache {
+  const now = Date.now();
+  return {
+    HOUR: { balances: [], latestDate: startOfHourTs(now) },
+    DAY: { balances: [], latestDate: startOfDayTs(now) },
+    WEEK: { balances: [], latestDate: startOfWeekTs(now) },
+  };
+}
 
 function getTemplate(currencyId: string): Account | null {
   const nid = normalizeCurrencyId(currencyId);
@@ -167,7 +190,7 @@ function getTemplate(currencyId: string): Account | null {
       pendingOperations: [],
       lastSyncDate: new Date(),
       swapHistory: [],
-      balanceHistoryCache: EMPTY_HISTORY_CACHE,
+      balanceHistoryCache: freshHistoryCache(),
     } as Account;
     templateCache.set(cacheKey, account);
     return account;
