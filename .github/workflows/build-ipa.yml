@@ -44,6 +44,13 @@ jobs:
             echo 'BRAZE_IOS_API_KEY="stub"' >> .env
             echo 'BRAZE_CUSTOM_ENDPOINT="stub"' >> .env
           fi
+          # FLEX: the demo build must skip onboarding entirely. Without this the
+          # app boots into BaseOnboardingNavigator; the QR scan completes
+          # onboarding (completeOnboarding()), RootNavigator then unmounts
+          # BaseOnboardingNavigator and mounts BaseNavigator. The success screen
+          # lived in the onboarding navigator, so it is torn down mid-flow and
+          # the user is left on a black screen after "Close".
+          grep -q '^SKIP_ONBOARDING=' .env || echo 'SKIP_ONBOARDING=true' >> .env
 
       - name: Install root deps
         run: pnpm install --filter="live-mobile..." --filter="ledger-live" --unsafe-perm

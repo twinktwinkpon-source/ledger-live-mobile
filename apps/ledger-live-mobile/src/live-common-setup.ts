@@ -165,6 +165,15 @@ setSupportedCurrencies([
   "aleo_testnet",
   "unichain",
   "unichain_sepolia",
+  // FLEX: the desktop demo portfolio builds these (ALL_CURRENCY_IDS in
+  // fakeFlexBuild.ts) but they were absent here, so getTemplate() returned
+  // null for them, no Account was built, and balances the operator set for
+  // monero/flow/eos/iota/zilliqa silently never appeared on the phone.
+  "monero",
+  "flow",
+  "eos",
+  "iota",
+  "zilliqa",
 ]);
 
 if (Config.FORCE_PROVIDER && !isNaN(parseInt(Config.FORCE_PROVIDER, 10)))
