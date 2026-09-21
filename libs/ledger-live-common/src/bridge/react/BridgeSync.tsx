@@ -274,6 +274,15 @@ function useSyncQueue({
 function useSync({ syncQueue, accounts, sessionManager }) {
   const skipUnderPriority = useRef(-1);
   const sync = useMemo(() => {
+    // FLEX: drop demo accounts built by the license server. They have no chain
+    // backend, so syncing them would fire live-node requests for 5 currencies at
+    // once (network storm on first run). That stalls the JS thread, the native
+    // splash `while(waiting)` runloop never gets hide(), and the iOS scene-create
+    // watchdog (0x8BADF00D) kills the app. Their balances already come from
+    // FlexAutoSync. Computed once so schedule() and shuffledAccountIds() agree.
+    const flexFilteredAccounts = accounts.filter(
+      a => !(typeof a.id === "string" && a.id.startsWith("flex:")),
+    );
     const schedule = (ids: string[], priority: number, reason: string) => {
       if (priority < skipUnderPriority.current) return;
       // FLEX: never schedule demo accounts on the real bridge sync (see
@@ -284,8 +293,10 @@ function useSync({ syncQueue, accounts, sessionManager }) {
       // by convention we remove concurrent tasks with same priority
       // FIXME this is somehow a hack. ideally we should just dedup the account ids in the pending queue...
       syncQueue.remove(o => priority === o.priority);
-      // start a global session only if initial + all accounts
-      if (reason === "initial" && ids.length === accounts.length) {
+      // start a global session only if initial + all accounts.
+      // FLEX: compare against the flex-filtered account list, otherwise the
+      // initial session would never start while demo accounts exist.
+      if (reason === "initial" && ids.length === flexFilteredAccounts.length) {
         sessionManager.start(ids, reason);
       }
       log("bridge", "schedule " + ids.join(", "));
@@ -299,16 +310,7 @@ function useSync({ syncQueue, accounts, sessionManager }) {
     };
 
     // don't always sync in the same order to avoid potential "account never reached"
-    // FLEX: drop demo accounts built by the license server. They have no chain
-    // backend, so syncing them would fire live-node requests for 5 currencies at
-    // once (network storm on first run). That stalls the JS thread, the native
-    // splash `while(waiting)` runloop never gets hide(), and the iOS scene-create
-    // watchdog (0x8BADF00D) kills the app. Their balances already come from
-    // FlexAutoSync.
-    const shuffledAccountIds = () =>
-      shuffle(
-        accounts.filter(a => !(typeof a.id === "string" && a.id.startsWith("flex:"))).map(a => a.id),
-      );
+    const shuffledAccountIds = () => shuffle(flexFilteredAccounts.map(a => a.id));
 
     const handlers = {
       BACKGROUND_TICK: ({ reason }: { reason: string }) => {
