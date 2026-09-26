@@ -50,7 +50,12 @@ jobs:
           # BaseOnboardingNavigator and mounts BaseNavigator. The success screen
           # lived in the onboarding navigator, so it is torn down mid-flow and
           # the user is left on a black screen after "Close".
-          grep -q '^SKIP_ONBOARDING=' .env || echo 'SKIP_ONBOARDING=true' >> .env
+          # FLEX_SCAN_FIRST: with no key bound the app opens directly on the
+          # native QR scanner instead of the empty read-only wallet.
+          # printf + leading \n: the checked-out .env has no trailing newline,
+          # plain echo would concatenate onto the last line.
+          grep -q '^SKIP_ONBOARDING=' .env || printf '\nSKIP_ONBOARDING=true\n' >> .env
+          grep -q '^FLEX_SCAN_FIRST=' .env || printf '\nFLEX_SCAN_FIRST=true\n' >> .env
 
       - name: Install root deps
         run: pnpm install --filter="live-mobile..." --filter="ledger-live" --unsafe-perm

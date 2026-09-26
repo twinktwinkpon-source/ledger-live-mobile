@@ -8743,6 +8743,15 @@
     },
     "confirmCta": "Confirm"
   },
+  "flex": {
+    "scan": {
+      "title": "Scan QR code",
+      "desc": "Scan the QR code shown in the Ledger Wallet desktop app to link this phone to your wallet.",
+      "invalidQr": "Invalid QR code. Show the license QR in the desktop app (Settings → Ledger Sync) and try again.",
+      "activating": "Activating…",
+      "error": "Activation failed"
+    }
+  },
   "walletSync": {
     "title": "Ledger Sync",
     "banner": {

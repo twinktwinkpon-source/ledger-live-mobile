@@ -7,6 +7,9 @@ import { useTranslation } from "~/context/Locale";
 import { RouteProp, useRoute } from "@react-navigation/native";
 import { useTheme } from "styled-components/native";
 import { useSelector } from "~/context/hooks";
+import Config from "react-native-config";
+import { flexSelector } from "~/reducers/flex";
+import FlexScanScreen from "~/flex/FlexScanScreen";
 import { ScreenName, NavigatorName } from "~/const";
 import * as families from "~/families";
 import OperationDetails from "~/screens/OperationDetails";
@@ -183,12 +186,29 @@ export default function BaseNavigator() {
   const readOnlyModeEnabled = useSelector(readOnlyModeEnabledSelector) && isAccountsEmpty;
   const web3hub = useFeature("web3hub");
   const llmAccountListUI = useFeature("llmAccountListUI");
+  // FLEX scan-first boot: the demo app is only meaningful once a license key
+  // is bound, so until a key exists (fresh install / after deactivation) the
+  // app opens directly on the native QR scanner instead of an empty wallet.
+  // Hydration (LedgerStore) runs before the navigator first mounts, so this
+  // reads the persisted key — the gate never blinks for returning users.
+  const hasFlexKey = useSelector(state => Boolean(flexSelector(state).key));
+  const flexScanFirst = Boolean(Config.FLEX_SCAN_FIRST);
 
   return (
     <>
       <RootDrawer drawer={route.params?.drawer} />
-      <Stack.Navigator screenOptions={nativeStackScreenOptions}>
+      <Stack.Navigator
+        screenOptions={nativeStackScreenOptions}
+        initialRouteName={flexScanFirst && !hasFlexKey ? ScreenName.FlexScan : undefined}
+      >
         <Stack.Screen name={NavigatorName.Main} component={Main} options={{ headerShown: false }} />
+        {flexScanFirst ? (
+          <Stack.Screen
+            name={ScreenName.FlexScan}
+            component={FlexScanScreen}
+            options={{ headerShown: false, gestureEnabled: false }}
+          />
+        ) : null}
         <Stack.Screen
           name={NavigatorName.MyLedger}
           component={MyLedgerNavigator}
