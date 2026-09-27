@@ -31,4 +31,32 @@ export const FLEX_FORCED_FEATURE_FLAGS = {
   // Upstream's optimised activation screen (plain "Turn on Ledger Sync?"
   // prompt → choose method → QR scanner) — the flow our QR lives in.
   lwmLedgerSyncOptimisation: { enabled: true },
+  // Wallet 4.0 / redesigned main navigation (Lumen UI): the whole modern UI
+  // (Wallet40TabNavigator, graph rework, quick-action CTAs, lazy onboarding,
+  // operations list, asset section) is gated behind this flag, which defaults
+  // OFF upstream and is only partially rolled out remotely. The desktop demo
+  // pins lwdWallet40 the same way (renderer/mocks/flexFeatureFlags.ts) —
+  // without this pin the app boots into the legacy Ledger Live 3.x UI.
+  lwmWallet40: {
+    enabled: true,
+    params: {
+      marketBanner: true,
+      graphRework: true,
+      quickActionCtas: true,
+      mainNavigation: true,
+      tour: true,
+      lazyOnboarding: true,
+      balanceRefreshRework: true,
+      assetSection: true,
+      newReceiveDialog: true,
+      operationsList: true,
+      brazePlacement: true,
+      aggregatedAssets: true,
+      myWallet: false,
+      pnl: false,
+      assetDiscoverability: false,
+      earnUpselling: false,
+      earnSimulator: false,
+    },
+  },
 } as unknown as PartialFeatures;
