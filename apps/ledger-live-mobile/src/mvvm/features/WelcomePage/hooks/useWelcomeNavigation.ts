@@ -17,10 +17,17 @@ type NavigationProps = BaseComposite<
 
 /**
  * Custom hook for handling navigation in the WelcomePage.
+ *
+ * @param options
+ * Optional overrides. `onGetStarted` lets a caller host the welcome screen
+ * outside the onboarding navigator (FLEX demo: the "get started" button must
+ * open the license QR scanner instead of the onboarding post-welcome step).
+ * All other side effects (accepting terms, analytics) still run.
  * @returns Callbacks for WelcomePage footer and easter egg navigation
  */
-export function useWelcomeNavigation() {
+export function useWelcomeNavigation(options?: { onGetStarted?: () => void }) {
   const dispatch = useDispatch();
+  const overrideGetStarted = options?.onGetStarted;
   const {
     i18n: { language },
   } = useTranslation();
@@ -41,6 +48,12 @@ export function useWelcomeNavigation() {
   );
   const onGetStarted = useCallback(() => {
     acceptTerms();
+    if (overrideGetStarted) {
+      dispatch(setAnalytics(true));
+      dispatch(setOnboardingHasDevice(null));
+      overrideGetStarted();
+      return;
+    }
     const entryPoints = llmAnalyticsOptInPromptFeature?.params?.entryPoints || [];
     if (llmAnalyticsOptInPromptFeature?.enabled && entryPoints.includes("Onboarding")) {
       navigation.navigate(NavigatorName.AnalyticsOptInPrompt, {
@@ -64,6 +77,7 @@ export function useWelcomeNavigation() {
     llmAnalyticsOptInPromptFeature?.params?.entryPoints,
     navigation,
     dispatch,
+    overrideGetStarted,
   ]);
 
   const [_, setBooleans] = useState<boolean[]>([]);

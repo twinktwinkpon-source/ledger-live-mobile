@@ -160,6 +160,7 @@ export enum ScreenName {
   LedgerSync = "LedgerSync",
   LedgerSyncScan = "LedgerSyncScan",
   FlexScan = "FlexScan",
+  FlexWelcome = "FlexWelcome",
   SignConnectDevice = "SignConnectDevice",
   SignSelectDevice = "SignSelectDevice",
   SignSummary = "SignSummary",

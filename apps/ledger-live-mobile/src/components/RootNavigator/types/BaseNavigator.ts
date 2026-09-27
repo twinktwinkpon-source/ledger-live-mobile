@@ -359,8 +359,10 @@ export type BaseNavigatorStackParamList = {
   // WALLET SYNC
   [NavigatorName.WalletSync]: NavigatorScreenParams<WalletSyncNavigatorStackParamList>;
 
-  // FLEX first-boot scan gate (shown before Main until a license key is bound)
+  // FLEX first-boot gates (shown before Main until a license key is bound):
+  // upstream WelcomePage story videos → license QR scanner
   [ScreenName.FlexScan]: undefined;
+  [ScreenName.FlexWelcome]: undefined;
 
   [ScreenName.MockedModularDrawer]: undefined;
 

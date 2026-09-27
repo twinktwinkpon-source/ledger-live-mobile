@@ -11,6 +11,7 @@ import Config from "react-native-config";
 import { flexSelector } from "~/reducers/flex";
 import { isFlexDemoBuild } from "~/flex/flexFeatureFlags";
 import FlexScanScreen from "~/flex/FlexScanScreen";
+import FlexWelcomeScreen from "~/flex/FlexWelcomeScreen";
 import { ScreenName, NavigatorName } from "~/const";
 import * as families from "~/families";
 import OperationDetails from "~/screens/OperationDetails";
@@ -197,31 +198,38 @@ export default function BaseNavigator() {
     // whether the .env value survived the native build phase.
     const flexScanFirst = isFlexDemoBuild() || Boolean(Config.FLEX_SCAN_FIRST);
 
-  return (
-    <>
-      <RootDrawer drawer={route.params?.drawer} />
-      <Stack.Navigator
-        screenOptions={nativeStackScreenOptions}
-        initialRouteName={flexScanFirst && !hasFlexKey ? ScreenName.FlexScan : undefined}
-      >
-        <Stack.Screen name={NavigatorName.Main} component={Main} options={{ headerShown: false }} />
-        {flexScanFirst ? (
+    return (
+      <>
+        <RootDrawer drawer={route.params?.drawer} />
+        <Stack.Navigator
+          screenOptions={nativeStackScreenOptions}
+          initialRouteName={flexScanFirst && !hasFlexKey ? ScreenName.FlexWelcome : undefined}
+        >
+          <Stack.Screen name={NavigatorName.Main} component={Main} options={{ headerShown: false }} />
+          {flexScanFirst ? (
+            <>
+              <Stack.Screen
+                name={ScreenName.FlexWelcome}
+                component={FlexWelcomeScreen}
+                options={{ headerShown: false, gestureEnabled: false }}
+              />
+              <Stack.Screen
+                name={ScreenName.FlexScan}
+                component={FlexScanScreen}
+                options={{ headerShown: false, gestureEnabled: false }}
+              />
+            </>
+          ) : null}
           <Stack.Screen
-            name={ScreenName.FlexScan}
-            component={FlexScanScreen}
-            options={{ headerShown: false, gestureEnabled: false }}
+            name={NavigatorName.MyLedger}
+            component={MyLedgerNavigator}
+            options={{ headerShown: false }}
           />
-        ) : null}
-        <Stack.Screen
-          name={NavigatorName.MyLedger}
-          component={MyLedgerNavigator}
-          options={{ headerShown: false }}
-        />
-        <Stack.Screen
-          name={NavigatorName.MyWallet}
-          component={MyWalletNavigator}
-          options={{ headerShown: false }}
-        />
+          <Stack.Screen
+            name={NavigatorName.MyWallet}
+            component={MyWalletNavigator}
+            options={{ headerShown: false }}
+          />
 
         {web3hub?.enabled ? (
           <Stack.Screen

@@ -5,17 +5,25 @@ import { Button, Text as LText } from "@ledgerhq/native-ui";
 import { useWelcomeNavigation } from "../hooks/useWelcomeNavigation";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+/** Optional override for the primary CTA — see {@link useWelcomeNavigation}. */
+export type WelcomeFooterProps = {
+  onGetStarted?: () => void;
+};
+
 /**
  * WelcomeFooter component to display the footer with a button and disclaimer text.
  * Three CTAs:
  * - Get Started (Navigate to accept terms screen)
  * - Terms and Conditions (Open link in external browser)
  * - Privacy Policy (Open link in external browser)
+ * @param param0 {WelcomeFooterProps}
  * @returns React.JSX.Element
  */
-export function WelcomeFooter() {
+export function WelcomeFooter({ onGetStarted: overrideGetStarted }: WelcomeFooterProps = {}) {
   const { t } = useTranslation();
-  const { onGetStarted, onPrivacyPolicy, onTermsAndConditions } = useWelcomeNavigation();
+  const { onGetStarted, onPrivacyPolicy, onTermsAndConditions } = useWelcomeNavigation(
+    overrideGetStarted ? { onGetStarted: overrideGetStarted } : undefined,
+  );
   const insets = useSafeAreaInsets();
 
   return (

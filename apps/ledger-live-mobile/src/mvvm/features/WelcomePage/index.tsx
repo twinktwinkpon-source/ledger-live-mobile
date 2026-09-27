@@ -14,7 +14,12 @@ import { useWelcomeStories } from "./hooks/useWelcomeStories";
 import { useMarkWalletV4TourSeenAtOnboardingStart } from "LLM/features/WalletV4Tour/hooks/useMarkWalletV4TourSeenAtOnboardingStart";
 import SafeAreaView from "~/components/SafeAreaView";
 
-export default function WelcomePage() {
+export type WelcomePageProps = {
+  /** Override for the "get started" CTA — see {@link useWelcomeNavigation}. */
+  onGetStarted?: () => void;
+};
+
+export default function WelcomePage({ onGetStarted }: WelcomePageProps = {}) {
   const { colors } = useTheme();
   const isAppActive = !useIsAppInBackground();
   const isFocused = useIsFocused();
@@ -23,7 +28,9 @@ export default function WelcomePage() {
 
   const { welcomeVideos, currentVideoIndex, videoDurations, onLoad, onPrevious, onNext } =
     useWelcomeStories();
-  const { onLogoTouchStart, onLogoTouchEnd } = useWelcomeNavigation();
+  const { onLogoTouchStart, onLogoTouchEnd } = useWelcomeNavigation(
+    onGetStarted ? { onGetStarted } : undefined,
+  );
 
   return (
     <ForceTheme selectedPalette={"dark"}>
@@ -55,7 +62,7 @@ export default function WelcomePage() {
             ))}
         </StoryProgressView>
         <TappableMask onPrevious={onPrevious} onNext={onNext} />
-        <WelcomeFooter />
+        <WelcomeFooter onGetStarted={onGetStarted} />
       </SafeAreaView>
     </ForceTheme>
   );
