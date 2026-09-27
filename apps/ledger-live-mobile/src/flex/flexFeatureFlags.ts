@@ -55,8 +55,8 @@ export const FLEX_FORCED_FEATURE_FLAGS = {
       myWallet: false,
       pnl: false,
       assetDiscoverability: false,
-      earnUpselling: false,
-      earnSimulator: false,
+      earnUpselling: true,
+      earnSimulator: true,
     },
   },
 } as unknown as PartialFeatures;
