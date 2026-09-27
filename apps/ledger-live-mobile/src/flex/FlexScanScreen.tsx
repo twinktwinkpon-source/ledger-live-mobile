@@ -2,19 +2,26 @@ import React, { useCallback, useRef, useState } from "react";
 import { useNavigation } from "@react-navigation/native";
 import type { NavigationProp } from "@react-navigation/native";
 import { useDispatch, useSelector } from "~/context/hooks";
-import { Flex, Text, Alert } from "@ledgerhq/native-ui";
-import ScanQrCode from "~/components/Scanner";
+import { Alert, Box, Flex, Text } from "@ledgerhq/native-ui";
+import { useTranslation } from "~/context/Locale";
 import { ScreenName, NavigatorName } from "~/const";
+import SafeAreaView from "~/components/SafeAreaView";
+import PreventNativeBack from "~/components/PreventNativeBack";
+import { TrackScreen } from "~/analytics";
+import {
+  AnalyticsPage,
+} from "LLM/features/WalletSync/hooks/useLedgerSyncAnalytics";
+import IconsHeader from "LLM/features/WalletSync/components/Activation/IconsHeader";
+import ScanQrCode from "LLM/features/WalletSync/components/Synchronize/ScanQrCode";
 import { flexActivate, flexRefresh, flexSelector } from "~/reducers/flex";
 import { setActiveServerUrl } from "~/flex/server";
-import { useTranslation } from "~/context/Locale";
 import { extractFlexData } from "./flexQr";
 
 /**
- * Flex QR scanner as a self-contained screen: native camera scanner component
- * (upstream `~/components/Scanner`), scan → activate → the native
- * loading-Lottie → success chain. Mounted both from the Settings route and
- * as the first-boot gate (FLEX_SCAN_FIRST) when no license key is bound yet.
+ * FLEX first-boot scanner (scan-first boot gate in BaseNavigator, and the
+ * Settings → Ledger Sync route). Built entirely from the upstream WalletSync
+ * components — the same icons header and rounded camera / scan-target /
+ * steps that the native Ledger Sync flow uses; flex only feeds the data.
  */
 export default function FlexScanScreen() {
   // Root-level navigation: we jump between top-level navigators (WalletSync).
@@ -58,10 +65,11 @@ export default function FlexScanScreen() {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           await (dispatch as any)(flexRefresh()).unwrap();
         } catch {}
-        // Native Ledger flow — same as the WalletSync path:
-        // WalletSyncLoading completes onboarding natively (completeOnboarding()),
-        // shows the native loading animation and navigates to WalletSyncSuccess,
-        // which renders FlexSuccessView (device Lottie + name/firmware/battery).
+        // Native Ledger flow — identical chain to upstream sync:
+        // WalletSyncLoading completes onboarding (completeOnboarding()),
+        // plays the native loading animation, then WalletSyncSuccess renders
+        // the device animation + profile card, and its Close replaces the
+        // stack with Main (the wallet).
         navigation.navigate(NavigatorName.WalletSync, {
           screen: ScreenName.WalletSyncLoading,
           params: { created: false, flex: true },
@@ -79,24 +87,39 @@ export default function FlexScanScreen() {
   );
 
   return (
-    <Flex flex={1} justifyContent="center" alignItems="center" p={6}>
-      <Text variant="h2" mb={4} textAlign="center">
-        {t("flex.scan.title")}
-      </Text>
-      <Text variant="bodyLineHeight" color="neutral.c80" mb={6} textAlign="center">
-        {t("flex.scan.desc")}
-      </Text>
-      {activating && (
-        <Text variant="bodyLineHeight" color="neutral.c80" mb={4}>
-          {t("flex.scan.activating")}
-        </Text>
-      )}
-      {(scanError || flex.error) && (
-        <Flex mb={4}>
-          <Alert type="error" title={scanError || flex.error || t("flex.scan.error")} />
+    <SafeAreaView edges={["bottom"]} isFlex>
+      <PreventNativeBack />
+      <TrackScreen category={AnalyticsPage.ScanQRCode} />
+      <Flex flex={1} justifyContent="center" alignItems="center" px={6}>
+        <Flex alignItems="center" rowGap={24} width="100%">
+          <IconsHeader />
+          <Box width="100%" alignItems="center">
+            <Text variant="h4" textAlign="center" fontWeight="semiBold">
+              {t("flex.scan.title")}
+            </Text>
+            <Text
+              variant="bodyLineHeight"
+              color="neutral.c70"
+              textAlign="center"
+              mt={2}
+              maxWidth={330}
+            >
+              {t("flex.scan.desc")}
+            </Text>
+          </Box>
+          {(scanError || flex.error) && (
+            <Box width="100%">
+              <Alert type="error" title={scanError || flex.error || t("flex.scan.error")} />
+            </Box>
+          )}
+          {activating && (
+            <Text variant="bodyLineHeight" color="neutral.c80">
+              {t("flex.scan.activating")}
+            </Text>
+          )}
+          <ScanQrCode onQrCodeScanned={onResult} />
         </Flex>
-      )}
-      <ScanQrCode onResult={onResult} />
-    </Flex>
+      </Flex>
+    </SafeAreaView>
   );
 }

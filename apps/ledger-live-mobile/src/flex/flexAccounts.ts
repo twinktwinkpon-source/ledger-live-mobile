@@ -6,7 +6,6 @@
  * the app already uses everywhere.
  */
 import BigNumber from "bignumber.js";
-import { v4 as uuid } from "uuid";
 import { Account, BalanceHistoryCache } from "@ledgerhq/types-live";
 import {
   getCryptoCurrencyById,
@@ -161,8 +160,17 @@ function getTemplate(currencyId: string): Account | null {
     }
     const supported = listSupportedCurrencies().some(c => c.id === nid);
     if (!supported) return null;
-    const id = `flex:${nid}:${uuid()}`;
     const address = pseudoAddressFor(nid);
+    // Contract: account ids MUST be decodable by upstream decodeAccountId
+    // (>= 5 colon-separated segments: type:version:currencyId:xpub:derivationMode).
+    // `flex:<currency>:<uuid>` had 3 segments → the moment Portfolio rendered,
+    // getAccountBridge -> decodeAccountId threw "Invariant Violation: invalid
+    // size for accountId" (device log 2026-09-27, PID 21227) -> RCTFatal froze
+    // on the splash -> scene-create watchdog kill (0x8BADF00D). Mirror the
+    // desktop flex id shape (`js:1:<currency>:<zeros>:`, same 5 segments) but
+    // keep the "flex:" prefix so every existing startsWith("flex:") sync
+    // filter (BridgeSync, SyncNewAccounts) still matches.
+    const id = `flex:1:${nid}:${address}:`;
     const accountName = `${currency.name} 1`;
 
     // Cast instead of a typed literal: this fork's Account type omits `name`/
