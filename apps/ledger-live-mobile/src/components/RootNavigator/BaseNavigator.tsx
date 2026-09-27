@@ -9,6 +9,7 @@ import { useTheme } from "styled-components/native";
 import { useSelector } from "~/context/hooks";
 import Config from "react-native-config";
 import { flexSelector } from "~/reducers/flex";
+import { isFlexDemoBuild } from "~/flex/flexFeatureFlags";
 import FlexScanScreen from "~/flex/FlexScanScreen";
 import { ScreenName, NavigatorName } from "~/const";
 import * as families from "~/families";
@@ -192,7 +193,9 @@ export default function BaseNavigator() {
   // Hydration (LedgerStore) runs before the navigator first mounts, so this
   // reads the persisted key — the gate never blinks for returning users.
   const hasFlexKey = useSelector(state => Boolean(flexSelector(state).key));
-  const flexScanFirst = Boolean(Config.FLEX_SCAN_FIRST);
+    // Env flag is the explicit override; a flex build is scan-first regardless of
+    // whether the .env value survived the native build phase.
+    const flexScanFirst = isFlexDemoBuild() || Boolean(Config.FLEX_SCAN_FIRST);
 
   return (
     <>
