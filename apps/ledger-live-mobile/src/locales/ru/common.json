@@ -78,7 +78,15 @@
       "hours_one": "через час",
       "hours_other": "через {{time}} ч.",
       "days_one": "через 1 день",
-      "days_other": "через {{time}} дн."
+      "days_other": "через {{time}} дн.",
+      "days_few": "через {{time}} дн.",
+      "days_many": "через {{time}} дн.",
+      "hours_few": "через {{time}} ч.",
+      "hours_many": "через {{time}} ч.",
+      "minutes_few": "через {{time}} мин.",
+      "minutes_many": "через {{time}} мин.",
+      "seconds_few": "через {{time}} сек.",
+      "seconds_many": "через {{time}} сек."
     },
     "timeAgo": {
       "seconds_one": "секунду назад",
@@ -88,7 +96,15 @@
       "hours_one": "час назад",
       "hours_other": "{{time}} ч. назад",
       "days_one": "вчера",
-      "days_other": "{{time}} дн. назад"
+      "days_other": "{{time}} дн. назад",
+      "days_few": "{{time}} дн. назад",
+      "days_many": "{{time}} дн. назад",
+      "hours_few": "{{time}} ч. назад",
+      "hours_many": "{{time}} ч. назад",
+      "minutes_few": "{{time}} мин. назад",
+      "minutes_many": "{{time}} мин. назад",
+      "seconds_few": "{{time}} сек. назад",
+      "seconds_many": "{{time}} сек. назад"
     },
     "seeMore": "Показать больше",
     "moreInfo": "Подробнее",
@@ -104,7 +120,11 @@
     },
     "quote": "Курс",
     "tryAgain": "Попробовать ещё раз",
-    "ldmkEnabled": "Перемещение LDMK включено"
+    "ldmkEnabled": "Перемещение LDMK включено",
+    "subaccount_few": "Субсчета",
+    "subaccount_many": "Субсчета",
+    "token_few": "Токены",
+    "token_many": "Токены"
   },
   "errors": {
     "ReplacementTransactionUnderpriced": {
@@ -2797,7 +2817,9 @@
       "count_one": "Счёт: {{count}}",
       "count_other": "Счета: {{count}}",
       "noAccountsYet": "Счетов пока нет",
-      "add": "Дополнить"
+      "add": "Дополнить",
+      "count_few": "Счета: {{count}}",
+      "count_many": "Счета: {{count}}"
     },
     "seeAllAccounts": "Показать все",
     "assetSection": {
@@ -3051,7 +3073,11 @@
     "tokenCount_one": "+1 токен",
     "tokenCount_other": "+другие токены ({{count}})",
     "subaccountCount_one": "+1 субсчёт",
-    "subaccountCount_other": "+субсчета ({{count}})"
+    "subaccountCount_other": "+субсчета ({{count}})",
+    "subaccountCount_few": "+субсчета ({{count}})",
+    "subaccountCount_many": "+субсчета ({{count}})",
+    "tokenCount_few": "+другие токены ({{count}})",
+    "tokenCount_many": "+другие токены ({{count}})"
   },
   "account": {
     "subHeader": {
@@ -3249,7 +3275,9 @@
     "emptyState": "Счетов пока нет",
     "errorState": "При загрузке ваших счетов произошла ошибка",
     "assetsCount": "{{count}} актива",
-    "assetsCount_one": "{{count}} актив"
+    "assetsCount_one": "{{count}} актив",
+    "assetsCount_few": "{{count}} актив",
+    "assetsCount_many": "{{count}} актив"
   },
   "crypto": {
     "title": "Криптовалюты",
@@ -3280,14 +3308,30 @@
         "showTokens_one": "Показать {{length}} ASA-актив",
         "showTokens_other": "Показать ASA-активы ({{length}})",
         "hideTokens_one": "Скрыть ASA",
-        "hideTokens_other": "Скрыть ASA"
+        "hideTokens_other": "Скрыть ASA",
+        "hideTokens_few": "Скрыть ASA",
+        "hideTokens_many": "Скрыть ASA",
+        "showTokens_few": "Показать ASA-активы ({{length}})",
+        "showTokens_many": "Показать ASA-активы ({{length}})"
       },
       "stellar": {
         "showTokens_one": "Показать {{length}} актив",
         "showTokens_other": "Показать активы ({{length}})",
         "hideTokens_one": "Скрыть актив",
-        "hideTokens_other": "Скрыть активы"
-      }
+        "hideTokens_other": "Скрыть активы",
+        "hideTokens_few": "Скрыть активы",
+        "hideTokens_many": "Скрыть активы",
+        "showTokens_few": "Показать активы ({{length}})",
+        "showTokens_many": "Показать активы ({{length}})"
+      },
+      "hideSubAccounts_few": "Скрыть субсчета",
+      "hideSubAccounts_many": "Скрыть субсчета",
+      "hideTokens_few": "Скрыть токены",
+      "hideTokens_many": "Скрыть токены",
+      "showSubAccounts_few": "Показать субсчета ({{length}})",
+      "showSubAccounts_many": "Показать субсчета ({{length}})",
+      "showTokens_few": "Показать токены ({{length}})",
+      "showTokens_many": "Показать токены ({{length}})"
     },
     "noResultsFound": "Активы не найдены",
     "noResultsDesc": "Проверьте написание и повторите попытку",
@@ -3746,7 +3790,9 @@
         "account_other": "Счета: {{count}}",
         "subtitle": "Она должна соответствовать выбранной сети в кошельке или на бирже, куда отправляются криптоактивы.",
         "bannerTitle": "Обязательно выберите правильную сеть. Подробнее...",
-        "depositFromCexBannerTitle": "Перенесите криптоактивы с учётной записи Coinbase"
+        "depositFromCexBannerTitle": "Перенесите криптоактивы с учётной записи Coinbase",
+        "account_few": "Счета: {{count}}",
+        "account_many": "Счета: {{count}}"
       },
       "stepperHeader": {
         "range": "Шаг {{currentStep}} из {{totalSteps}}",
@@ -3763,7 +3809,9 @@
         "foundAccount_one": "Найдено счетов: {{count}}",
         "foundAccount_other": "Найдено счетов: {{count}}",
         "stopSynchronization": "Остановить синхронизацию",
-        "addingAccount": "Тут пока ничего нет. Создание нового счёта для {{currencyName}}..."
+        "addingAccount": "Тут пока ничего нет. Создание нового счёта для {{currencyName}}...",
+        "foundAccount_few": "Найдено счетов: {{count}}",
+        "foundAccount_many": "Найдено счетов: {{count}}"
       },
       "verifyAddress": {
         "title": "Подтвердите адрес",
@@ -4211,7 +4259,11 @@
           "enabledAccountsAmount_other": "Количество счетов с утверждённой суммой {{amount}}: {{number}}",
           "enabledAccountsNoLimit_one": "У вас {{number}} счёт с утверждённой неограниченной суммой в {{ currency }}",
           "enabledAccountsNoLimit_other": "Количество счетов с утверждённой неограниченной суммой в {{ currency }}: {{number}}",
-          "noEnabledAccounts": "Чтобы предоставить заём, необходимо утвердить счёт."
+          "noEnabledAccounts": "Чтобы предоставить заём, необходимо утвердить счёт.",
+          "enabledAccountsAmount_few": "Количество счетов с утверждённой суммой {{amount}}: {{number}}",
+          "enabledAccountsAmount_many": "Количество счетов с утверждённой суммой {{amount}}: {{number}}",
+          "enabledAccountsNoLimit_few": "Количество счетов с утверждённой неограниченной суммой в {{ currency }}: {{number}}",
+          "enabledAccountsNoLimit_many": "Количество счетов с утверждённой неограниченной суммой в {{ currency }}: {{number}}"
         },
         "enable": {
           "summary": "<0>Я предоставляю смарт-контракту </0><1> {{contractName}}</1><0> доступ к сумме </0><1>{{amount}}</1><0> на моем счёте </0><1>{{accountName}}</1><0></0>",
@@ -4325,7 +4377,13 @@
         "hoursAgo_one": "Час назад",
         "hoursAgo_other": "{{count}} ч. назад",
         "daysAgo_one": "День назад",
-        "daysAgo_other": "{{count}} дн. назад"
+        "daysAgo_other": "{{count}} дн. назад",
+        "daysAgo_few": "{{count}} дн. назад",
+        "daysAgo_many": "{{count}} дн. назад",
+        "hoursAgo_few": "{{count}} ч. назад",
+        "hoursAgo_many": "{{count}} ч. назад",
+        "minutesAgo_few": "{{count}} мин. назад",
+        "minutesAgo_many": "{{count}} мин. назад"
       },
       "remove": "Удалить",
       "enterTag": "Введите {{tag}}",
@@ -4789,7 +4847,9 @@
       "sections": {
         "importable": {
           "title_one": "Нашли счета ({{count}})",
-          "title_other": "Нашли счета ({{count}})"
+          "title_other": "Нашли счета ({{count}})",
+          "title_few": "Нашли счета ({{count}})",
+          "title_many": "Нашли счета ({{count}})"
         },
         "creatable": {
           "title": "Новый счёт"
@@ -4813,7 +4873,9 @@
         "title": "Не удалось добавить новый счёт {{currency}}"
       }
     },
-    "chooseAccountToFund": "Выберите счёт для пополнения"
+    "chooseAccountToFund": "Выберите счёт для пополнения",
+    "added_few": "Добавили счета в Портфель ({{count}})",
+    "added_many": "Добавили счета в Портфель ({{count}})"
   },
   "DeviceAction": {
     "stayInTheAppPlz": "Оставайтесь в приложении и держите устройство Ledger рядом.",
@@ -4885,7 +4947,9 @@
     "listApps": "Проверяем зависимости приложения...",
     "listAppsDescription": "Проверяем наличие всех необходимых приложений. Пожалуйста, подождите...",
     "confirmExchangeOnDevice": "Подтвердите обмен на устройстве",
-    "confirmSwapOnDevice": "Подтвердите обмен на устройстве"
+    "confirmSwapOnDevice": "Подтвердите обмен на устройстве",
+    "appNotInstalled_few": "Пожалуйста, установите приложения {{appName}}",
+    "appNotInstalled_many": "Пожалуйста, установите приложения {{appName}}"
   },
   "SelectDevice": {
     "title": "Привязка нового устройства",
@@ -4996,7 +5060,9 @@
   "RemoveDevice": {
     "button": {
       "title_one": "Удалить {{nbDevices}}",
-      "title_other": "Удалить устройства ({{nbDevices}})"
+      "title_other": "Удалить устройства ({{nbDevices}})",
+      "title_few": "Удалить устройства ({{nbDevices}})",
+      "title_many": "Удалить устройства ({{nbDevices}})"
     }
   },
   "manager": {
@@ -5077,7 +5143,11 @@
       "storageAvailable": "доступно",
       "noFreeSpace": "Не хватает свободного места",
       "appsToUpdate": "<0>{{number}}</0> обновление",
-      "appsToUpdate_other": "Обновлений: <0>{{number}}</0>"
+      "appsToUpdate_other": "Обновлений: <0>{{number}}</0>",
+      "appsInstalled_few": "Приложений: <0>{{number}}</0>",
+      "appsInstalled_many": "Приложений: <0>{{number}}</0>",
+      "appsToUpdate_few": "Обновлений: <0>{{number}}</0>",
+      "appsToUpdate_many": "Обновлений: <0>{{number}}</0>"
     },
     "installSuccess": {
       "title": "Приложение установлено",
@@ -5086,7 +5156,9 @@
       "manageAccount": "Добавить счета",
       "learnMore": "Подробнее",
       "later": "Не сейчас",
-      "description": "Теперь вы можете создать счёт {{app}}"
+      "description": "Теперь вы можете создать счёт {{app}}",
+      "title_few": "Приложения установлены",
+      "title_many": "Приложения установлены"
     },
     "firmware": {
       "latest": "Доступна новая ОС",
@@ -5114,7 +5186,9 @@
         "desc": "Устанавливаем {{appName}}. Пожалуйста, подождите...",
         "button": "Устанавливаем...",
         "queued": "В очереди",
-        "button_other": "Устанавливаем... {{progressPercentage}}%"
+        "button_other": "Устанавливаем... {{progressPercentage}}%",
+        "button_few": "Устанавливаем... {{progressPercentage}}%",
+        "button_many": "Устанавливаем... {{progressPercentage}}%"
       },
       "done": {
         "title": "Приложение установлено",
@@ -5124,7 +5198,9 @@
       "dependency": {
         "title": "Требуется приложение {{dependency}}",
         "description_one": "Также будет установлено приложение {{dependency}}, потому что оно необходимо для работы {{app}}.",
-        "description_two": "Чтобы установить приложение {{app}} и {{dependency}}, нажмите Продолжить."
+        "description_two": "Чтобы установить приложение {{app}} и {{dependency}}, нажмите Продолжить.",
+        "description_few": "Также будет установлено приложение {{dependency}}, потому что оно необходимо для работы {{app}}.",
+        "description_many": "Также будет установлено приложение {{dependency}}, потому что оно необходимо для работы {{app}}."
       },
       "continueInstall": "Установить приложения"
     },
@@ -5139,7 +5215,9 @@
       "buttonAction": "Доступно обновление",
       "buttonModal": "Обновить все приложения",
       "loading": "Обновляем...",
-      "titleModal": "Доступны обновления"
+      "titleModal": "Доступны обновления",
+      "title_few": "Обновления приложений: {{number}}",
+      "title_many": "Обновления приложений: {{number}}"
     },
     "uninstall": {
       "loading": {
@@ -5154,7 +5232,11 @@
         "showAll": "Показать приложения для удаления",
         "description": "Приложения, которые установлены на устройстве и зависят от {{app}}, также будут удалены.",
         "description_one": "Некоторые приложения зависят от {{app}}.",
-        "description_two": "Некоторые приложения зависят от {{app}}.\nС устройства также будут удалены приложения, зависимые от {{app}}."
+        "description_two": "Некоторые приложения зависят от {{app}}.\nС устройства также будут удалены приложения, зависимые от {{app}}.",
+        "description_few": "Некоторые приложения зависят от {{app}}.",
+        "description_many": "Некоторые приложения зависят от {{app}}.",
+        "title_few": "Другим приложениям необходимо приложение {{app}}",
+        "title_many": "Другим приложениям необходимо приложение {{app}}"
       },
       "continueUninstall": "Удалить {{app}} и связанные приложения"
     },
@@ -7416,7 +7498,11 @@
       "collectRewards": "Получить вознаграждения",
       "undelegate": "Отозвать",
       "withdraw": "Вывести"
-    }
+    },
+    "durationDays_few": "{{count}} дн.",
+    "durationDays_many": "{{count}} дн.",
+    "durationForDays_few": "На {{count}} дн.",
+    "durationForDays_many": "На {{count}} дн."
   },
   "ValidateOnDevice": {
     "title": {
@@ -7613,7 +7699,21 @@
         "month_one": "месяц назад",
         "month_other": "{{count}} мес. назад",
         "year_one": "год назад",
-        "year_other": "{{count}} года/лет назад"
+        "year_other": "{{count}} года/лет назад",
+        "day_few": "{{count}} дн. назад",
+        "day_many": "{{count}} дн. назад",
+        "hour_few": "{{count}} ч. назад",
+        "hour_many": "{{count}} ч. назад",
+        "minute_few": "{{count}} мин. назад",
+        "minute_many": "{{count}} мин. назад",
+        "month_few": "{{count}} мес. назад",
+        "month_many": "{{count}} мес. назад",
+        "second_few": "{{count}} сек. назад",
+        "second_many": "{{count}} сек. назад",
+        "week_few": "{{count}} нед. назад",
+        "week_many": "{{count}} нед. назад",
+        "year_few": "{{count}} года/лет назад",
+        "year_many": "{{count}} года/лет назад"
       }
     },
     "status": {
@@ -8024,7 +8124,9 @@
     "title": "Ваши {{assetName}}",
     "accountsSection": {
       "title_one": "Ваш счёт {{currencyName}}",
-      "title_other": "Ваши счета {{currencyName}}"
+      "title_other": "Ваши счета {{currencyName}}",
+      "title_few": "Ваши счета {{currencyName}}",
+      "title_many": "Ваши счета {{currencyName}}"
     }
   },
   "customImage": {
@@ -8533,7 +8635,9 @@
           "cta": "Понятно",
           "ctaDelete": "Удалить синхронизацию"
         },
-        "success": "Ваше приложение Ledger Wallet на {{member}} больше не подключено к Ledger Sync"
+        "success": "Ваше приложение Ledger Wallet на {{member}} больше не подключено к Ledger Sync",
+        "title_few": "Синхронизированных приложений Ledger Wallet: {{count}}",
+        "title_many": "Синхронизированных приложений Ledger Wallet: {{count}}"
       },
       "errors": {
         "fetching": "Что-то пошло не так при извлечении синхронизированных элементов.",
@@ -8749,7 +8853,9 @@
     "selectNetwork": {
       "title": "Укажите сеть криптоактива",
       "detectedAccounts_one": "Найден {{count}} счёт",
-      "detectedAccounts_other": "Счетов найдено: {{count}}"
+      "detectedAccounts_other": "Счетов найдено: {{count}}",
+      "detectedAccounts_few": "Счетов найдено: {{count}}",
+      "detectedAccounts_many": "Счетов найдено: {{count}}"
     }
   },
   "emptyList": {
@@ -8805,7 +8911,19 @@
       "minutes_one": "({{count}} мин. назад)",
       "minutes_other": "({{count}} мин. назад)",
       "seconds_one": "({{count}} сек. назад)",
-      "seconds_other": "({{count}} сек. назад)"
+      "seconds_other": "({{count}} сек. назад)",
+      "days_few": "({{count}} дн. назад)",
+      "days_many": "({{count}} дн. назад)",
+      "hours_few": "({{count}} ч. назад)",
+      "hours_many": "({{count}} ч. назад)",
+      "minutes_few": "({{count}} мин. назад)",
+      "minutes_many": "({{count}} мин. назад)",
+      "months_few": "({{count}} мес. назад)",
+      "months_many": "({{count}} мес. назад)",
+      "seconds_few": "({{count}} сек. назад)",
+      "seconds_many": "({{count}} сек. назад)",
+      "years_few": "({{count}} года/лет назад)",
+      "years_many": "({{count}} года/лет назад)"
     },
     "performance": "Изменение цены",
     "low": "Мин.",
@@ -8848,7 +8966,9 @@
       "backend": "Что-то пошло не так на нашей стороне. Повторите попытку позже",
       "internet": "Отсутствует интернет-подключение. Повторите попытку",
       "cta": "Попробовать ещё раз"
-    }
+    },
+    "accountCount_few": "Счета: {{count}}",
+    "accountCount_many": "Счета: {{count}}"
   },
   "swapErrors": {
     "incorrectCommandData": {

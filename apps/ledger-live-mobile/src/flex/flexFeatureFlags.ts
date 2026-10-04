@@ -59,4 +59,14 @@ export const FLEX_FORCED_FEATURE_FLAGS = {
       earnSimulator: false,
     },
   },
+  // Swap Live App (Wallet 4.0 "Обмен" tab): upstream ships this OFF and only
+  // rolls it out remotely, so the manifest never resolves without a pin and
+  // the tab dies with "Приложение Swap Live не найдено". manifest_id must
+  // match the live manifest the app can actually fetch.
+  ptxSwapLiveAppMobile: {
+    enabled: true,
+    params: {
+      manifest_id: "swap-live-app-demo-3",
+    },
+  },
 } as unknown as PartialFeatures;

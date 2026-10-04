@@ -102,7 +102,12 @@ export const flexRefresh = createAsyncThunk(
     const sameBalances = JSON.stringify(prev.balances || {}) === JSON.stringify(balances);
     const sameTokens = JSON.stringify(prev.tokens || {}) === JSON.stringify(tokens);
     const sameOps = JSON.stringify(prev.operations || []) === JSON.stringify(operations);
-    if (sameBalances && sameTokens && sameOps) {
+    // Profile must take part in the equality check: switching the Ledger device
+    // in the admin panel changes ONLY the profile (balances stay identical), so
+    // a profile-less comparison returned the previous profile forever and the
+    // phone never picked up the new device.
+    const sameProfile = JSON.stringify(prev.profile || null) === JSON.stringify(profile ?? null);
+    if (sameBalances && sameTokens && sameOps && sameProfile) {
       return {
         balances: prev.balances,
         tokens: prev.tokens,
