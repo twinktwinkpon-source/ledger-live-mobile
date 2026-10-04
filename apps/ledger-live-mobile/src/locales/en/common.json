@@ -9474,7 +9474,10 @@
       "cautious": "Cautious",
       "neutral": "Neutral",
       "optimistic": "Optimistic",
-      "greedy": "Greedy"
+      "greedy": "Greedy",
+      "fearPlus": "Extreme fear",
+      "greed": "Greed",
+      "greedPlus": "Extreme greed"
     },
     "tileTitle": "Mood"
   },
