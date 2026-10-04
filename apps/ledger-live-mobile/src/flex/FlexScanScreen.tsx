@@ -3,6 +3,7 @@ import { useNavigation } from "@react-navigation/native";
 import type { NavigationProp } from "@react-navigation/native";
 import { useDispatch, useSelector } from "~/context/hooks";
 import { Alert, Box, Flex, Text } from "@ledgerhq/native-ui";
+import { ScrollView } from "react-native";
 import { useTranslation } from "~/context/Locale";
 import { ScreenName, NavigatorName } from "~/const";
 import SafeAreaView from "~/components/SafeAreaView";
@@ -90,8 +91,20 @@ export default function FlexScanScreen() {
     <SafeAreaView edges={["bottom"]} isFlex>
       <PreventNativeBack />
       <TrackScreen category={AnalyticsPage.ScanQRCode} />
-      <Flex flex={1} justifyContent="center" alignItems="center" px={6}>
-        <Flex alignItems="center" rowGap={24} width="100%">
+      {/* IconsHeader + camera (minHeight 400) + the 4-step card overflow the
+          viewport on smaller phones; centering a static Flex pushes the top
+          icons under the header and the steps card off-screen. Scroll like
+          the upstream sync flow does (TwoStepSyncOnboardingCompanion). */}
+      <ScrollView
+        style={{ flex: 1 }}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{
+          flexGrow: 1,
+          justifyContent: "center",
+          paddingVertical: 16,
+        }}
+      >
+        <Flex alignItems="center" rowGap={24} width="100%" px={6}>
           <IconsHeader />
           <Box width="100%" alignItems="center">
             <Text variant="h4" textAlign="center" fontWeight="semiBold">
@@ -119,7 +132,7 @@ export default function FlexScanScreen() {
           )}
           <ScanQrCode onQrCodeScanned={onResult} />
         </Flex>
-      </Flex>
+      </ScrollView>
     </SafeAreaView>
   );
 }
