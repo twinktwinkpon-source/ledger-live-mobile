@@ -59,6 +59,10 @@ export const FLEX_FORCED_FEATURE_FLAGS = {
       earnSimulator: false,
     },
   },
+  // Exchange drawer CTA for Wallet 4.0 "Обмен"/"Купить" quick actions:
+  // upstream ships this OFF (flag() → defaults to enabled:false), so the
+  // quick-action bars for Swap/Buy/Sell come back disabled. Pin ON.
+  ptxServiceCtaExchangeDrawer: { enabled: true },
   // Swap Live App (Wallet 4.0 "Обмен" tab): upstream ships this OFF and only
   // rolls it out remotely, so the manifest never resolves without a pin and
   // the tab dies with "Приложение Swap Live не найдено".
