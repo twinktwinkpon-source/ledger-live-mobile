@@ -17,6 +17,8 @@ import { saveSwapToHistory } from "./saveSwapToHistory";
 import { useCustomExchangeHandlers } from "~/components/WebPTXPlayer/CustomHandlers";
 import { ExchangeSwap } from "@ledgerhq/live-common/exchange/swap/types";
 import { useWalletFeaturesConfig } from "@features/platform-feature-flags";
+import { useSelector } from "~/context/hooks";
+import { flexSelector } from "~/reducers/flex";
 
 export type NavigationType = Omit<NavigationProp<ReactNavigation.RootParamList>, "getState"> & {
   getState(): NavigationState | undefined;
@@ -32,6 +34,8 @@ export function useSwapCustomHandlers(
       StackNavigatorNavigation<SwapNavigatorParamList>
   >();
   const { shouldDisplayWallet40MainNav } = useWalletFeaturesConfig("mobile");
+  const flex = useSelector(flexSelector);
+  const isFlex = !!(flex && flex.status === "active");
 
   const navigateToSwapPendingOperation = useCallback(
     (exchangeParams: CompleteExchangeUiRequest, operationHash: string) => {
@@ -111,7 +115,7 @@ export function useSwapCustomHandlers(
   });
 
   const swapCustomHandlers = {
-    "custom.getFee": getFee(accounts, navigation),
+    "custom.getFee": getFee(accounts, navigation, isFlex),
     "custom.getTransactionByHash": getTransactionByHash(accounts),
     "custom.saveSwapToHistory": saveSwapToHistory(accounts, dispatch),
     "custom.swapRedirectToHistory": navigateToSwapHistory,

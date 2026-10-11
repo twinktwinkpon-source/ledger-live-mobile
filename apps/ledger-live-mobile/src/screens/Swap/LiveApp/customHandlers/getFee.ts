@@ -4,7 +4,10 @@ import { getMainAccount, getParentAccount } from "@ledgerhq/live-common/account/
 import { getAccountBridge } from "@ledgerhq/live-common/bridge/index";
 import { getAbandonSeedAddress } from "@ledgerhq/live-common/currencies/index";
 import { TransactionStatus } from "@ledgerhq/live-common/generated/types";
-import { getAccountIdFromWalletAccountId } from "@ledgerhq/live-common/wallet-api/converters";
+import {
+  getAccountIdFromWalletAccountId,
+  getWalletApiIdFromAccountId,
+} from "@ledgerhq/live-common/wallet-api/converters";
 import { AccountLike, Account } from "@ledgerhq/types-live";
 import { log } from "@ledgerhq/logs";
 import BigNumber from "bignumber.js";
@@ -106,15 +109,40 @@ function getRecipientAddress(currencyId: string): string {
  * Main function to get fee data for a transaction
  */
 export const getFee =
-  (accounts: AccountLike[], navigation: NavigationType) =>
+  (accounts: AccountLike[], navigation: NavigationType, isFlex = false) =>
   async ({ params }: { params: FeeParams }): Promise<FeeData> => {
     // Validate and find account
     const realFromAccountId = getAccountIdFromWalletAccountId(params.fromAccountId);
-    if (!realFromAccountId) {
+
+    // FLEX: in the demo build BridgeSync is off, so the wallet-api UUID→accountId
+    // map is never populated and the live-app's params.fromAccountId (a uuidv5 id)
+    // fails the strict lookup below → "Не получилось рассчитать комиссию". Resolve
+    // the account deterministically by recomputing each account's wallet-api id.
+    const flexFromAccount = isFlex
+      ? accounts.find(acc => getWalletApiIdFromAccountId(acc.id) === params.fromAccountId) ||
+        accounts[0]
+      : undefined;
+
+    // FLEX: the swap live-app calls custom.getFee during its own boot, which can
+    // race ahead of the async flex hydration (accounts still empty). Never reject
+    // in flex mode — return a deterministic synthetic fee so the live-app renders
+    // the native fee row instead of the error box (mirrors desktop SwapWebViewDemo3).
+    if (isFlex && !flexFromAccount) {
+      return {
+        feesStrategy: params.feeStrategy || "medium",
+        estimatedFees: new BigNumber("0.00012"),
+        errors: {},
+        warnings: {},
+        customFeeConfig: params.customFeeConfig || {},
+        hasDrawer: false,
+        gasLimit: null,
+      };
+    }
+    if (!realFromAccountId && !flexFromAccount) {
       return Promise.reject(new Error(`accountId ${params.fromAccountId} unknown`));
     }
 
-    const fromAccount = accounts.find(acc => acc.id === realFromAccountId);
+    const fromAccount = accounts.find(acc => acc.id === realFromAccountId) || flexFromAccount;
     if (!fromAccount) {
       return Promise.reject(new Error(`accountId ${params.fromAccountId} unknown`));
     }
@@ -122,6 +150,41 @@ export const getFee =
     // Setup accounts and bridge
     const fromParentAccount = getParentAccount(fromAccount, accounts);
     let mainAccount = getMainAccount(fromAccount, fromParentAccount);
+
+    // FLEX: fake accounts have no real chain backing. The real bridge can throw or
+    // return error statuses (BTC bridge.sync on a pseudo-address fails → "Не
+    // получилось рассчитать комиссию"). Return deterministic synthetic fees and
+    // keep the native drawer/animations flow untouched. Mirrors desktop.
+    if (isFlex) {
+      const family = (mainAccount.currency.family || "").toLowerCase();
+      const feeByFamily: Record<string, string> = {
+        bitcoin: "0.00012",
+        evm: "0.00021",
+        solana: "0.000005",
+        tron: "1.1",
+        ton: "0.0055",
+      };
+      const feeAmount = feeByFamily[family] ?? "0.0001";
+      const magnitude = mainAccount.currency.units[0]?.magnitude ?? 8;
+      const feeAtomic = new BigNumber(feeAmount).shiftedBy(magnitude);
+      return {
+        feesStrategy: params.feeStrategy || "medium",
+        // NOTE: return a plain string — the live-app zod schema rebuilds
+        // BigNumber from string/number after the postMessage serialization
+        // boundary; a BigNumber instance arrives as a prototype-less object
+        // and fails `instanceof`, surfacing the fee error again.
+        estimatedFees: convertToNonAtomicUnit({
+          amount: feeAtomic,
+          account: mainAccount,
+        })?.toString() as unknown as BigNumber,
+        errors: {},
+        warnings: {},
+        customFeeConfig: params.customFeeConfig || {},
+        hasDrawer: false,
+        gasLimit: null,
+      };
+    }
+
     const bridge = await getAccountBridge(fromAccount, fromParentAccount);
 
     if (mainAccount.currency.id === "bitcoin") {
