@@ -97,6 +97,15 @@ export function handlePTXCustomClose(
   });
 }
 
+/** Deterministic-looking random hex (demo hash — no crypto needed). */
+function generateHex(length: number): string {
+  let out = "";
+  for (let i = 0; i < length; i++) {
+    out += Math.floor(Math.random() * 16).toString(16);
+  }
+  return out;
+}
+
 export function useCustomExchangeHandlers({
   manifest,
   accounts,
@@ -337,7 +346,60 @@ export function useCustomExchangeHandlers({
       "custom.dialog.confirmation": createOpenActionDialogHandler(dispatch),
     };
 
+    // FLEX: intercept the swap flow BEFORE upstream's exchangeHandlers run.
+    // Upstream's "custom.exchange.swap" asks the real provider for a payload
+    // (retrieveSwapPayload → swap002 "Invalid request format" in flex mode —
+    // the provider rejects the mock nonce), and its "custom.exchange.complete"
+    // opens the hardware-device confirmation flow. In flex mode both legs are
+    // executed against the flex server instead (see flexSwapHandlers.ts), so
+    // short-circuit the whole RPC chain here. Mirrors the desktop override in
+    // apps/ledger-live-desktop/src/renderer/components/WebPTXPlayer/CustomHandlers.ts.
+    const isFlexMode = !!(flex.key && flex.status === "active");
+    const flexSwapHandlers = !isFlexMode
+      ? {}
+      : {
+          "custom.exchange.swap": async (req: { params: Record<string, unknown> }) => {
+            const params = req.params || {};
+            const rawFromAccountId = (params.fromAccountId as string) || "";
+            const rawToAccountId = (params.toAccountId as string) || "";
+            const fromAccountId = getAccountIdFromWalletAccountId(rawFromAccountId);
+            const toAccountId = getAccountIdFromWalletAccountId(rawToAccountId);
+            const fromAccount = fromAccountId
+              ? accounts.find(a => a.id === fromAccountId) || accounts[0]
+              : accounts[0];
+            const toAccount = toAccountId
+              ? accounts.find(a => a.id === toAccountId) || accounts[1] || accounts[0]
+              : accounts[1] || accounts[0];
+
+            const mockSwapId = `swap_${generateHex(16)}`;
+            const mockOperationHash = generateHex(64);
+
+            const exchange = {
+              fromAccount,
+              toAccount,
+              fromCurrency:
+                fromAccount && "currency" in fromAccount ? fromAccount.currency : undefined,
+              toCurrency: toAccount && "currency" in toAccount ? toAccount.currency : undefined,
+            };
+
+            // Hand the live-app a fake payload + signature so its confirm step
+            // proceeds straight to custom.exchange.complete, which applies the
+            // balance delta on the flex server.
+            return {
+              operationHash: mockOperationHash,
+              swapId: mockSwapId,
+              binaryPayload: "",
+              signature: "",
+              payinAddress:
+                toAccount && "freshAddress" in toAccount ? toAccount.freshAddress : "0x0",
+              swapId2: mockSwapId,
+              exchange,
+            };
+          },
+        };
+
     return {
+      ...flexSwapHandlers,
       ...exchangeHandlers({
         accounts,
         tracking,
