@@ -8,7 +8,6 @@
 import BigNumber from "bignumber.js";
 import { Account, BalanceHistoryCache } from "@ledgerhq/types-live";
 import {
-  getCryptoCurrencyById,
   listSupportedCurrencies,
 } from "@ledgerhq/live-common/currencies/index";
 import { FlexBalanceMap, FlexOperation } from "./constants";
@@ -150,7 +149,15 @@ function getTemplate(currencyId: string): Account | null {
   try {
     let currency;
     try {
-      currency = getCryptoCurrencyById(nid);
+      // isCurrencySupported() compares by REFERENCE against the array built by
+      // setSupportedCurrencies(). Take the currency object from that same array
+      // (not the getCryptoCurrencyById singleton) so checkAccountSupported passes
+      // even when the two registry layers hold different instances of the same id.
+      // (Black screen on launch: "Unhandled JS Exception: CurrencyNotSupported:
+      //  currency not supported: ton" — device syslog 2026-10-15, PID 67920.)
+      const supportedCurrency = listSupportedCurrencies().find(c => c.id === nid);
+      if (!supportedCurrency) return null;
+      currency = supportedCurrency;
     } catch {
       return null;
     }
@@ -158,8 +165,6 @@ function getTemplate(currencyId: string): Account | null {
     if (nid === "ton") {
       currency = { ...currency, ticker: "GRAM", name: "Gram" } as typeof currency;
     }
-    const supported = listSupportedCurrencies().some(c => c.id === nid);
-    if (!supported) return null;
     const address = pseudoAddressFor(nid);
     // Contract: account ids MUST be decodable by upstream decodeAccountId
     // (>= 5 colon-separated segments: type:version:currencyId:xpub:derivationMode).
