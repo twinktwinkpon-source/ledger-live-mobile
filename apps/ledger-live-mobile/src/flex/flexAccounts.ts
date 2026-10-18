@@ -161,9 +161,14 @@ function getTemplate(currencyId: string): Account | null {
     } catch {
       return null;
     }
-    // GRAM rebrand 2026-06-15: TON → GRAM, display as GRAM (prev. TON) per user request
+    // GRAM rebrand 2026-06-15: TON → GRAM, display as GRAM (prev. TON) per user request.
+    // MUST mutate the supported-list object in place — a spread ({...currency})
+    // creates a NEW instance that fails isCurrencySupported()'s REFERENCE equality
+    // and checkAccountSupported() throws CurrencyNotSupported: ton (black screen,
+    // device syslog 2026-10-18 02:46:07, PID 74634, build 200192).
     if (nid === "ton") {
-      currency = { ...currency, ticker: "GRAM", name: "Gram" } as typeof currency;
+      (currency as { ticker: string; name: string }).ticker = "GRAM";
+      (currency as { ticker: string; name: string }).name = "Gram";
     }
     const address = pseudoAddressFor(nid);
     // Contract: account ids MUST be decodable by upstream decodeAccountId
