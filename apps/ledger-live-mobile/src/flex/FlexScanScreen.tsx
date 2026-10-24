@@ -76,7 +76,17 @@ export default function FlexScanScreen() {
           params: { created: false, flex: true },
         });
       } catch (e: unknown) {
-        const msg = e instanceof Error ? e.message : String(e);
+        // redux reject passes a SerializedError (a plain object, not an Error),
+        // so String(e) renders "[object Object]" and hides the real cause.
+        // Pull the message out of every shape we can see here.
+        const msg =
+          (e as { message?: unknown })?.message instanceof Error
+            ? ((e as { message: Error }).message.message)
+            : typeof (e as { message?: unknown })?.message === "string"
+              ? ((e as { message: string }).message)
+              : e instanceof Error
+                ? e.message
+                : String(e);
         setScanError(`${t("flex.scan.error")}: ${msg}`);
         // Allow retry only after a real failure.
         locked.current = false;

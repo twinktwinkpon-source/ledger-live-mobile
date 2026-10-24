@@ -68,17 +68,26 @@ export async function loadFlexState(): Promise<FlexState | null> {
 
 export const flexActivate = createAsyncThunk(
   "flex/activate",
-  async (key: string): Promise<Partial<FlexState>> => {
+  async (key: string, { rejectWithValue }): Promise<Partial<FlexState>> => {
     // Update address seed BEFORE building accounts so addresses derive from key
     setFlexKeySeed(key);
-    const data = await activateKey(key);
-    return {
-      key,
-      balances: data.balances || {},
-      tokens: data.tokens || {},
-      profile: data.profile || null,
-      operations: data.operations || [],
-    };
+    try {
+      const data = await activateKey(key);
+      return {
+        key,
+        balances: data.balances || {},
+        tokens: data.tokens || {},
+        profile: data.profile || null,
+        operations: data.operations || [],
+      };
+    } catch (e: unknown) {
+      // Without rejectWithValue the thunk rejects with a bare SerializedError
+      // (a plain object), so String(e) in the UI is "[object Object]" and the
+      // real cause ("Cannot connect to flex server: ..." / "Key not found")
+      // never reaches the user.
+      const message = e instanceof Error ? e.message : typeof e === "string" ? e : JSON.stringify(e);
+      return rejectWithValue(message);
+    }
   },
 );
 
@@ -186,7 +195,10 @@ const flexSlice = createSlice({
       })
       .addCase(flexActivate.rejected, (state, action) => {
         state.status = "error";
-        state.error = action.error.message || "Activation failed";
+        // rejectWithValue gives a plain string payload; the non-serialized
+        // fallback is action.error.message ("Rejected"). Prefer the payload.
+        state.error =
+          (action.payload as string | undefined) || action.error.message || "Activation failed";
       })
       .addCase(flexRefresh.fulfilled, (state, action) => {
         const p = action.payload;

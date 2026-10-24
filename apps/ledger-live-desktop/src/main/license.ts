@@ -1331,7 +1331,14 @@ export function setupAdminIPC(): void {
     const key = await ensureKey();
     if (!key) return { qr: null };
     try {
-      const payload = `ledgerflex://activate?key=${encodeURIComponent(key)}&server=${encodeURIComponent(LICENSE_SERVER)}`;
+      // The QR's server= target must be REACHABLE FROM THE PHONE. LICENSE_SERVER
+      // is "http://127.0.0.1:9000" in dev (FLEX_SERVER=local in .env) — baking
+      // that into the QR makes the phone try to reach its own loopback and the
+      // activation dies with "[object Object]" (a redux SerializedError, not a
+      // real Error message). Always emit the production VPS URL here.
+      const qrServerUrl =
+        process.env.FLEX_QR_SERVER || PROD_LICENSE_SERVER;
+      const payload = `ledgerflex://activate?key=${encodeURIComponent(key)}&server=${encodeURIComponent(qrServerUrl)}`;
       const qr = await QRCode.toDataURL(payload, { width: 320, margin: 1 });
       return { qr };
     } catch (err) {
