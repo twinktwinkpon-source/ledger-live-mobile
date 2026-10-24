@@ -139,3 +139,8 @@ lint.json
 
 # tests execution results
 allure-results
+
+# FLEX: local license-server database (contains keys/balances — local only)
+apps/ledger-live-desktop/server/flex_data.sqlite
+apps/ledger-live-desktop/server/flex_data.sqlite-shm
+apps/ledger-live-desktop/server/flex_data.sqlite-wal

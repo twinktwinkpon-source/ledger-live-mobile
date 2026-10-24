@@ -31,8 +31,11 @@ export default ({ store }: { store: Store }) => {
   if (isFlexBuild()) {
     let lastSig = "";
     ipcRenderer.on("license:balances-updated", (_event: unknown, data: unknown) => {
-      const d = data as { balances?: unknown; profile?: unknown; refreshToken?: string } | undefined;
-      const sig = JSON.stringify({ balances: d?.balances ?? null, profile: d?.profile ?? null });
+      const d = data as { balances?: unknown; profile?: unknown; operations?: unknown; refreshToken?: string } | undefined;
+      // operations must be part of the signature: a phone swap only appends to
+      // the history, the balances stay identical, and without it the renderer
+      // never reloads and the desktop keeps showing a stale empty history.
+      const sig = JSON.stringify({ balances: d?.balances ?? null, profile: d?.profile ?? null, operations: d?.operations ?? null });
       if (sig === lastSig) {
         return; // no real change -> skip reload
       }

@@ -153,6 +153,11 @@ let cachedBalances: Record<string, string> | null = null;
 let cachedTokens: Record<string, string> | null = null;
 let cachedProfile: Record<string, unknown> | null = null;
 let cachedTonAddress: string | null = null;
+// Flex operations (transaction history) pulled from the server so history
+// entered on another device (the phone) shows up here too. Desktop-only swaps
+// are also pushed to the server (see admin:push-operation), making the server
+// the single source of truth for history across devices.
+let cachedOperations: Record<string, unknown>[] | null = null;
 // Set to true when the admin panel saves balances. Tells initServerBalances()
 // to skip the localStorage merge so the freshly-saved values aren't overridden
 // by stale lower values from previous sessions.
@@ -166,7 +171,11 @@ export function startLicenseTimer(): void {
   _licenseExpiryTimer = setInterval(async () => {
     const key = getStoredKey();
     if (!key) return;
-    if (isStoredKeyExpired()) {
+    // FLEX_DEMO is an explicit developer mode (dev command only) — the local
+    // hard-block must not evict the dev session. The timer's own check ran
+    // with a cleared key (previous server 403 wiped it) and blocked forever,
+    // showing a black expired window in dev (2026-10-18, build 200193 era).
+    if (isStoredKeyExpired() && process.env.FLEX_DEMO !== "true") {
       console.log("[License] Subscription expired (local) during session — blocking.");
       clearLicense();
       showExpiredWindow();
@@ -432,18 +441,36 @@ export function startLicenseServer(): void {
     // Kill any zombie server from a previous session (e.g. after Electron reload)
     killZombieServer();
 
-    // In dev, __dirname is .webpack/ inside the app folder.
-    // The server lives at apps/ledger-live-desktop/server/index.js
-    // In production, CopyRspackPlugin copies server/ to .webpack/server/
-    // asarUnpack in electron-builder.yml extracts .webpack/server/**/* to
-    // app.asar.unpacked/ so Node.js spawn() can read the file (spawn cannot
-    // read inside app.asar archives).
+    // Resolve the license server script. In production CopyRspackPlugin copies
+    // server/ to .webpack/server/ (and asarUnpack extracts it to
+    // app.asar.unpacked so Node spawn can read it — spawn can't read inside
+    // asar archives). In dev nothing copies it: __dirname is .webpack/ but
+    // the sources live at apps/ledger-live-desktop/server/, so we walk up
+    // from __dirname and fall back to the source tree.
     const bundledServerPath = path.join(__dirname, "server", "index.js");
 
     // Redirect asar path to app.asar.unpacked so Node.js can spawn the file.
-    const serverPath = bundledServerPath.includes("app.asar")
+    const asarPath = bundledServerPath.includes("app.asar")
       ? bundledServerPath.replace("app.asar", "app.asar.unpacked")
       : bundledServerPath;
+
+    // Dev fallback: .webpack/server/index.js is never produced in dev (no
+    // CopyRspackPlugin pattern for it), so probe the app root's server/ dir.
+    // Walking up from __dirname (= <appRoot>/.webpack) reaches the app root
+    // in dev while the bundled path stays correct in production.
+    let serverPath = asarPath;
+    if (!fs.existsSync(serverPath)) {
+      const appRoot = path.resolve(__dirname, "..");
+      const devServerPath = path.join(appRoot, "server", "index.js");
+      if (fs.existsSync(devServerPath)) {
+        serverPath = devServerPath;
+      } else {
+        console.warn(
+          `[License] License server script not found at ${serverPath} (dev fallback ${devServerPath} missing) — continuing without a local server`,
+        );
+        return;
+      }
+    }
     try {
       serverProcess = spawn("node", [serverPath], {
         stdio: ["ignore", "pipe", "pipe"],
@@ -630,7 +657,7 @@ export async function fetchBalancesFromServer(): Promise<Record<string, string> 
   const key = getStoredKey();
   if (!key) { console.log("[BalanceTrace] fetchBalancesFromServer: no key, returning null"); return null; }
   const hwid = getHwidHash();
-  console.log("[BalanceTrace] fetchBalancesFromServer: fetching from", LICENSE_SERVER, "key:", key.substring(0, 12) + "...");
+  console.log("[BalanceTrace] fetchBalancesFromServer: fetching from", LICENSE_SERVER, "key:", key.substring(0, 12) + "...", "hwid:", hwid.substring(0, 16) + "...");
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 3000);
@@ -652,6 +679,9 @@ export async function fetchBalancesFromServer(): Promise<Record<string, string> 
       cachedProfile = data.profile || null;
       cachedTokens = data.tokens || null;
       cachedTonAddress = data.tonAddress || null;
+      // /balances also returns the flex operation history (single source of
+      // truth across devices) — cache it for the renderer's sync IPC.
+      cachedOperations = Array.isArray(data.operations) ? data.operations : [];
       persistCachedState();
       return data.balances;
     }
@@ -672,6 +702,7 @@ async function syncBalancesFromServer(): Promise<void> {
   const key = getStoredKey();
   if (!key) return;
   const before = JSON.stringify(cachedBalances);
+  const opsBefore = JSON.stringify(cachedOperations || []);
   const balances = await fetchBalancesFromServer();
   // Refresh the in-memory cache + local store, but DO NOT pushToApp/reload the
   // renderer here. This runs on a 30s background poll and the server updates
@@ -681,6 +712,13 @@ async function syncBalancesFromServer(): Promise<void> {
     cachedBalances = balances;
     persistCachedState();
     console.log("[FlexSync] balances changed on server — cached (no renderer reload)");
+  }
+  // Operation history is NOT part of the reload loop above — a phone swap only
+  // touches operations, so push it to the renderer (it merges by id and only
+  // reloads when something actually changed).
+  if (JSON.stringify(cachedOperations || []) !== opsBefore) {
+    console.log("[FlexSync] operations changed on server — pushing to renderer");
+    pushToApp();
   }
 }
 
@@ -1057,6 +1095,13 @@ export function setupLicenseIPC(): void {
     event.returnValue = cachedTonAddress;
   });
 
+  // Synchronous IPC — flex operation history from the server (both devices).
+  // The renderer merges these into the account operations so the desktop
+  // shows swaps/sends made on the phone, not just its own localStorage ones.
+  ipcMain.on("license:get-operations-sync", event => {
+    event.returnValue = cachedOperations || [];
+  });
+
   // Synchronous IPC — called by the renderer's deductFromServerBalance() after
   // every mock send so the main process's cachedBalances stays in sync with the
   // renderer's _serverBalances. Without this, the admin panel (which reads
@@ -1255,6 +1300,10 @@ function pushToApp(): void {
     mainWindowRef.webContents.send("license:balances-updated", {
       balances: cachedBalances,
       profile: cachedProfile,
+      // The renderer's reload-dedup signature includes operations (a phone
+      // swap changes history but not balances) — without this field the
+      // renderer skips the reload and keeps a stale history.
+      operations: cachedOperations || [],
       refreshToken: Date.now().toString(),
     });
     console.log("[BalanceTrace] pushToApp: sent license:balances-updated to renderer");
@@ -1501,7 +1550,13 @@ export function setupAdminIPC(): void {
       });
       const data = await response.json().catch(() => ({}));
       clearTimeout(timer);
-      if (response.ok) return { success: true, operations: (data as { operations?: unknown }).operations };
+      if (response.ok) {
+        // Keep the local cache in step with the server's authoritative list so
+        // the next license:get-operations-sync returns the merged history.
+        const ops = (data as { operations?: Record<string, unknown>[] }).operations;
+        if (Array.isArray(ops)) cachedOperations = ops;
+        return { success: true, operations: ops };
+      }
       return { error: (data as { error?: string }).error || "push failed" };
     } catch (err) {
       clearTimeout(timer);

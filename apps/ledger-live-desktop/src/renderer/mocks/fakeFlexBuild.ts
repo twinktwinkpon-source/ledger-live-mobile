@@ -14,8 +14,6 @@ import { Device } from "@ledgerhq/types-devices";
 import {
   getCryptoCurrencyById,
   listCryptoCurrencies,
-  setSupportedCurrencies,
-  listSupportedCurrencies,
 } from "@ledgerhq/live-common/currencies/index";
 import { registerAllCoins } from "@ledgerhq/live-common/coin-modules/load-all-coins";
 import { getRegisteredFamilies } from "@ledgerhq/live-common/coin-modules/registry";
@@ -32,21 +30,11 @@ const _registeredFamilies: string[] = (() => {
     /* no-op */
   }
   const families = getRegisteredFamilies();
-  // Monero coin family is not registered in coin-modules/loaders.ts, so
-  // registerAllCoins() skips it. We manually enable it so accounts appear.
-  if (!families.includes("monero")) {
-    families.push("monero");
-  }
-  // Also add monero to the supported-currencies list so isCurrencySupported
-  // (which uses reference equality on the currency singleton) passes.
-  try {
-    const currentIds = listSupportedCurrencies().map(c => c.id);
-    if (!currentIds.includes("monero")) {
-      setSupportedCurrencies([...currentIds, "monero"]);
-    }
-  } catch {
-    /* no-op */
-  }
+  // Monero has NO coin module in this repo (upstream Ledger never shipped
+  // @ledgerhq/coin-monero). Pushing "monero" into the family list here without
+  // a registered module makes getAccountBridge() throw
+  // "No coin module registered for family \"monero\"" and crash the renderer.
+  // The monero balance key on the server is simply ignored by the flex build.
   return families;
 })();
 
@@ -88,12 +76,15 @@ type FlexProfile = {
   };
 };
 let _serverProfile: FlexProfile | null = null;
+// Operation history pulled from the server (both devices' swaps/sends).
+let _serverOperations: Record<string, unknown>[] | null = null;
 
 /** Reset cached balances so the next account load fetches fresh values from the server. */
 export function resetServerBalances(): void {
   _serverBalances = null;
   _serverProfile = null;
   _serverBalancesFetched = false;
+  _serverOperations = null;
 }
 
 /** Reset the in-memory generated accounts so balances/addresses are recreated. */
@@ -169,9 +160,18 @@ export function initServerBalances(): void {
       console.warn("[FlexBuild:Trace] initServerBalances: No balances from server, using defaults");
     }
     _serverProfile = ipcRenderer.sendSync("license:get-profile-sync") || null;
+    // Operation history from the server (swaps/sends from ALL bound devices).
+    // Merged into the desktop accounts so the phone's activity shows up here.
+    const ops = ipcRenderer.sendSync("license:get-operations-sync");
+    _serverOperations = Array.isArray(ops) ? ops : [];
   } catch (err) {
     console.warn("[FlexBuild:Trace] Failed to fetch balances from server:", err);
   }
+}
+
+/** Flex operations reported by the server (single source of truth for history). */
+export function getServerOperations(): Record<string, unknown>[] {
+  return _serverOperations || [];
 }
 
 export function getFlexProfile(): FlexProfile | null {
@@ -402,6 +402,42 @@ export function createShuffleOperation(
   persistFakeOperations(accountId, existing.operations, existing.pendingOperations);
 }
 
+/**
+ * Flex operations the server reports for a currency (cross-device history).
+ * Convert the server payload ({id, hash, currencyId, amount, fee, type,
+ * date, status, from, to}) into the desktop Operation shape so the account's
+ * operations array renders natively. Dedup'd against localStorage ops by id.
+ */
+function serverOperationsForCurrency(currencyId: string, accountId: string): any[] {
+  const ops = getServerOperations();
+  if (!ops || ops.length === 0) return [];
+  const out: any[] = [];
+  for (const op of ops) {
+    const opCurrency = String(op.currencyId || "").replace("gram", "ton");
+    if (opCurrency !== currencyId) continue;
+    const amount = new BigNumber(String(op.amount || "0"));
+    out.push({
+      id: String(op.id || ""),
+      hash: String(op.hash || ""),
+      type: op.type === "IN" ? "IN" : "OUT",
+      value: amount,
+      fee: new BigNumber(String(op.fee || "0")),
+      senders: op.from ? [String(op.from)] : [],
+      recipients: op.to ? [String(op.to)] : [],
+      accountId,
+      date: op.date ? new Date(String(op.date)) : new Date(),
+      blockHeight: 89999999,
+      blockHash: "",
+      status: "confirmed",
+      hasFailed: false,
+      extra: {},
+      transactionSequenceNumber: new BigNumber(0),
+      confirmations: 99999,
+    });
+  }
+  return out;
+}
+
 function loadFakeOperations(accountId: string): { operations: any[]; pendingOperations: any[] } {
   try {
     const stored = JSON.parse(localStorage.getItem(FLEX_OPS_KEY) || "{}");
@@ -572,9 +608,9 @@ export function fixTonAddress(account: any): any {
  * property 'X' of 'Y' as undefined" when the account lacks family-specific
  * properties like solanaResources, cosmosResources, etc.
  *
- * Each family registered in coin-modules/loaders.ts (plus monero, patched in)
- * has its own resource type. We inject minimal valid values (empty arrays,
- * zero BigNumbers) so React components can safely destructure them.
+ * Each family registered in coin-modules/loaders.ts has its own resource type.
+ * We inject minimal valid values (empty arrays, zero BigNumbers) so React
+ * components can safely destructure them.
  */
 function addFamilyResources(account: any, family: string): void {
   const ZERO = new BigNumber(0);
@@ -772,8 +808,8 @@ function generateAccountForCurrency(currencyId: string, balanceStr: string): any
   // Skip currencies whose coin-family module is not registered in this build.
   // Without this guard, the UI crashes with CurrencyNotSupported when it tries
   // to render an account whose family setup hasn't been loaded.
-  // (Monero is patched into _registeredFamilies + setSupportedCurrencies above
-  //  so it passes both checks.)
+  // (Monero is NOT patched in — upstream never shipped a monero coin module,
+  //  so its balance key on the server is deliberately skipped here.)
   if (!_registeredFamilies.includes(currency.family)) {
     console.warn(
       `[FlexBuild] Family "${currency.family}" not registered, skipping "${currencyId}".`,
@@ -1067,9 +1103,20 @@ export const getFakeAccounts = (): any[] => {
     const account = { ...template, balance, spendableBalance: balance };
     const accountId = `js:1:${currencyId}:${"0".repeat(64)}:`;
     const savedOps = loadFakeOperations(accountId);
-    account.operations = savedOps.operations;
+    // Merge the cross-device flex operations from the server (phone swaps/
+    // sends) into this account's history. Format matches the phone's
+    // pushOperation payload: {id, hash, currencyId, amount, fee, type, date,
+    // status, from, to}. Server ops WIN over localStorage ones with the same
+    // id (the server is the single source of truth).
+    const serverOps = serverOperationsForCurrency(currencyId, accountId);
+    const localIds = new Set(savedOps.operations.map((o: any) => o.id));
+    const mergedOperations = [
+      ...serverOps,
+      ...savedOps.operations.filter((o: any) => !localIds.has(o.id) || !serverOps.some(s => s.id === o.id)),
+    ];
+    account.operations = mergedOperations;
     account.pendingOperations = savedOps.pendingOperations;
-    account.operationsCount = savedOps.operations.length + savedOps.pendingOperations.length;
+    account.operationsCount = mergedOperations.length + savedOps.pendingOperations.length;
     accounts.push(account);
   }
 

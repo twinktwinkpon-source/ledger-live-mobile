@@ -1,5 +1,6 @@
 ﻿const http = require("http");
 const crypto = require("crypto");
+const path = require("path");
 const { DatabaseSync } = require("node:sqlite");
 
 const PORT = parseInt(process.env.FLEX_PORT || "9000", 10);
@@ -16,7 +17,10 @@ const ENCRYPT_KEY =
   process.env.FLEX_ENCRYPT_KEY ||
   crypto.createHash("sha256").update("flex-demo-encryption-key").digest("hex").slice(0, 32);
 
-const db = new DatabaseSync("flex_data.sqlite");
+// Resolve the DB next to this script (server/flex_data.sqlite), never the CWD.
+// A relative path made the server open/create a DIFFERENT database depending on
+// where it was launched from (app root vs server/), which silently lost all keys.
+const db = new DatabaseSync(path.join(__dirname, "flex_data.sqlite"));
 db.exec(`
   CREATE TABLE IF NOT EXISTS keys (
     id INTEGER PRIMARY KEY AUTOINCREMENT,

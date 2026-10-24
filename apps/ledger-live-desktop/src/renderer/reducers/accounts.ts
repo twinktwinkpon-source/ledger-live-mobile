@@ -9,6 +9,7 @@ import {
   deductFromServerBalance,
   applyMockSwapSpoof,
   getFlexDemoSwapsHash,
+  getServerOperations,
 } from "~/renderer/mocks/fakeFlexBuild";
 import {
   flattenAccounts,
@@ -225,8 +226,11 @@ function sanitizeAccount(acc: any): Account {
 export const accountsSelector = (state: { accounts: AccountsState }): Account[] => {
   const envFlex = isFlexBuild();
   if (envFlex) {
-    // FLEX_DEMO: Check if localStorage mock swaps have changed to invalidate cache
-    const currentSwapsHash = getFlexDemoSwapsHash();
+    // FLEX_DEMO: Check if localStorage mock swaps have changed to invalidate cache.
+    // The server operations count is part of the key: a phone swap arrives via
+    // the 30s sync poll (license:balances-updated → resetServerBalances), and
+    // without it the selector keeps serving the stale cached accounts.
+    const currentSwapsHash = `${getFlexDemoSwapsHash()}|ops(${getServerOperations().length})`;
     if (flexCache && lastFlexDemoSwapsHash === currentSwapsHash) {
       return flexCache;
     }

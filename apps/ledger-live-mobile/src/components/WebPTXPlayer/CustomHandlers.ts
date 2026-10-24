@@ -399,7 +399,6 @@ export function useCustomExchangeHandlers({
         };
 
     return {
-      ...flexSwapHandlers,
       ...exchangeHandlers({
         accounts,
         tracking,
@@ -704,6 +703,13 @@ export function useCustomExchangeHandlers({
           return { quotes: [], errors: [e instanceof Error ? e.message : String(e)] };
         }
       },
+      // FLEX: spread AFTER exchangeHandlers so the flex override WINS over
+      // upstream's "custom.exchange.swap". Spreading before let upstream's
+      // handler overwrite the flex one, so the Live App called the real
+      // provider (retrieveSwapPayload) and the swap failed with swap002
+      // "Invalid request format" — the mock nonce is rejected by the provider.
+      // (Mirror of the desktop branch, which spreads the override last.)
+      ...flexSwapHandlers,
       ...ptxCustomHandlers,
     };
   }, [
@@ -728,6 +734,10 @@ export function useCustomExchangeHandlers({
     dispatch,
     route.name,
     returnToPreviousScreenOnClose,
+    // FLEX: flexSwapHandlers closes over the whole flex slice — without it the
+    // memo keeps a stale closure and the swap override stays inactive after
+    // the license status changes (e.g. key activation mid-session).
+    flex,
   ]);
 }
 
