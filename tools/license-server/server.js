@@ -281,6 +281,152 @@ function pushOperation(key, hwid, op) {
   return { success: true, operations: ops };
 }
 
+// FLEX swap endpoints — quoted and executed entirely on the license server so
+// the mobile swap Live App gets working quotes without any third-party
+// provider. Rates are deterministic per currency pair (spread baked in), so
+// both legs of a swap stay consistent and the balance delta the client pushes
+// back via /admin/set-balances always matches the quote.
+//
+// POST /swap/quote   { from, to, amountFrom } → { provider, rate, amountFrom, amountTo, expiresAt }
+// POST /swap/execute { key, hwid, from, to, amountFrom } → { success, operationHash, ... }
+//
+// /swap/execute binds the operation to the key+hwid like the other client
+// endpoints and adjusts balances atomically server-side.
+
+// Demo USD-pegged reference rates (whole-unit prices). Any currency missing
+// from the map falls back to a 1:1 rate so the flow never hangs.
+const SWAP_REFERENCE_RATES = {
+  bitcoin: 65000,
+  ethereum: 3200,
+  litecoin: 85,
+  zcash: 30,
+  ton: 5.2,
+  ripple: 0.62,
+  solana: 145,
+  cardano: 0.45,
+  dogecoin: 0.13,
+  tron: 0.16,
+  polkadot: 6.5,
+  stellar: 0.11,
+  cosmos: 8.2,
+  near: 5.1,
+  tezos: 1.05,
+  sui: 1.4,
+  aptos: 8.8,
+  arbitrum: 0.9,
+  optimisim: 1.7,
+  polygon: 0.72,
+  avalanche_c_chain: 35,
+  binance_coin: 600,
+  usd_tether: 1,
+  usd_coin: 1,
+  dai_stablecoin: 1,
+};
+
+// Decimal arithmetic on scaled integers (no floating point noise, no deps).
+// SCALE: 12 decimals is more than enough for a demo rate table.
+const SWAP_SCALE = 12; // fractional digits used by the rate/amount scaling
+const SWAP_UNIT = 10n ** 12n; // 10^SWAP_SCALE, the actual multiplier
+const SWAP_SPREAD_BPS = 120n; // 1.2% round-trip cost
+const QUOTE_VALIDITY_MS = 60_000;
+
+function toScaledUnits(valueStr) {
+  // "1.5" -> 1500000000000n (1.5 * 10^12)
+  if (typeof valueStr !== "string") valueStr = String(valueStr ?? "0");
+  const negative = valueStr.trim().startsWith("-");
+  const [intPartRaw = "0", fracRaw = ""] = valueStr.trim().replace(/^-/, "").split(".");
+  const frac = (fracRaw || "").slice(0, SWAP_SCALE).padEnd(SWAP_SCALE, "0");
+  const units = BigInt(intPartRaw.replace(/^0+/, "") || "0") * SWAP_UNIT + BigInt(frac || "0");
+  return negative ? -units : units;
+}
+
+function fromScaledUnits(units, decimals) {
+  // scaled units -> decimal string with `decimals` fractional digits
+  const negative = units < 0n;
+  const abs = negative ? -units : units;
+  const pow = BigInt(10) ** BigInt(decimals);
+  const intPart = abs / pow;
+  const fracPart = abs % pow;
+  const fracStr = fracPart.toString().padStart(decimals, "0").replace(/0+$/, "");
+  const out = fracStr ? `${intPart.toString()}.${fracStr}` : intPart.toString();
+  return (negative ? "-" : "") + out;
+}
+
+function createSwapQuote(from, to, amountFrom) {
+  const fromRate = toScaledUnits(String(SWAP_REFERENCE_RATES[from] ?? 1));
+  const toRate = toScaledUnits(String(SWAP_REFERENCE_RATES[to] ?? 1));
+  if (toRate === 0n) throw new Error("Invalid rate");
+  // amountTo = amountFrom * (fromRate / toRate) * (1 - spread), all in scaled
+  // units: a*10^12 * fr*10^12 * 0.9988*10^12 / (to*10^12 * 10^12) = amountTo*10^12
+  const amount = toScaledUnits(String(amountFrom ?? "0"));
+  const spread = (SWAP_UNIT * (10000n - SWAP_SPREAD_BPS)) / 10000n; // 0.988 * 10^12
+  const scaled = (amount * fromRate * spread) / (toRate * SWAP_UNIT);
+  const amountTo = fromScaledUnits(scaled, SWAP_SCALE);
+  // rate = fromPrice/toPrice * spread. Pre-scale the numerator by SWAP_UNIT so
+  // the BigInt division keeps 12 decimals of precision before unscaling.
+  const rate = fromScaledUnits((fromRate * spread * SWAP_UNIT) / (toRate * SWAP_UNIT), SWAP_SCALE);
+  return {
+    provider: "FLEX Internal",
+    rate: parseFloat(rate),
+    amountFrom: String(amountFrom ?? "0"),
+    amountTo,
+    expiresAt: new Date(Date.now() + QUOTE_VALIDITY_MS).toISOString(),
+  };
+}
+
+function executeSwap(key, hwid, from, to, amountFrom) {
+  const validation = validateKey(key, hwid);
+  if (!validation.valid) return { error: validation.error };
+  const row = db.prepare("SELECT * FROM keys WHERE key = ?").get(key);
+  const balances = decrypt(row.balances_enc) || {};
+  const tokens = decrypt(row.tokens_enc) || {};
+  const available = toScaledUnits(String(balances[from] ?? "0"));
+  if (available < toScaledUnits(String(amountFrom ?? "0"))) {
+    return { error: "Insufficient balance" };
+  }
+  const quote = createSwapQuote(from, to, amountFrom);
+  const newFrom = fromScaledUnits(available - toScaledUnits(String(amountFrom)), SWAP_SCALE);
+  const newTo = fromScaledUnits(toScaledUnits(String(balances[to] ?? "0")) + toScaledUnits(quote.amountTo), SWAP_SCALE);
+  balances[from] = newFrom;
+  balances[to] = newTo;
+  db.prepare("UPDATE keys SET balances_enc = ?, tokens_enc = ?, updated_at = datetime('now') WHERE key = ?").run(encrypt(balances), encrypt(tokens), key);
+  const operationHash = crypto.randomBytes(32).toString("hex");
+  // Record the swap as an operation so it shows up in the transaction history.
+  const op = {
+    hash: operationHash,
+    type: "SWAP",
+    accountId: `flex:${from}`,
+    value: "-" + String(amountFrom ?? "0"),
+    fee: "0",
+    blockHeight: null,
+    confirmations: 1,
+    date: new Date().toISOString(),
+    senders: [],
+    recipients: [`flex:${to}`],
+    swap: { from, to, amountFrom: String(amountFrom ?? "0"), amountTo: quote.amountTo, provider: "FLEX Internal" },
+    // Legacy flattened fields used by older clients.
+    currency: from,
+    amount: "-" + String(amountFrom ?? "0"),
+    toCurrency: to,
+    toAmount: quote.amountTo,
+  };
+  try {
+    pushOperation(key, hwid, op);
+  } catch (e) {
+    // history is best-effort; never fail the swap over it
+  }
+  return {
+    success: true,
+    operationHash,
+    from,
+    to,
+    amountFrom: String(amountFrom),
+    amountTo: quote.amountTo,
+    balances,
+    tokens,
+  };
+}
+
 function listKeys(adminSecret) {
   if (adminSecret !== ADMIN_SECRET) return { error: "Forbidden" };
   const rows = db.prepare("SELECT key, active, hwid_hash, subscription, expires_at, ton_address, created_at, activated_at FROM keys ORDER BY created_at DESC").all();
@@ -358,7 +504,7 @@ const handler = (req, res) => {
   const path = url.pathname;
 
   // Log flex activations for debugging RN Network request failed
-  if (path === "/activate" || path === "/validate" || path === "/balances" || path === "/operations" || path === "/admin/push-operation") {
+  if (path === "/activate" || path === "/validate" || path === "/balances" || path === "/operations" || path === "/admin/push-operation" || path.startsWith("/swap/")) {
     console.log(`[Flex] ${req.method} ${path} from ${ip} origin=${origin} ua=${(req.headers["user-agent"] || "").slice(0, 80)}`);
   }
 
@@ -430,6 +576,24 @@ const handler = (req, res) => {
         case "/admin/push-operation": {
           const result = pushOperation(parsed.key, parsed.hwid, parsed.operation);
           const status = result.error ? 403 : 200;
+          return sendJson(res, status, result);
+        }
+        case "/swap/quote": {
+          if (!parsed.from || !parsed.to) {
+            return sendJson(res, 400, { error: "Missing from/to currency" });
+          }
+          try {
+            return sendJson(res, 200, createSwapQuote(parsed.from, parsed.to, parsed.amountFrom));
+          } catch (err) {
+            return sendJson(res, 400, { error: String(err && err.message || err) });
+          }
+        }
+        case "/swap/execute": {
+          if (!parsed.key || !parsed.from || !parsed.to) {
+            return sendJson(res, 400, { error: "Missing key/from/to" });
+          }
+          const result = executeSwap(parsed.key, parsed.hwid, parsed.from, parsed.to, parsed.amountFrom);
+          const status = result.error ? (result.error.includes("Insufficient") ? 400 : 403) : 200;
           return sendJson(res, status, result);
         }
         case "/list-keys": {
