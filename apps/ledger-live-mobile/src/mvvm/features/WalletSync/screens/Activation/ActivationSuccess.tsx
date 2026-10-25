@@ -5,12 +5,10 @@ import { BaseComposite, StackNavigatorProps } from "~/components/RootNavigator/t
 import { WalletSyncNavigatorStackParamList } from "~/components/RootNavigator/types/WalletSyncNavigator";
 import { ScreenName } from "~/const";
 import { AnalyticsButton, AnalyticsFlow, AnalyticsPage } from "../../hooks/useLedgerSyncAnalytics";
-import { track } from "~/analytics";
+import { track, TrackScreen as TrackScreenComponent } from "~/analytics";
 import { useClose } from "../../hooks/useClose";
 import { useFeature, useWalletFeaturesConfig } from "@features/platform-feature-flags";
 import { useNotifications } from "LLM/features/NotificationsPrompt";
-import { useSelector } from "~/context/hooks";
-import { flexSelector } from "~/reducers/flex";
 import styled, { useTheme } from "styled-components/native";
 import { Flex, Text } from "@ledgerhq/native-ui";
 import { DeviceModelId } from "@ledgerhq/types-devices";
@@ -19,15 +17,27 @@ import Animation from "~/components/Animation";
 import { getProductName } from "LLM/utils/getProductName";
 import SafeAreaView from "~/components/SafeAreaView";
 import PreventNativeBack from "~/components/PreventNativeBack";
-import { TrackScreen as TrackScreenComponent } from "~/analytics";
+import { useSelector } from "~/context/hooks";
+import { flexSelector } from "~/reducers/flex";
 import Button from "~/components/Button";
 
 type Props = BaseComposite<
   StackNavigatorProps<WalletSyncNavigatorStackParamList, ScreenName.WalletSyncSuccess>
 >;
 
+// Native Ledger device models that have a "blePaired" Lottie in
+// getDeviceAnimation(). Anything else (or a profile-supplied id we don't ship
+// an animation for) falls back to a paired animation of a real device instead
+// of `undefined`, which would blank the whole success screen.
+const MODELS_WITH_BLE_PAIRED: string[] = ["nanoX", "stax", "europa", "apex"];
+
 function getDeviceModelId(modelId: string): DeviceModelId {
-  if (modelId in DeviceModelId) return modelId as DeviceModelId;
+  if (modelId in DeviceModelId) {
+    if (MODELS_WITH_BLE_PAIRED.includes(modelId)) return modelId as DeviceModelId;
+    // Real Ledger devices without a blePaired animation (nanoS / nanoSP / blue)
+    // still render a REAL device Lottie, paired-style, never undefined.
+    return DeviceModelId.nanoX;
+  }
   return DeviceModelId.stax;
 }
 

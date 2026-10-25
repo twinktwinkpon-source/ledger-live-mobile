@@ -29,13 +29,17 @@ export default function RootNavigator() {
             headerShown: false,
           }}
         >
-          {goToOnboarding ? (
+          {/* Single registration of BaseOnboarding: before, this screen was
+              declared TWICE (once gated by goToOnboarding, once by
+              hasCompletedOnboarding). With both flags true the navigator held
+              two routes named NavigatorName.BaseOnboarding, and the
+              post-scan `replace(NavigatorName.Base, {screen: Main})` from
+              useClose() resolved against the duplicate set — the wallet
+              mounted but rendered black. Register it exactly once. */}
+          {goToOnboarding || hasCompletedOnboarding ? (
             <Stack.Screen name={NavigatorName.BaseOnboarding} component={BaseOnboardingNavigator} />
           ) : null}
           <Stack.Screen name={NavigatorName.Base} component={BaseNavigator} />
-          {hasCompletedOnboarding ? (
-            <Stack.Screen name={NavigatorName.BaseOnboarding} component={BaseOnboardingNavigator} />
-          ) : null}
         </Stack.Navigator>
       </AnalyticsContextProvider>
     </StartupTimeMarker>
