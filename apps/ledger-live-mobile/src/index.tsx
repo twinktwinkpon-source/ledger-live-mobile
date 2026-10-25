@@ -6,7 +6,7 @@ import "./iosWebsocketFix";
 import "./utils/tanstack-setup";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import React, { Component, useMemo, useEffect, useRef } from "react";
-import { StyleSheet, LogBox, Appearance, AppState, View } from "react-native";
+import { StyleSheet, LogBox, Appearance, AppState, View, Text } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { I18nextProvider } from "react-i18next";
 import Transport from "@ledgerhq/hw-transport";
@@ -321,10 +321,42 @@ const StylesProvider = ({ children }: { children: React.ReactNode }) => {
   );
 };
 
-export default class Root extends Component {
+// FLEX: in release builds a render error is caught here, logged, then rethrown,
+// which unmounts the whole React tree — the app stays alive but the screen goes
+// permanently black (no red screen in release). Instead of rethrowing, capture
+// the error and render it full-screen so it can be diagnosed on a real device.
+type RootState = { error: Error | null };
+
+export default class Root extends Component<unknown, RootState> {
+  state: RootState = { error: null };
+
   componentDidCatch(e: Error) {
     logger.critical(e);
-    throw e;
+    this.setState({ error: e });
+  }
+
+  renderError() {
+    const { error } = this.state;
+    return (
+      <View
+        style={{
+          flex: 1,
+          backgroundColor: "#000",
+          padding: 24,
+        }}
+      >
+        <Text
+          style={{
+            color: "#ff5c5c",
+            fontSize: 15,
+            fontFamily: "Menlo",
+            marginTop: 40,
+          }}
+        >
+          {"FLEX RENDER ERROR\n\n" + (error?.stack || error?.message || String(error))}
+        </Text>
+      </View>
+    );
   }
 
   onInitFinished = () => {
@@ -334,6 +366,9 @@ export default class Root extends Component {
   };
 
   render() {
+    if (this.state.error) {
+      return this.renderError();
+    }
     logStartupEvent("Root render");
     return (
       <LedgerStoreProvider onInitFinished={this.onInitFinished} store={store}>
