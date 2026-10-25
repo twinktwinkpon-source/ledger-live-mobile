@@ -10,7 +10,33 @@ import { Account, BalanceHistoryCache } from "@ledgerhq/types-live";
 import {
   listSupportedCurrencies,
 } from "@ledgerhq/live-common/currencies/index";
+import { getRegisteredFamilies } from "@ledgerhq/live-common/coin-modules/registry";
 import { FlexBalanceMap, FlexOperation } from "./constants";
+
+/**
+ * Families that have a coin module in this repo (see
+ * libs/ledger-live-common/src/coin-modules/loaders.ts). Flex balances for a
+ * currency whose family has NO module (monero, flow, eos, iota, zilliqa, …)
+ * must never become an Account: the template itself passes
+ * checkAccountSupported(), but the moment Portfolio renders, the bridge layer
+ * calls loadSetupForFamily(family) → getLoader() throws
+ * `CurrencyNotSupported: No coin module registered for family "…"` and the
+ * whole React tree crashes to a black screen. The desktop fakeFlexBuild
+ * filters monero for the same reason — keep both sides in sync.
+ *
+ * Two-layer check: the live registry (populated by registerAllCoins() from
+ * live-common-setup, which runs before the store imports this module) is
+ * authoritative when populated; while it is still empty (tests, alternate
+ * entry points), fall back to a static list of families this fork does not
+ * ship so the gate never filters out everything.
+ */
+const FAMILIES_WITHOUT_MODULE = ["monero", "flow", "eos", "iota", "zilliqa"];
+
+function hasCoinModule(family: string): boolean {
+  const registered = getRegisteredFamilies();
+  if (registered.length > 0) return registered.includes(family);
+  return !FAMILIES_WITHOUT_MODULE.includes(family);
+}
 
 /** Cache one generated account template per currency id (created lazily). */
 const templateCache = new Map<string, Account>();
@@ -157,6 +183,12 @@ function getTemplate(currencyId: string): Account | null {
       //  currency not supported: ton" — device syslog 2026-10-15, PID 67920.)
       const supportedCurrency = listSupportedCurrencies().find(c => c.id === nid);
       if (!supportedCurrency) return null;
+      // Second gate: the currency may be in the supported list but its family
+      // has no coin module shipped in this build (monero, flow, eos, iota,
+      // zilliqa — see hasCoinModule). Building an Account for it passes
+      // checkAccountSupported, yet the bridge layer throws
+      // "No coin module registered" while rendering Portfolio.
+      if (!hasCoinModule(supportedCurrency.family)) return null;
       currency = supportedCurrency;
     } catch {
       return null;
