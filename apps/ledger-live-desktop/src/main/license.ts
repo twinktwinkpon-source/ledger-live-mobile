@@ -1338,7 +1338,13 @@ export function setupAdminIPC(): void {
       // real Error message). Always emit the production VPS URL here.
       const qrServerUrl =
         process.env.FLEX_QR_SERVER || PROD_LICENSE_SERVER;
-      const payload = `ledgerflex://activate?key=${encodeURIComponent(key)}&server=${encodeURIComponent(qrServerUrl)}`;
+      // In dev the desktop runs against the LOCAL server (FLEX_SERVER=local in
+      // .env) with a local key that only exists in server/flex_data.sqlite —
+      // the VPS has never heard of it, so the phone fails with "Key not found".
+      // FLEX_QR_KEY (dev .env, gitignored) bakes the VPS-registered key into
+      // the QR instead. Production leaves it unset and ships the stored key.
+      const qrKey = process.env.FLEX_QR_KEY || key;
+      const payload = `ledgerflex://activate?key=${encodeURIComponent(qrKey)}&server=${encodeURIComponent(qrServerUrl)}`;
       const qr = await QRCode.toDataURL(payload, { width: 320, margin: 1 });
       return { qr };
     } catch (err) {
