@@ -9,6 +9,7 @@ import type {
   SendFlowTransactionActions,
   RecipientData,
 } from "@ledgerhq/live-common/flows/send/types";
+import { createFakeAccountBridge } from "~/flex/flexBridge";
 
 type UseSendFlowTransactionParams = Readonly<{
   account: AccountLike | null;
@@ -24,7 +25,17 @@ export function useSendFlowTransaction({
   account,
   parentAccount,
 }: UseSendFlowTransactionParams): UseSendFlowTransactionResult {
-  const bridge = useAccountBridgeOrNull<Transaction>(account, parentAccount);
+  // FLEX: synthetic flex accounts have no real coin-module resources, so the
+  // real bridge throws AccountNeedResync ("Счёт устарел") on every send.
+  // Route them through the fake bridge — the mobile port of the desktop
+  // renderer/mocks/fakeBridge.ts used by renderer/modals/Send/Body.tsx.
+  const isFlexAccount = !!(account && account.id.startsWith("flex:"));
+  const realBridge = useAccountBridgeOrNull<Transaction>(account, parentAccount);
+  const bridge = isFlexAccount
+    ? (createFakeAccountBridge(
+        account && "currency" in account ? account.currency.family : "evm",
+      ) as unknown as typeof realBridge)
+    : realBridge;
 
   const {
     transaction,

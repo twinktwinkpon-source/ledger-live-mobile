@@ -3,6 +3,7 @@ import { concat, of, from, Subscription } from "rxjs";
 import { concatMap, filter } from "rxjs/operators";
 import { useState, useCallback, useEffect, useRef } from "react";
 import { Platform } from "react-native";
+import BigNumber from "bignumber.js";
 import { log } from "@ledgerhq/logs";
 import { useRoute, useNavigation } from "@react-navigation/native";
 import type {
@@ -38,6 +39,7 @@ import { updateAccountWithUpdater } from "../actions/accounts";
 import logger from "../logger";
 import { ScreenName } from "~/const";
 import { urls } from "~/utils/urls";
+import { createFakeAccountBridge } from "~/flex/flexBridge";
 import type {
   StackNavigatorNavigation,
   StackNavigatorRoute,
@@ -48,6 +50,7 @@ import type { AlgorandClaimRewardsFlowParamList } from "~/families/algorand/Rewa
 import type { StellarAddAssetFlowParamList } from "~/families/stellar/AddAssetFlow/types";
 import { mevProtectionSelector } from "~/reducers/settings";
 import { useNewSendFlowFeature } from "LLM/features/Send/hooks/useNewSendFlowFeature";
+import { flexSelector, flexPushBalances, flexPushOperation } from "~/reducers/flex";
 
 type Navigation =
   | StackNavigatorNavigation<SendFundsNavigatorStackParamList, ScreenName.SendSummary>
@@ -96,6 +99,14 @@ export const useSignWithDevice = ({
   const subscription = useRef<null | Subscription>(null);
   const mevProtected = useSelector(mevProtectionSelector);
   const bridge = useAccountBridge(account, parentAccount);
+  // FLEX: synthetic flex accounts have no real coin-module resources, so the
+  // real bridge throws AccountNeedResync during signOperation ("счёт устарел").
+  // The fake bridge mirrors the desktop renderer/mocks/fakeBridge.ts behavior.
+  const effectiveBridge = account.id.startsWith("flex:")
+    ? (createFakeAccountBridge(
+        getMainAccount(account, parentAccount ?? undefined).currency.family,
+      ) as unknown as typeof bridge)
+    : bridge;
   const signWithDevice = useCallback(() => {
     const { deviceId, transaction } = route.params || {};
     if (!transaction || !deviceId) return;
@@ -110,7 +121,7 @@ export const useSignWithDevice = ({
       "transaction-summary",
       `✔️ transaction ${formatTransaction(transaction, mainAccount)}`,
     );
-    subscription.current = bridge
+    subscription.current = effectiveBridge
       .signOperation({
         account: mainAccount,
         transaction,
@@ -126,7 +137,7 @@ export const useSignWithDevice = ({
             concat(
               of(e),
               from(
-                bridge
+                effectiveBridge
                   .broadcast({
                     account: mainAccount,
                     signedOperation: (e as { signedOperation: SignedOperation }).signedOperation,
@@ -199,7 +210,7 @@ export const useSignWithDevice = ({
   }, [
     context,
     account,
-    bridge,
+    effectiveBridge,
     navigation,
     parentAccount,
     updateAccountWithUpdater,
@@ -234,7 +245,13 @@ export const broadcastSignedTx = async (
 ): Promise<Operation> => {
   invariant(account, "account not present");
   const mainAccount = getMainAccount(account, parentAccount);
-  const bridge = await getAccountBridge(account, parentAccount);
+  let bridge = await getAccountBridge(account, parentAccount);
+
+  // FLEX: replace the real bridge for synthetic flex accounts — the real one
+  // throws AccountNeedResync. Mirrors the desktop fakeBridge override.
+  if (account.id.startsWith("flex:")) {
+    bridge = createFakeAccountBridge(mainAccount.currency.family) as unknown as typeof bridge;
+  }
 
   if (getEnv("DISABLE_TRANSACTION_BROADCAST")) {
     return Promise.resolve(signedOperation.operation);
@@ -265,6 +282,7 @@ export function useSignedTxHandler({
   parentAccount: Account | null | undefined;
 }) {
   const mevProtected = useSelector(mevProtectionSelector);
+  const flex = useSelector(flexSelector);
   const navigation = useNavigation();
   const route = useRoute();
   const mainAccount = getMainAccount(account, parentAccount);
@@ -310,6 +328,50 @@ export function useSignedTxHandler({
           "transaction-summary",
           `✔️ broadcasted! optimistic operation: ${(await formatOperation(mainAccount))(operation)}`,
         );
+
+        // FLEX: keep the flex server the single source of truth — deduct the
+        // sent amount + fee from the server balance and record the OUT
+        // operation so the history shows it everywhere (desktop included).
+        // Mirrors desktop fakeBridge's deductFromServerBalance tap().
+        if (account.id.startsWith("flex:") && flex.key) {
+          try {
+            const currencyId = mainAccount.currency.id;
+            const current = (flex.balances || {})[currencyId] || "0";
+            const fee = operation.fee
+              ? BigNumber.isBigNumber(operation.fee)
+                ? operation.fee
+                : new BigNumber(operation.fee.toString())
+              : new BigNumber(0);
+            const value = BigNumber.isBigNumber(operation.value)
+              ? operation.value
+              : new BigNumber(operation.value.toString());
+            const next = new BigNumber(current).minus(value.plus(fee)).toString();
+            const newBalances = { ...(flex.balances || {}), [currencyId]: next };
+            const thunkDispatch = dispatch as unknown as (
+              a: unknown,
+            ) => { unwrap: () => Promise<unknown> };
+            await thunkDispatch(
+              flexPushBalances({ balances: newBalances, tokens: flex.tokens || {} }),
+            ).unwrap();
+            await thunkDispatch(
+              flexPushOperation({
+                id: operation.id,
+                hash: operation.hash,
+                currencyId,
+                amount: value.toString(),
+                fee: fee.toString(),
+                type: "OUT",
+                date: new Date().toISOString(),
+                status: "confirmed",
+                from: mainAccount.freshAddress,
+                to: operation.recipients?.[0] || "",
+              }),
+            ).unwrap();
+          } catch (e) {
+            console.warn("[Flex] server balance deduct failed", e);
+          }
+        }
+
         (navigation as NativeStackNavigationProp<{ [key: string]: object }>).replace(
           route.name.replace("ConnectDevice", "ValidationSuccess"),
           { ...route.params, result: operation },

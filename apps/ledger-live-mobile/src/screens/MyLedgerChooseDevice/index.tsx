@@ -30,8 +30,68 @@ import { wallet40HeaderOptions } from "~/screens/MyLedgerChooseDevice/wallet40He
 import { useSelector } from "~/context/hooks";
 import { flexSelector } from "~/reducers/flex";
 import { Button } from "@ledgerhq/native-ui";
+import { Image } from "react-native";
+import { DeviceModelId as DeviceModelIdEnum } from "@ledgerhq/types-devices";
 import { useNavigation as useNav } from "@react-navigation/native";
 import { getDeviceIcon } from "LLM/utils/getDeviceIcon";
+import {
+  ListItem,
+  ListItemContent,
+  ListItemLeading,
+  ListItemTitle,
+  ListItemDescription,
+  Text,
+} from "@ledgerhq/lumen-ui-rnative";
+
+/* eslint-disable @typescript-eslint/no-require-imports */
+const deviceSources: Partial<Record<DeviceModelIdEnum, number>> = {
+  [DeviceModelIdEnum.nanoS]: require("@assets/images/devices/nanoSNew.webp"),
+  [DeviceModelIdEnum.nanoSP]: require("@assets/images/devices/nanoSPNew.webp"),
+  [DeviceModelIdEnum.nanoX]: require("@assets/images/devices/nanoXNew.webp"),
+  [DeviceModelIdEnum.stax]: require("@assets/images/devices/staxNew.webp"),
+  [DeviceModelIdEnum.europa]: require("@assets/images/devices/flexNew.webp"),
+  [DeviceModelIdEnum.apex]: require("@assets/images/devices/gen5New.webp"),
+};
+/* eslint-enable @typescript-eslint/no-require-imports */
+
+const ITEM_IMAGE_SIZE = 40;
+
+/** Native Lumen device row, mirroring MyWallet's DeviceListItem (Wallet 4.0). */
+function DeviceItem({
+  name,
+  firmware,
+  modelId,
+  onOpen,
+}: {
+  name: string;
+  firmware?: string;
+  modelId?: string;
+  onOpen: () => void;
+}) {
+  const { t } = useTranslation();
+  const source =
+    deviceSources[(modelId as DeviceModelIdEnum) ?? DeviceModelIdEnum.nanoX] ??
+    deviceSources[DeviceModelIdEnum.nanoX];
+  return (
+    <ListItem onPress={onOpen} testID="flex-device-item">
+      <ListItemLeading>
+        <Image
+          source={source}
+          style={{ width: ITEM_IMAGE_SIZE, height: ITEM_IMAGE_SIZE }}
+          resizeMode="contain"
+        />
+        <ListItemContent lx={{ gap: "s4" }}>
+          <ListItemTitle>{name}</ListItemTitle>
+          {firmware ? (
+            <ListItemDescription>
+              {t("manager.flexDevice.firmware")} {firmware}
+            </ListItemDescription>
+          ) : null}
+        </ListItemContent>
+      </ListItemLeading>
+    </ListItem>
+  );
+}
 
 type NavigationProps = BaseComposite<
   StackNavigatorProps<MyLedgerNavigatorStackParamList, ScreenName.MyLedgerChooseDevice>
@@ -159,21 +219,13 @@ const ChooseDevice: React.FC<ChooseDeviceProps> = ({ isFocused }) => {
         </Text>
       ) : null}
       {isFlexActive && flex.profile?.device && (
-        <Flex mx={6} mt={4} p={4} style={{ backgroundColor: "#1a1a1a", borderRadius: 12, borderWidth: 1, borderColor: "#2a2a2a" }} flexDirection="row" alignItems="center">
-          <Flex width={48} height={48} borderRadius={12} style={{ backgroundColor: "#222" }} justifyContent="center" alignItems="center" mr={3}>
-            {getDeviceIcon({ modelId: flex.profile.device.modelId } as never, 24)}
-          </Flex>
-          <Flex flex={1}>
-            <Text fontWeight="semiBold">
-              {flex.profile.device.name || "Ledger Nano X"}
-            </Text>
-            <Text variant="small" color="neutral.c70">
-              {t("manager.flexDevice.firmware")} {flex.profile.device.firmwareVersion}
-            </Text>
-          </Flex>
-          <Button size="small" type="main" onPress={() => flexNav.navigate(ScreenName.MyLedgerFlexDevice as never)}>
-            {t("manager.flexDevice.open")}
-          </Button>
+        <Flex mx={6} mt={4}>
+          <DeviceItem
+            name={flex.profile.device.name || "Ledger Nano X"}
+            firmware={flex.profile.device.firmwareVersion}
+            modelId={flex.profile.device.modelId}
+            onOpen={() => flexNav.navigate(ScreenName.MyLedgerFlexDevice as never)}
+          />
         </Flex>
       )}
       <Flex flex={1}>

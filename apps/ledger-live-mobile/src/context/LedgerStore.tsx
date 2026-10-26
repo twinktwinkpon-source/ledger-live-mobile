@@ -52,6 +52,7 @@ import {
   PERSISTENCE_VERSION,
 } from "@ledgerhq/cryptoassets/cal-client/persistence";
 import { setAllOverrides, setBannerVisible, type PartialFeatures } from "@shared/feature-flags";
+import { FLEX_FORCED_FEATURE_FLAGS, isFlexDemoBuild } from "~/flex/flexFeatureFlags";
 import { initIdentities } from "../helpers/identities";
 
 interface Props {
@@ -214,7 +215,22 @@ const LedgerStoreProvider: React.FC<Props> = ({ onInitFinished, children, store 
       await initIdentities(store, persistedIdentities ?? null, legacyUser ?? null);
 
       if (persistedFeatureFlags) {
-        store.dispatch(setAllOverrides(persistedFeatureFlags.overrides));
+        // FLEX: persisted local overrides beat envFlags (and therefore the FLEX
+        // pins) in resolveFeature() — see shared/feature-flags/src/data/utils.ts.
+        // A stale persisted `lwmWallet40:{enabled:false}` from an older build
+        // silently downgraded the phone to the legacy (pre-Lumen) asset screens
+        // even though configureStore pins the flag ON. Strip exactly the pinned
+        // flags so they can never shadow the forced values.
+        const flexPinned = isFlexDemoBuild() ? Object.keys(FLEX_FORCED_FEATURE_FLAGS) : [];
+        const overrides =
+          flexPinned.length > 0
+            ? Object.fromEntries(
+                Object.entries(persistedFeatureFlags.overrides ?? {}).filter(
+                  ([k]) => !flexPinned.includes(k),
+                ),
+              )
+            : persistedFeatureFlags.overrides;
+        store.dispatch(setAllOverrides(overrides));
         store.dispatch(setBannerVisible(persistedFeatureFlags.bannerVisible));
       } else if (settingsData) {
         // One-time migration from legacy settings fields. Write the new featureFlags key directly

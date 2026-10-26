@@ -7,6 +7,7 @@ import type { FeePresetOption } from "./useFeePresetOptions";
 import { useCalculateCountervalueCallback } from "@ledgerhq/live-countervalues-react";
 import { formatCurrencyUnit } from "@ledgerhq/live-common/currencies/index";
 import type { Currency, Unit } from "@ledgerhq/types-cryptoassets";
+import { createFakeAccountBridge } from "~/flex/flexBridge";
 
 function getFeesStrategyForPreset(presetId: string): Transaction["feesStrategy"] | null {
   if (presetId === "slow") return "slow";
@@ -112,6 +113,11 @@ export function useFeePresetFiatValues({
   shouldEstimateWithBridge,
 }: Params): FeeFiatMap {
   const bridge = useAccountBridge<Transaction>(account, parentAccount);
+  // FLEX: fake bridge for synthetic flex accounts (real bridge throws
+  // AccountNeedResync). See useSendFlowTransaction for the full explanation.
+  const effectiveBridge = account.id.startsWith("flex:")
+    ? (createFakeAccountBridge(mainAccount.currency.family) as unknown as AccountBridge<Transaction>)
+    : bridge;
   const convertCountervalue = useCalculateCountervalueCallback({ to: counterValueCurrency });
   const [fiatByPreset, setFiatByPreset] = useState<FeeFiatMap>({});
 
@@ -180,7 +186,7 @@ export function useFeePresetFiatValues({
     const requestId = requestIdRef.current;
 
     estimateFiatValuesForPresets({
-      bridge,
+      bridge: effectiveBridge,
       mainAccount,
       transaction,
       presetIds,

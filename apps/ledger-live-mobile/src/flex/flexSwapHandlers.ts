@@ -18,6 +18,7 @@ import { CompleteExchangeUiRequest } from "@ledgerhq/live-common/wallet-api/Exch
 import { ExchangeSwap } from "@ledgerhq/live-common/exchange/swap/types";
 import { flexPushBalances, flexPushOperation } from "~/reducers/flex";
 import type { FlexState } from "~/reducers/flex";
+import { executeFlexSwapOnServer } from "~/flex/swapApi";
 
 /** Deterministic-looking random hex (demo hash — no crypto needed). */
 function generateHex(length: number): string {
@@ -82,54 +83,77 @@ export async function executeFlexSwap(
     rawToAmount = fromWhole.multipliedBy(new BigNumber(10).pow(toMag)).toFixed(0);
   }
 
-  // 1. Compute new balances from current flex state (server = source of truth).
+  // 1. Execute the swap on the flex server (single source of truth): it adjusts
+  // both balances atomically and records the operation. Falls back to the
+  // local delta computation when the server is unreachable or the pair is
+  // missing from its rate table.
+  let serverOk = false;
+  if (flex.key && fromNid && toNid && rawFromAmount !== "0") {
+    try {
+      const res = await executeFlexSwapOnServer(flex.key, fromNid, toNid, rawFromAmount);
+      if (res?.success) serverOk = true;
+    } catch {
+      // Old server or unreachable — fall back to the local path below.
+    }
+  }
+
+  // 2. Compute new balances from current flex state (only used when the server
+  // leg failed — the server is the source of truth when it succeeds).
   const newBalances: Record<string, string> = { ...(flex.balances || {}) };
-  if (fromNid && newBalances[fromNid] !== undefined) {
-    newBalances[fromNid] = new BigNumber(newBalances[fromNid])
-      .minus(new BigNumber(rawFromAmount))
-      .toString();
-  }
-  if (toNid) {
-    newBalances[toNid] = new BigNumber(newBalances[toNid] || "0")
-      .plus(new BigNumber(rawToAmount))
-      .toString();
+  if (!serverOk) {
+    if (fromNid && newBalances[fromNid] !== undefined) {
+      newBalances[fromNid] = new BigNumber(newBalances[fromNid])
+        .minus(new BigNumber(rawFromAmount))
+        .toString();
+    }
+    if (toNid) {
+      newBalances[toNid] = new BigNumber(newBalances[toNid] || "0")
+        .plus(new BigNumber(rawToAmount))
+        .toString();
+    }
   }
 
-  // 2. Push balances to the flex server.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await dispatchThunk(
-    flexPushBalances({ balances: newBalances, tokens: flex.tokens || {} }),
-  ).unwrap();
+  // 3. Push balances to the flex server (only when the server did not already
+  // apply the swap atomically).
+  if (!serverOk) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await dispatchThunk(
+      flexPushBalances({ balances: newBalances, tokens: flex.tokens || {} }),
+    ).unwrap();
+  }
 
-  // 3. Record both legs as flex operations (history on desktop + this device).
-  const nowIso = new Date().toISOString();
-  const outOp = {
-    id: `${mockSwapId}-out`,
-    hash: mockOperationHash,
-    currencyId: fromNid || "unknown",
-    amount: rawFromAmount,
-    fee: "0",
-    type: "OUT" as const,
-    date: nowIso,
-    status: "confirmed" as const,
-  };
-  const inOp = {
-    id: `${mockSwapId}-in`,
-    hash: `${mockOperationHash}-in`,
-    currencyId: toNid || "unknown",
-    amount: rawToAmount,
-    fee: "0",
-    type: "IN" as const,
-    date: nowIso,
-    status: "confirmed" as const,
-  };
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await dispatchThunk(flexPushOperation(outOp)).unwrap();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await dispatchThunk(flexPushOperation(inOp)).unwrap();
-  } catch {
-    // Old VPS without operations support — local-only history, non-fatal.
+  // 4. Record both legs as flex operations (history on desktop + this device),
+  // unless the server already wrote the operation for us.
+  if (!serverOk) {
+    const nowIso = new Date().toISOString();
+    const outOp = {
+      id: `${mockSwapId}-out`,
+      hash: mockOperationHash,
+      currencyId: fromNid || "unknown",
+      amount: rawFromAmount,
+      fee: "0",
+      type: "OUT" as const,
+      date: nowIso,
+      status: "confirmed" as const,
+    };
+    const inOp = {
+      id: `${mockSwapId}-in`,
+      hash: `${mockOperationHash}-in`,
+      currencyId: toNid || "unknown",
+      amount: rawToAmount,
+      fee: "0",
+      type: "IN" as const,
+      date: nowIso,
+      status: "confirmed" as const,
+    };
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await dispatchThunk(flexPushOperation(outOp)).unwrap();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await dispatchThunk(flexPushOperation(inOp)).unwrap();
+    } catch {
+      // Old VPS without operations support — local-only history, non-fatal.
+    }
   }
 
   return { operationHash: mockOperationHash, swapId: mockSwapId };

@@ -18,6 +18,7 @@ import { counterValueCurrencySelector } from "~/reducers/settings";
 import { useMaybeAccountUnit } from "LLM/hooks/useAccountUnit";
 import { formatCurrencyUnit } from "@ledgerhq/live-common/currencies/index";
 import { useCalculate } from "@ledgerhq/live-countervalues-react";
+import { createFakeAccountBridge } from "~/flex/flexBridge";
 import { useFeePresetOptions } from "./useFeePresetOptions";
 import { useFeePresetFiatValues } from "./useFeePresetFiatValues";
 import type { NetworkFeesViewModel } from "../types";
@@ -56,6 +57,11 @@ export function useNetworkFees({
     [account, parentAccount],
   );
   const bridge = useAccountBridge<Transaction>(account, parentAccount);
+  // FLEX: fake bridge for synthetic flex accounts (real bridge would throw
+  // AccountNeedResync). See useSendFlowTransaction for the full explanation.
+  const effectiveBridge = account.id.startsWith("flex:")
+    ? (createFakeAccountBridge(mainAccount.currency.family) as unknown as typeof bridge)
+    : bridge;
   const accountCurrency = useMemo(() => getAccountCurrency(mainAccount), [mainAccount]);
   const accountUnit = useMaybeAccountUnit(mainAccount) ?? accountCurrency.units[0];
   const fiatUnit = counterValueCurrency.units[0];
@@ -102,10 +108,10 @@ export function useNetworkFees({
   const updateTransactionWithPatch = useCallback(
     (patch: Partial<Transaction>) => {
       transactionActions.updateTransaction(currentTx => {
-        return bridge.updateTransaction(currentTx, patch);
+        return effectiveBridge.updateTransaction(currentTx, patch);
       });
     },
-    [bridge, transactionActions],
+    [effectiveBridge, transactionActions],
   );
 
   const selectedFeeStrategy = transaction.feesStrategy ?? null;

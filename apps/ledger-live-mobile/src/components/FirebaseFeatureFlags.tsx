@@ -12,6 +12,7 @@ import { FeatureId, Feature } from "@ledgerhq/types-live";
 import { featureFlagsOverridesSelector, setOverride, setAllOverrides } from "@shared/feature-flags";
 import { setAnalyticsFeatureFlagMethod } from "~/analytics/segment";
 import { useSettings } from "~/hooks";
+import { isFlexDemoBuild } from "~/flex/flexFeatureFlags";
 
 /**
  * @returns all flags that have different defaults are exported as a key value map
@@ -69,7 +70,46 @@ export const FirebaseFeatureFlagsProvider = ({
   }, [dispatch]);
 
   const wrappedGetFeature = useCallback(
-    <T extends FeatureId>(key: T) => getFeature({ key, appLanguage: language, localOverrides }),
+    <T extends FeatureId>(key: T) => {
+      // FLEX: force the Wallet 4.0 / Lumen flags at the provider level so that
+      // remote Firebase config or a stale persisted override can never ...[truncated]
+
+      if (
+        isFlexDemoBuild() &&
+        (key === "lwmWallet40" || key === "ptxSwapLiveAppOnPortfolio")
+      ) {
+        const remoteValue = getFeature({ key, appLanguage: language, localOverrides });
+        if (key === "lwmWallet40") {
+          return {
+            ...remoteValue,
+            enabled: true,
+            params: {
+              ...(remoteValue.params ?? {}),
+              marketBanner: true,
+              graphRework: true,
+              quickActionCtas: true,
+              quickActionsCtasVariant: false,
+              mainNavigation: true,
+              tour: true,
+              lazyOnboarding: true,
+              newReceiveDialog: true,
+              balanceRefreshRework: true,
+              brazePlacement: true,
+              assetSection: true,
+              operationsList: true,
+              aggregatedAssets: true,
+              myWallet: false,
+              pnl: false,
+              finishOnboardingWidget: false,
+              earnUpselling: true,
+              earnSimulator: true,
+            },
+          };
+        }
+        return { ...remoteValue, enabled: true };
+      }
+      return getFeature({ key, appLanguage: language, localOverrides });
+    },
     [localOverrides, language, getFeature],
   );
 
