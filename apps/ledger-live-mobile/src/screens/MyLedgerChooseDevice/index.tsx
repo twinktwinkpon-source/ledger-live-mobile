@@ -32,7 +32,6 @@ import { flexSelector } from "~/reducers/flex";
 import { Button } from "@ledgerhq/native-ui";
 import { Image } from "react-native";
 import { DeviceModelId as DeviceModelIdEnum } from "@ledgerhq/types-devices";
-import { useNavigation as useNav } from "@react-navigation/native";
 import { getDeviceIcon } from "LLM/utils/getDeviceIcon";
 import {
   ListItem,
@@ -40,7 +39,6 @@ import {
   ListItemLeading,
   ListItemTitle,
   ListItemDescription,
-  Text,
 } from "@ledgerhq/lumen-ui-rnative";
 
 /* eslint-disable @typescript-eslint/no-require-imports */
@@ -203,7 +201,7 @@ const ChooseDevice: React.FC<ChooseDeviceProps> = ({ isFocused }) => {
   // moved above `if (!isFocused)` to avoid hook-order crashes.
   // Show the flex device as soon as a profile exists (even if balances are
   // still syncing) — key bound is enough for the device to be "added".
-  const flexNav = useNav();
+  const flexNav = navigation;
   const isFlexActive = !!flex?.key;
 
   if (!isFocused) return null;
