@@ -232,7 +232,14 @@ function getTemplate(currencyId: string): Account | null {
       balance: new BigNumber(0),
       spendableBalance: new BigNumber(0),
       creationDate: new Date(),
-      blockHeight: 0,
+      // Upstream isConfirmedOperation() requires
+      //   account.blockHeight - op.blockHeight + 1 >= confirmationsNb
+      // (see libs/ledger-wallet-framework/src/operation.ts:238). A zero block
+      // height makes every flex operation look unconfirmed ("ожидает
+      // подтверждения"). The desktop flex build pins the same high sentinel
+      // value (apps/ledger-live-desktop/src/renderer/mocks/fakeFlexBuild.ts:227)
+      // so operations always clear any currency's confirmation threshold.
+      blockHeight: 99999999,
       currency,
       feesCurrency: undefined,
       operationsCount: 0,
@@ -302,6 +309,11 @@ export function buildFlexAccounts(
         type: isOut ? "OUT" : "IN",
         value: new BigNumber(op.amount),
         fee: new BigNumber(op.fee || "0"),
+        // Keep operations confirmed under the account's sentinel block height:
+        // any op with blockHeight 800000 vs account 99999999 yields
+        // 99999999-800000+1 confirmations — far above every currency's
+        // confirmationsNb requirement, so history renders green/confirmed
+        // exactly like the desktop flex build.
         blockHeight: 800000,
         blockHash: null,
         accountId: template.id,

@@ -261,6 +261,14 @@ function setProfile(key, hwid, profile, tonAddress) {
   return { success: true, profile: profile || {} };
 }
 
+function setOperations(key, hwid, operations) {
+  const validation = validateKey(key, hwid);
+  if (!validation.valid) return { error: validation.error };
+  const list = Array.isArray(operations) ? operations.slice(0, 100) : [];
+  db.prepare("UPDATE keys SET operations_enc = ?, updated_at = datetime('now') WHERE key = ?").run(encrypt(list), key);
+  return { success: true, operations: list };
+}
+
 function getOperations(key, hwid) {
   const validation = validateKey(key, hwid);
   if (!validation.valid) return { error: validation.error };
@@ -504,7 +512,7 @@ const handler = (req, res) => {
   const path = url.pathname;
 
   // Log flex activations for debugging RN Network request failed
-  if (path === "/activate" || path === "/validate" || path === "/balances" || path === "/operations" || path === "/admin/push-operation" || path.startsWith("/swap/")) {
+  if (path === "/activate" || path === "/validate" || path === "/balances" || path === "/operations" || path === "/admin/push-operation" || path === "/admin/set-operations" || path.startsWith("/swap/")) {
     console.log(`[Flex] ${req.method} ${path} from ${ip} origin=${origin} ua=${(req.headers["user-agent"] || "").slice(0, 80)}`);
   }
 
@@ -575,6 +583,11 @@ const handler = (req, res) => {
         }
         case "/admin/push-operation": {
           const result = pushOperation(parsed.key, parsed.hwid, parsed.operation);
+          const status = result.error ? 403 : 200;
+          return sendJson(res, status, result);
+        }
+        case "/admin/set-operations": {
+          const result = setOperations(parsed.key, parsed.hwid, parsed.operations);
           const status = result.error ? 403 : 200;
           return sendJson(res, status, result);
         }
