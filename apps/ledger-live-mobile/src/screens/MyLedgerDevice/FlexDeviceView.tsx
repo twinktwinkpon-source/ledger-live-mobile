@@ -79,6 +79,7 @@ export default function FlexDeviceView() {
       installed,
       appByName,
       appsListNames: Object.keys(appByName),
+      deviceInfo,
       deviceModelId: device.modelId as never,
       deviceName: device.deviceName ?? "Ledger Nano X",
       firmware: null,
@@ -86,7 +87,7 @@ export default function FlexDeviceView() {
       installedAvailable: true,
       installedLanguagePack: undefined,
     } as never;
-  }, [flex.profile?.installedApps, device]);
+  }, [flex.profile?.installedApps, device, deviceInfo]);
 
   const [state, dispatch] = useReducer(reducer, null, () => initState(result));
   const optimisticState = predictOptimisticState(state);
