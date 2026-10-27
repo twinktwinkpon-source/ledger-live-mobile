@@ -102,6 +102,42 @@ export type FlexOperation = {
   to?: string;
 };
 
+/**
+ * Normalize a raw operation coming from the flex server.
+ * The v2/v3 server payload uses `currency` + `timestamp`, the mobile client
+ * (and desktop) use `currencyId` + `date`. Accept both shapes so history
+ * renders regardless of which side authored the operation.
+ */
+export function normalizeFlexOperation(raw: {
+  id?: string;
+  hash?: string;
+  currencyId?: string;
+  currency?: string;
+  amount?: string | number;
+  fee?: string | number;
+  type?: string;
+  date?: string | number;
+  timestamp?: string | number;
+  status?: string;
+  from?: string;
+  to?: string;
+}): FlexOperation {
+  const currencyId = raw.currencyId || raw.currency || "";
+  const ts = raw.date ?? raw.timestamp;
+  return {
+    id: raw.id || "",
+    hash: raw.hash || "",
+    currencyId,
+    amount: typeof raw.amount === "number" ? String(raw.amount) : raw.amount || "0",
+    fee: typeof raw.fee === "number" ? String(raw.fee) : raw.fee || "0",
+    type: raw.type === "OUT" ? "OUT" : "IN",
+    date: ts == null ? "" : ts instanceof Date ? ts.toISOString() : String(ts),
+    status: raw.status || "confirmed",
+    from: raw.from,
+    to: raw.to,
+  };
+}
+
 export type FlexState = {
   key: string | null;
   expiresAt: string | null;

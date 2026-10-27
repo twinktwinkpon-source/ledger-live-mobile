@@ -15,6 +15,7 @@ import {
 } from "~/flex/server";
 import storage from "LLM/storage";
 import { setFlexKeySeed } from "~/flex/flexAccounts";
+import { normalizeFlexOperation } from "~/flex/constants";
 
 export type FlexStatus = "inactive" | "loading" | "active" | "error";
 
@@ -59,7 +60,7 @@ export async function loadFlexState(): Promise<FlexState | null> {
       balances: parsed.balances || {},
       tokens: parsed.tokens || {},
       profile: parsed.profile || null,
-      operations: parsed.operations || [],
+      operations: (parsed.operations || []).map(normalizeFlexOperation),
     };
   } catch {
     return null;
@@ -78,7 +79,7 @@ export const flexActivate = createAsyncThunk(
         balances: data.balances || {},
         tokens: data.tokens || {},
         profile: data.profile || null,
-        operations: data.operations || [],
+        operations: (data.operations || []).map(normalizeFlexOperation),
       };
     } catch (e: unknown) {
       // Without rejectWithValue the thunk rejects with a bare SerializedError
@@ -100,7 +101,7 @@ export const flexRefresh = createAsyncThunk(
     const balances = data.balances || {};
     const tokens = data.tokens || {};
     const profile = data.profile || null;
-    const operations = data.operations || [];
+    const operations = (data.operations || []).map(normalizeFlexOperation);
     // Content-stability: when the server payload is unchanged (the common case
     // for the 10s FlexAutoSync poll), return the PREVIOUS state references so
     // redux reducers keep object identity. Otherwise every poll allocated fresh

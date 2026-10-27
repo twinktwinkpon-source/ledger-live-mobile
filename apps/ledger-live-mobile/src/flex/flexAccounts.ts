@@ -300,7 +300,9 @@ export function buildFlexAccounts(
     }
     // Build operations for this currency (filtered)
     const nid = normalizeCurrencyId(currencyId);
-    const opsForCurrency = operations.filter(op => normalizeCurrencyId(op.currencyId) === nid);
+    const opsForCurrency = operations.filter(
+      op => normalizeCurrencyId(op.currencyId || op.currency || "") === nid,
+    );
     const accountOps = opsForCurrency.map(op => {
       const isOut = op.type === "OUT";
       return {
@@ -319,7 +321,7 @@ export function buildFlexAccounts(
         accountId: template.id,
         senders: op.from ? [op.from] : [template.freshAddress],
         recipients: op.to ? [op.to] : [op.from || template.freshAddress],
-        date: new Date(op.date),
+        date: new Date(op.date || op.timestamp || Date.now()),
         extra: {},
         hasFailed: false,
         transactionSequenceNumber: undefined,
