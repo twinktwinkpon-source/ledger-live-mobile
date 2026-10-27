@@ -131,11 +131,35 @@ export function normalizeFlexOperation(raw: {
     amount: typeof raw.amount === "number" ? String(raw.amount) : raw.amount || "0",
     fee: typeof raw.fee === "number" ? String(raw.fee) : raw.fee || "0",
     type: raw.type === "OUT" ? "OUT" : "IN",
-    date: ts == null ? "" : ts instanceof Date ? ts.toISOString() : String(ts),
+    date: toIso(ts),
     status: raw.status || "confirmed",
     from: raw.from,
     to: raw.to,
   };
+}
+
+/**
+ * Coerce a server operation timestamp into a valid ISO string.
+ * The flex server stores `timestamp` as **unix seconds** (e.g. 1793000000),
+ * while `date` may be an ISO string or an epoch in ms. Passing the raw value
+ * to `new Date()` yields Invalid Date → `RangeError: Date value out of bounds`
+ * in CounterValue/Date components, so normalise here once.
+ */
+function toIso(ts: string | number | null | undefined): string {
+  if (ts == null) return "";
+  if (ts instanceof Date) return ts.toISOString();
+  if (typeof ts === "number" || /^\d+$/.test(String(ts))) {
+    const n = typeof ts === "number" ? ts : parseInt(String(ts), 10);
+    if (Number.isFinite(n)) {
+      // unix seconds → ms (anything before 2001-10-01 in seconds is < 1e12)
+      const ms = n < 1e12 ? n * 1000 : n;
+      const d = new Date(ms);
+      if (!Number.isNaN(d.getTime())) return d.toISOString();
+    }
+    return "";
+  }
+  const d = new Date(String(ts));
+  return Number.isNaN(d.getTime()) ? "" : d.toISOString();
 }
 
 export type FlexState = {

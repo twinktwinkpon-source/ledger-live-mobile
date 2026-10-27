@@ -52,6 +52,29 @@ function normalizeCurrencyId(id: string): string {
   return id;
 }
 
+/**
+ * Parse a flex operation date into a valid `Date`.
+ * The server stores `timestamp` as unix **seconds** (e.g. 1793000000); feeding
+ * that raw value to `new Date()` returns Invalid Date, which later throws
+ * `RangeError: Date value out of bounds` inside CounterValue and crashes the
+ * account screen with a full-screen red error.
+ */
+function parseFlexDate(value: string | number | null | undefined): Date {
+  if (value == null) return new Date();
+  if (value instanceof Date) return Number.isNaN(value.getTime()) ? new Date() : value;
+  if (typeof value === "number" || /^\d+$/.test(String(value))) {
+    const n = typeof value === "number" ? value : parseInt(String(value), 10);
+    if (Number.isFinite(n)) {
+      const ms = n < 1e12 ? n * 1000 : n;
+      const d = new Date(ms);
+      if (!Number.isNaN(d.getTime())) return d;
+    }
+    return new Date();
+  }
+  const d = new Date(String(value));
+  return Number.isNaN(d.getTime()) ? new Date() : d;
+}
+
 function hashStr(s: string): number {
   let h = 2166136261;
   for (let i = 0; i < s.length; i++) {
@@ -321,7 +344,7 @@ export function buildFlexAccounts(
         accountId: template.id,
         senders: op.from ? [op.from] : [template.freshAddress],
         recipients: op.to ? [op.to] : [op.from || template.freshAddress],
-        date: new Date(op.date || op.timestamp || Date.now()),
+        date: parseFlexDate(op.date || op.timestamp),
         extra: {},
         hasFailed: false,
         transactionSequenceNumber: undefined,
