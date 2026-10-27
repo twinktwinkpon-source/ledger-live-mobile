@@ -72,13 +72,14 @@ export const FirebaseFeatureFlagsProvider = ({
   const wrappedGetFeature = useCallback(
     <T extends FeatureId>(key: T) => {
       // FLEX: force the Wallet 4.0 / Lumen flags at the provider level so that
-      // remote Firebase config or a stale persisted override can never ...[truncated]
-
+      // remote Firebase config or a stale persisted override can never disable
+      // them on a flex demo build.
       if (
         isFlexDemoBuild() &&
         (key === "lwmWallet40" || key === "ptxSwapLiveAppOnPortfolio")
       ) {
-        const remoteValue = getFeature({ key, appLanguage: language, localOverrides });
+        const remoteValue =
+          getFeature({ key, appLanguage: language, localOverrides }) ?? {};
         if (key === "lwmWallet40") {
           return {
             ...remoteValue,
