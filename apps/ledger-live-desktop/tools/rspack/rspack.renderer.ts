@@ -56,7 +56,16 @@ export function createRendererConfig(
       publicPath: isDev ? "/" : "./",
       assetModuleFilename: "assets/[name]-[hash][ext]",
     },
-    devtool: isRsdoctorEnabled() ? false : isDev ? "eval-source-map" : "source-map",
+    // FLEX: "eval-source-map" makes the Rust allocator reserve huge contiguous
+    // regions on 16GB machines → "memory allocation of NNN bytes failed" and the
+    // dev server dies. Allow killing sourcemaps via RSPACK_NO_SOURCEMAP=true.
+    devtool: isRsdoctorEnabled()
+      ? false
+      : process.env.RSPACK_NO_SOURCEMAP === "true"
+        ? false
+        : isDev
+          ? "eval-source-map"
+          : "source-map",
     resolve: {
       ...commonConfig.resolve,
       // Platform-specific file resolution:
